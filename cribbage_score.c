@@ -16,9 +16,9 @@ void print_face_counts(count_t face_counts[5][2])
            face_counts[4][0],face_counts[4][1]);
 }
 
-static score_t PAIR_SCORES[5] = {0, 0, 2, 6, 12};
-static score_t CARD_VALUES[13] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10 };
-static unsigned char COMBINATIONS[26][5] = {
+static const score_t PAIR_SCORES[5] = {0, 0, 2, 6, 12};
+static const score_t CARD_VALUES[13] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10 };
+static const unsigned char COMBINATIONS[26][5] = {
     { 0, 1, 0xFF, 0xFF, 0xFF },
     { 0, 2, 0xFF, 0xFF, 0xFF },
     { 0, 3, 0xFF, 0xFF, 0xFF },
