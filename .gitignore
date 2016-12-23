@@ -1,5 +1,9 @@
 *.o
 *.pyc
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
 *~
+.DS_Store
 /.ipynb_checkpoints/
 /cribbage
+build/
