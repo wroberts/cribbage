@@ -126,10 +126,29 @@ def score_hand(hand, draw=None, verbose=False):
     return score
 
 def test_score():
-    global hand
+    global hand, draw
     hand, draw = make_random_hand_and_draw()
     print hand
     print draw
     print 'hand', ', '.join([print_card(v) for v in hand])
     print 'draw', print_card(draw)
     score_hand(hand, draw, verbose=True)
+
+def n_choose_k(n,k):
+    return math.factorial(n) // (math.factorial(k) * math.factorial(n-k))
+
+# n_choose_k(5,2) + n_choose_k(5,3) + n_choose_k(5,4) + n_choose_k(5,5)
+# 26
+# n_choose_k(6,2)
+# 15
+
+
+
+# In [411]: test_score()
+# [36, 3, 24, 23]
+# 25
+# hand JD, 4S, QH, JH
+# draw KH
+# pair 10 2 2
+# special jack
+# score 3
