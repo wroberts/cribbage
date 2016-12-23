@@ -63,7 +63,7 @@ def score_hand(hand, draw=None, verbose=False):
     # score runs
     #sorted_faces = sorted(face_values)
     face_counts = Counter(face_values)
-    sorted_uniq_faces = sorted(face_counts.keys())
+    sorted_uniq_faces = sorted(face_counts.keys()) + [None]
     # a run is a contiguous
     run_begin = None
     for last_v, this_v in pairwise(sorted_uniq_faces):
