@@ -1,7 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Cards are integers: 
+from collections import Counter
+import itertools
+import math
+import numpy as np
+import random
+
+# Cards are integers:
 
 CARD_FACES = 'A234567890JQK'
 CARD_SUITS = 'SHDC'
@@ -23,25 +29,19 @@ def make_deck():
 # ------------------------------------------------------------
 # Cribbage
 
-import random
 def make_random_hand(n=5):
     return random.sample(make_deck(), n)
 
-import itertools
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
     a, b = itertools.tee(iterable)
     next(b, None)
     return itertools.izip(a, b)
 
-from collections import Counter
-import math
-import numpy as np
-
 def score_hand(hand):
     '''
     Scores a Cribbage hand.
-    
+
     Arguments:
     - `hand`: a list of four or five card values
     '''
@@ -70,7 +70,7 @@ def score_hand(hand):
                 if run_length >= 3:
                     # interesting
                     run_score = np.product([face_counts[x] for x in
-                                         range(run_begin, run_begin + run_length)]) * run_length
+                                            range(run_begin, run_begin + run_length)]) * run_length
                     print 'run', run_begin, last_v, run_score
                     score += run_score
                 run_begin = None
