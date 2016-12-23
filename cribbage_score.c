@@ -38,6 +38,7 @@ int score_hand(int card1, int card2, int card3, int card4, int draw_card)
     face_counts[2][0] = f3;
     face_counts[3][0] = f4;
     face_counts[4][0] = fd;
+    // http://stackoverflow.com/a/3903172/1062499
     // sorting network: [[1 2][3 4][1 3][2 5][1 2][3 4][2 3][4 5][3 4]]
     COMP_SWAP(face_counts[0][0],face_counts[1][0]);
     COMP_SWAP(face_counts[2][0],face_counts[3][0]);
