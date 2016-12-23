@@ -38,7 +38,7 @@ def pairwise(iterable):
     next(b, None)
     return itertools.izip(a, b)
 
-def score_hand(hand):
+def score_hand(hand, verbose=False):
     '''
     Scores a Cribbage hand.
 
@@ -71,7 +71,8 @@ def score_hand(hand):
                     # interesting
                     run_score = np.product([face_counts[x] for x in
                                             range(run_begin, run_begin + run_length)]) * run_length
-                    print 'run', run_begin, last_v, run_score
+                    if verbose:
+                        print 'run', run_begin, last_v, run_score
                     score += run_score
                 run_begin = None
     # score pairs/triples/quads/etc.
@@ -81,22 +82,26 @@ def score_hand(hand):
         # count = n -> 2 * (n CHOOSE 2)
         if count > 1:
             pair_score = math.factorial(count) / math.factorial(count - 2)
-            print 'pair', _f, count, pair_score
+            if verbose:
+                print 'pair', _f, count, pair_score
             score += pair_score
     # score 15s
     card_values = [CARD_VALUES[x] for x in face_values]
     for comb_len in [2,3,4,5]:
         for vlist in itertools.combinations(card_values, comb_len):
             if sum(vlist) == 15:
-                print 'fifteen'
+                if verbose:
+                    print 'fifteen'
                 score += 2
     # score flush
     suit_values = [s for (f,s) in split_values]
     if len(set(suit_values)) == 1:
-        print 'flush'
+        if verbose:
+            print 'flush'
         score += len(hand)
     # TODO: score special jack
-    print 'score', score
+    if verbose:
+        print 'score', score
     return score
 
 def test_score():
@@ -104,4 +109,4 @@ def test_score():
     hand = make_random_hand()
     print hand
     print ', '.join([print_card(v) for v in hand])
-    score_hand(hand)
+    score_hand(hand, verbose=True)
