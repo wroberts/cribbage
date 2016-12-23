@@ -3,7 +3,7 @@
 #define CARD_FACE(c) (c % 13)
 #define CARD_SUIT(c) (c / 13)
 #define COMP_SWAP(a,b) if ((b) < (a)) { int t = a; a = b; b = t; }
-#define DEBUG 1
+//#define DEBUG 1
 
 void print_face_counts(int face_counts[5][2])
 {
