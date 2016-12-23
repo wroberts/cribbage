@@ -1,5 +1,5 @@
 TARGET   = cribbage
-OBJS     = cribbage.o
+OBJS     = cribbage.o cribbage_score.o
 FLAGS    = -g -O0 -Wall
 INCLUDES =
 LIBS     =
