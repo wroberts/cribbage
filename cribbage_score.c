@@ -1,11 +1,12 @@
 #include <stdio.h>
+#include "cribbage_score.h"
 
 #define CARD_FACE(c) (c % 13)
 #define CARD_SUIT(c) (c / 13)
-#define COMP_SWAP(a,b) if ((b) < (a)) { int t = a; a = b; b = t; }
+#define COMP_SWAP(a,b) if ((b) < (a)) { count_t t = a; a = b; b = t; }
 //#define DEBUG 1
 
-void print_face_counts(int face_counts[5][2])
+void print_face_counts(count_t face_counts[5][2])
 {
     printf("%d:%d, %d:%d, %d:%d, %d:%d, %d:%d\n",
            face_counts[0][0],face_counts[0][1],
@@ -15,39 +16,69 @@ void print_face_counts(int face_counts[5][2])
            face_counts[4][0],face_counts[4][1]);
 }
 
-int score_hand(int card1, int card2, int card3, int card4, int draw_card)
+static score_t PAIR_SCORES[5] = {0, 0, 2, 6, 12};
+static score_t CARD_VALUES[13] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10 };
+static unsigned char COMBINATIONS[26][5] = {
+    { 0, 1, 0xFF, 0xFF, 0xFF },
+    { 0, 2, 0xFF, 0xFF, 0xFF },
+    { 0, 3, 0xFF, 0xFF, 0xFF },
+    { 0, 4, 0xFF, 0xFF, 0xFF },
+    { 1, 2, 0xFF, 0xFF, 0xFF },
+    { 1, 3, 0xFF, 0xFF, 0xFF },
+    { 1, 4, 0xFF, 0xFF, 0xFF },
+    { 2, 3, 0xFF, 0xFF, 0xFF },
+    { 2, 4, 0xFF, 0xFF, 0xFF },
+    { 3, 4, 0xFF, 0xFF, 0xFF },
+    { 0, 1, 2, 0xFF, 0xFF },
+    { 0, 1, 3, 0xFF, 0xFF },
+    { 0, 1, 4, 0xFF, 0xFF },
+    { 0, 2, 3, 0xFF, 0xFF },
+    { 0, 2, 4, 0xFF, 0xFF },
+    { 0, 3, 4, 0xFF, 0xFF },
+    { 1, 2, 3, 0xFF, 0xFF },
+    { 1, 2, 4, 0xFF, 0xFF },
+    { 1, 3, 4, 0xFF, 0xFF },
+    { 2, 3, 4, 0xFF, 0xFF },
+    { 0, 1, 2, 3, 0xFF },
+    { 0, 1, 2, 4, 0xFF },
+    { 0, 1, 3, 4, 0xFF },
+    { 0, 2, 3, 4, 0xFF },
+    { 1, 2, 3, 4, 0xFF },
+    { 0, 1, 2, 3, 4 },
+};
+
+score_t score_hand(card_t card1, card_t card2, card_t card3, card_t card4, card_t draw_card)
 {
     // sanity check
-    if (card1 < 0 || card1 > 51 ||
-        card2 < 0 || card2 > 51 ||
-        card3 < 0 || card3 > 51 ||
-        card4 < 0 || card4 > 51 ||
-        draw_card < 0 || draw_card > 51)
+    if (card1 > 51 ||
+        card2 > 51 ||
+        card3 > 51 ||
+        card4 > 51 ||
+        draw_card > 51)
     {
         return -1;
     }
 
     // the value we will return
-    int score = 0;
+    score_t score = 0;
 
     // split card values into face and suit
-    int f1 = CARD_FACE(card1), s1 = CARD_SUIT(card1);
-    int f2 = CARD_FACE(card2), s2 = CARD_SUIT(card2);
-    int f3 = CARD_FACE(card3), s3 = CARD_SUIT(card3);
-    int f4 = CARD_FACE(card4), s4 = CARD_SUIT(card4);
-    int fd = CARD_FACE(draw_card), sd = CARD_SUIT(draw_card);
+    card_t f1 = CARD_FACE(card1), s1 = CARD_SUIT(card1);
+    card_t f2 = CARD_FACE(card2), s2 = CARD_SUIT(card2);
+    card_t f3 = CARD_FACE(card3), s3 = CARD_SUIT(card3);
+    card_t f4 = CARD_FACE(card4), s4 = CARD_SUIT(card4);
+    card_t fd = CARD_FACE(draw_card), sd = CARD_SUIT(draw_card);
 
     // we need the counts of the face values of cards
     // 5 x 2 array:
     // first number is the face value; these are listed in increasing order
     // second number is the count
     // value of -1 means unused
-    int face_counts[5][2] = { { -1, 1 }, { -1, 1 }, { -1, 1 }, { -1, 1 }, { -1, 1 } };
-    face_counts[0][0] = f1;
-    face_counts[1][0] = f2;
-    face_counts[2][0] = f3;
-    face_counts[3][0] = f4;
-    face_counts[4][0] = fd;
+    count_t face_counts[5][2] = { { f1, 1 },
+                                  { f2, 1 },
+                                  { f3, 1 },
+                                  { f4, 1 },
+                                  { fd, 1 } };
     // http://stackoverflow.com/a/3903172/1062499
     // sorting network: [[1 2][3 4][1 3][2 5][1 2][3 4][2 3][4 5][3 4]]
     COMP_SWAP(face_counts[0][0],face_counts[1][0]);
@@ -97,11 +128,11 @@ int score_hand(int card1, int card2, int card3, int card4, int draw_card)
             if (run_begin != -1)
             {
                 // finish a run
-                int run_length = i - run_begin;
+                score_t run_length = i - run_begin;
                 if (run_length >= 3)
                 {
                     // this is an interesting run
-                    int run_score = run_length;
+                    score_t run_score = run_length;
                     for (int j = run_begin; j < i; j++)
                     {
                         run_score *= face_counts[j][1];
@@ -117,12 +148,11 @@ int score_hand(int card1, int card2, int card3, int card4, int draw_card)
     }
 
     // score pairs/triples/quads
-    int PAIR_SCORES[5] = {0, 0, 2, 6, 12};
     for (int i = 0; i < 5; i++)
     {
-        if (face_counts[i][0] != -1)
+        if (face_counts[i][0] >= 0)
         {
-            int pair_score = PAIR_SCORES[face_counts[i][1]];
+            score_t pair_score = PAIR_SCORES[(ucount_t)face_counts[i][1]];
 #ifdef DEBUG
             if (pair_score)
                 printf("pair %d %d %d\n", face_counts[i][0], face_counts[i][1], pair_score);
@@ -132,47 +162,18 @@ int score_hand(int card1, int card2, int card3, int card4, int draw_card)
     }
 
     // score 15s
-    int CARD_VALUES[13] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10 };
-    int face_values[5] = { CARD_VALUES[f1],
-                           CARD_VALUES[f2],
-                           CARD_VALUES[f3],
-                           CARD_VALUES[f4],
-                           CARD_VALUES[fd] };
-    int FIFTEEN_COMBS[26][5] = {
-        { 0, 1, -1, -1, -1 },
-        { 0, 2, -1, -1, -1 },
-        { 0, 3, -1, -1, -1 },
-        { 0, 4, -1, -1, -1 },
-        { 1, 2, -1, -1, -1 },
-        { 1, 3, -1, -1, -1 },
-        { 1, 4, -1, -1, -1 },
-        { 2, 3, -1, -1, -1 },
-        { 2, 4, -1, -1, -1 },
-        { 3, 4, -1, -1, -1 },
-        { 0, 1, 2, -1, -1 },
-        { 0, 1, 3, -1, -1 },
-        { 0, 1, 4, -1, -1 },
-        { 0, 2, 3, -1, -1 },
-        { 0, 2, 4, -1, -1 },
-        { 0, 3, 4, -1, -1 },
-        { 1, 2, 3, -1, -1 },
-        { 1, 2, 4, -1, -1 },
-        { 1, 3, 4, -1, -1 },
-        { 2, 3, 4, -1, -1 },
-        { 0, 1, 2, 3, -1 },
-        { 0, 1, 2, 4, -1 },
-        { 0, 1, 3, 4, -1 },
-        { 0, 2, 3, 4, -1 },
-        { 1, 2, 3, 4, -1 },
-        { 0, 1, 2, 3, 4 },
-    };
+    score_t face_values[5] = { CARD_VALUES[f1],
+                               CARD_VALUES[f2],
+                               CARD_VALUES[f3],
+                               CARD_VALUES[f4],
+                               CARD_VALUES[fd] };
     for (int i = 0; i < 26; i++)
     {
-        int acc = 0;
+        score_t acc = 0;
         for (int j = 0; j < 5; j++)
         {
-            if (FIFTEEN_COMBS[i][j] == -1) break;
-            acc += face_values[FIFTEEN_COMBS[i][j]];
+            if (COMBINATIONS[i][j] == 0xFF) break;
+            acc += face_values[COMBINATIONS[i][j]];
         }
         if (acc == 15)
         {
