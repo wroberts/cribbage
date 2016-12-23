@@ -123,8 +123,8 @@ int score_hand(int card1, int card2, int card3, int card4, int draw_card)
         if (face_counts[i][0] != -1)
         {
             int pair_score = PAIR_SCORES[face_counts[i][1]];
-            if (pair_score)
 #ifdef DEBUG
+            if (pair_score)
                 printf("pair %d %d %d\n", face_counts[i][0], face_counts[i][1], pair_score);
 #endif // DEBUG
             score += pair_score;
