@@ -1,3 +1,5 @@
+*.o
 *.pyc
 *~
 /.ipynb_checkpoints/
+/cribbage
