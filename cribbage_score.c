@@ -17,6 +17,16 @@ void print_face_counts(int face_counts[5][2])
 
 int score_hand(int card1, int card2, int card3, int card4, int draw_card)
 {
+    // sanity check
+    if (card1 < 0 || card1 > 51 ||
+        card2 < 0 || card2 > 51 ||
+        card3 < 0 || card3 > 51 ||
+        card4 < 0 || card4 > 51 ||
+        draw_card < 0 || draw_card > 51)
+    {
+        return -1;
+    }
+
     // the value we will return
     int score = 0;
 
