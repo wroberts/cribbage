@@ -29,8 +29,12 @@ def make_deck():
 # ------------------------------------------------------------
 # Cribbage
 
-def make_random_hand(n=5):
-    return random.sample(make_deck(), n)
+def make_random_hand():
+    return random.sample(make_deck(), 4)
+
+def make_random_hand_and_draw():
+    hd = random.sample(make_deck(), 5)
+    return hd[:4], hd[4]
 
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
@@ -38,16 +42,23 @@ def pairwise(iterable):
     next(b, None)
     return itertools.izip(a, b)
 
-def score_hand(hand, verbose=False):
+def score_hand(hand, draw=None, verbose=False):
     '''
     Scores a Cribbage hand.
 
     Arguments:
-    - `hand`: a list of four or five card values
+    - `hand`: a list of four card values
+    - `draw`: a card value, or None
     '''
+    assert len(hand) == 4
     score = 0
     # split card values
-    split_values = [split_card(c) for c in hand]
+    split_values_hand = [split_card(c) for c in hand]
+    split_values = split_values_hand[:]
+    if draw is not None:
+        draw_split = split_card(draw)
+        _draw_face, draw_suit = draw_split
+        split_values.append(draw_split)
     face_values = [f for (f,s) in split_values]
     # score runs
     #sorted_faces = sorted(face_values)
@@ -94,19 +105,31 @@ def score_hand(hand, verbose=False):
                     print 'fifteen'
                 score += 2
     # score flush
-    suit_values = [s for (f,s) in split_values]
-    if len(set(suit_values)) == 1:
+    suit_values = set([s for (f,s) in split_values_hand])
+    if len(suit_values) == 1:
+        if draw is not None and list(suit_values)[0] == draw_suit:
+            # draw 5
+            if verbose:
+                print 'flush 5'
+            score += len(hand) + 1
+        else:
+            if verbose:
+                print 'flush'
+            score += len(hand)
+    # score special jack
+    if draw is not None and [f for (f,s) in split_values_hand if s == draw_suit and f == 10]:
         if verbose:
-            print 'flush'
-        score += len(hand)
-    # TODO: score special jack
+            print 'special jack'
+        score += 1
     if verbose:
         print 'score', score
     return score
 
 def test_score():
     global hand
-    hand = make_random_hand()
+    hand, draw = make_random_hand_and_draw()
     print hand
-    print ', '.join([print_card(v) for v in hand])
-    score_hand(hand, verbose=True)
+    print draw
+    print 'hand', ', '.join([print_card(v) for v in hand])
+    print 'draw', print_card(draw)
+    score_hand(hand, draw, verbose=True)
