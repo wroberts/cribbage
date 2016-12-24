@@ -16,8 +16,26 @@ void print_face_counts(count_t face_counts[5][2])
            face_counts[4][0],face_counts[4][1]);
 }
 
-static const score_t PAIR_SCORES[5] = {0, 0, 2, 6, 12};
+/*
+ * The values of having a set of card face_values of the given size:
+ * 0 of a kind - 0 points
+ * 1 of a kind - 0 points
+ * 2 of a kind - 2 points
+ * 3 of a kind - 6 points (2 x 3)
+ * 4 of a kind - 12 points (3 x 4)
+ */
+static const score_t PAIR_SCORES[5] = { 0, 0, 2, 6, 12 };
+
+/*
+ * The values of each face_value, for adding up to 15.
+ */
 static const score_t CARD_VALUES[13] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10 };
+
+/*
+ * The ways to combine two or more cards from a set of five cards,
+ * specified in indices into a 5-element array.
+ * 0xFF indicates a blank.
+ */
 static const int NUM_COMBINATIONS = 26;
 static const unsigned char COMBINATIONS[NUM_COMBINATIONS][5] = {
     { 0, 1, 0xFF, 0xFF, 0xFF },
@@ -48,6 +66,14 @@ static const unsigned char COMBINATIONS[NUM_COMBINATIONS][5] = {
     { 0, 1, 2, 3, 4 },
 };
 
+/*
+ * Scores a cribbage hand.
+ *
+ * Hand is specified with card values card1 through card4; the draw
+ * card is given in draw_card.
+ *
+ * Returns the number of points to score for the given hand and draw.
+ */
 score_t score_hand(card_t card1, card_t card2, card_t card3, card_t card4, card_t draw_card)
 {
     // sanity check
