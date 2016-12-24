@@ -283,7 +283,7 @@ def is_legal_play(card, linear_play):
     c_score = card_score(card)
     return lp_score + c_score <= 31
 
-def score_play(linear_play):
+def score_play(linear_play, verbose=False):
     '''
     Scores the last play in a game.
 
@@ -291,7 +291,35 @@ def score_play(linear_play):
     - `linear_play`: a list containing the card values played, in
       order, during the round
     '''
-    return 0 # TODO
+    # the value we will return
+    play_score = 0
+    # we only need to know the face values thare played
+    face_values = [split_card(c)[0] for c in linear_play]
+    if verbose:
+        print('Score', ' '.join(CARD_FACES[f] for f in face_values))
+    if cards_score(linear_play) == 15:
+        if verbose:
+            print('fifteen')
+        play_score +=2
+    # look for pairs and tuples
+    for backwards in range(len(linear_play), 1, -1):
+        back_list = sorted(face_values[-backwards:])
+        if len(set(back_list)) == 1:
+            # pairlike
+            pair_score = [2,6,12][len(back_list)-2]
+            if verbose:
+                print('pair {} points'.format(pair_score))
+            play_score += pair_score
+            break
+        elif back_list == range(min(back_list), max(back_list) + 1):
+            # run
+            run_score = len(back_list)
+            if run_score >= 3:
+                if verbose:
+                    print('run {} points'.format(run_score))
+                play_score += run_score
+                break
+    return play_score
 
 class Game(object):
     '''
@@ -510,6 +538,7 @@ class Game(object):
         # we keep track of all the cards that each player has played
         # during a hand
         self.round_played = []
+        # a game is composed of sequences
         # ------
         # set up a new sequence
         # ------
@@ -532,8 +561,9 @@ class Game(object):
                            enumerate(self.hands[self.turn_idx]) if
                            is_legal_play(card, self.linear_play)]
 
-            # if the game is in "Go" and the player has no legal
-            # moves, or the player has hit 31
+            # a sequence is over if the game is in "Go" and the player
+            # has no legal moves, or if the player has previously hit
+            # 31
             if (self.is_go and not legal_moves) or self.flag_31:
                 # then last_player gets awarded 1 or 2 points, and we restart the sequence
                 if self.flag_31:
@@ -548,18 +578,19 @@ class Game(object):
                 self.linear_play = []
                 self.is_go = False
                 self.flag_31 = False
-                self.last_player = None
 
-                # exit the loop if the round is over (no player has cards left)
+                # the round is over if no player has cards left
                 if sum(map(len, self.hands)) == 0:
                     if verbose:
                         print('Round is over')
                         self.print_state()
+                    # exit the loop
                     break
 
                 # restart with the opponent of the player who played the last
                 # card
                 self.turn_idx = int(not self.last_player)
+                self.last_player = None
 
                 continue
 
@@ -612,7 +643,7 @@ class Game(object):
                 self.is_go = True
 
             # score the move for player_1 if it's a 15, pair, or run
-            play_score = score_play(self.linear_play)
+            play_score = score_play(self.linear_play, verbose=verbose)
             if play_score:
                 if verbose:
                     print('Player {} scores:'.format(self.turn_idx+1), play_score)
