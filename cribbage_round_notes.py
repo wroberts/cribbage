@@ -24,6 +24,9 @@ while True:
         else:
             award(last_player, 1)
         restart_round()
+
+        # restart with the opponent of the player who played the last
+        # card
         continue
             
     # if player 1 has no moves to make
@@ -49,10 +52,13 @@ while True:
 
         # set the last_player
         last_player = player_1
-
+        
         # if the move makes the count hit 31, set the 31 flag
         if score_count() == 31:
             flag_31 = True
+
+        # score the move for player_1 if it's a 15, pair, or run
+        # TODO
 
         if not go_flag and not flag_31:
             # switch to other player
