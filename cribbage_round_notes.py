@@ -18,11 +18,11 @@ while True:
 
     # if player 1 is in "Go" and has no legals moves, or player 1 has hit 31
     if (go_flag and not legal_moves) or (flag_31):
-        # then player 1 gets awarded 1 or 2 points, and we restart the round
+        # then last_player gets awarded 1 or 2 points, and we restart the round
         if flag_31:
-            award(player_1, 2)
+            award(last_player, 2)
         else:
-            award(player_1, 1)
+            award(last_player, 1)
         restart_round()
         continue
             
@@ -46,6 +46,9 @@ while True:
 
         # make the move
         make_move(move)
+
+        # set the last_player
+        last_player = player_1
 
         # if the move makes the count hit 31, set the 31 flag
         if score_count() == 31:
