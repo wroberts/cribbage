@@ -283,6 +283,16 @@ def is_legal_play(card, linear_play):
     c_score = card_score(card)
     return lp_score + c_score <= 31
 
+def score_play(linear_play):
+    '''
+    Scores the last play in a game.
+
+    Arguments:
+    - `linear_play`: a list containing the card values played, in
+      order, during the round
+    '''
+    return 0 # TODO
+
 class Game(object):
     '''
     An object representing a game of cribbage between two
@@ -325,6 +335,8 @@ class Game(object):
         self.linear_play = None
         # during a round, we keep track of the last_player
         self.last_player = None
+        # the cards played by both players during a round
+        self.round_played = []
 
     def do_round(self, verbose=False):
         '''
@@ -495,36 +507,71 @@ class Game(object):
         '''
         # start with non-dealer player
         self.turn_idx = int(not self.dealer_idx)
+        # we keep track of all the cards that each player has played
+        # during a hand
+        self.round_played = []
+        # ------
+        # set up a new sequence
+        # ------
         # players take turns laying one card face up on the table
         # without the count going over 31
         self.faceups = [[], []]
         self.linear_play = []
-        # a flag that indicates whether this round has gone to "Go" or
+        # a flag that indicates whether this sequence has gone to "Go" or
         # not
         self.is_go = False
+        # a flag that indicates whether the last player hit 31 or not
+        self.flag_31 = False
+        # keep track of the last player in this sequence
         self.last_player = None
-        play_count = 0
+
+        # loop forever
         while True:
+            # exit the loop if the round is over (no player has cards left)
+            if sum(map(len, self.hands)) == 0:
+                if verbose:
+                    print('Round is over')
+                break
+
             # determine which plays the player can legally make
             legal_moves = [idx for idx, card in
                            enumerate(self.hands[self.turn_idx]) if
                            is_legal_play(card, self.linear_play)]
-            # if there are no legal moves that this player can play
-            if not legal_moves:
-                # are we already in "Go"?
-                if self.is_go:
-                    # the round is over
-                    pass
+
+            # if the game is in "Go" and the player has no legal
+            # moves, or the player has hit 31
+            if (self.is_go and not legal_moves) or self.flag_31:
+                # then last_player gets awarded 1 or 2 points, and we restart the sequence
+                if self.flag_31:
+                    self.award_points(self.last_player, 2)
                 else:
-                    # then we call 'Go' and make it the other player's
-                    # turn
-                    # if verbose:
-                    #     print('Player {} says go'.format(self.turn_idx+1))
-                    # if not self.award_points(int(not self.turn_idx), 1):
-                    #     return False
-                    self.turn_idx = int(not self.turn_idx)
-                    self.is_go = True
-                    continue
+                    self.award_points(self.last_player, 1)
+                # restart the sequence
+                if verbose:
+                    print('Sequence is over')
+                self.round_played.append(self.faceups)
+                self.faceups = [[], []]
+                self.linear_play = []
+                self.is_go = False
+                self.flag_31 = False
+                self.last_player = None
+
+                # restart with the opponent of the player who played the last
+                # card
+                self.turn_idx = int(not self.last_player)
+
+                continue
+
+            # if there are no legal moves that this player can play,
+            # and the game is not yet in "Go"
+            if not legal_moves:
+                # then we call 'Go' and make it the other player's
+                # turn
+                if verbose:
+                    print('Player {} says go'.format(self.turn_idx+1))
+                self.turn_idx = int(not self.turn_idx)
+                self.is_go = True
+                continue
             # ask the player to choose
             play_idx = self.players[self.turn_idx].play_card(
                 self.hands[self.turn_idx],
@@ -537,9 +584,10 @@ class Game(object):
             self.last_player = self.turn_idx
             # sanity checking
             assert 0 <= play_idx < len(self.hands[self.turn_idx])
-            if len(self.linear_play) == 4: break # TODO
             play_card = self.hands[self.turn_idx][play_idx]
             assert is_legal_play(play_card, self.linear_play)
+
+            # make the move
             self.hands[self.turn_idx] = [c for i,c in enumerate(self.hands[self.turn_idx]) if i != play_idx]
             self.faceups[self.turn_idx].append(play_card)
             self.linear_play.append(play_card)
@@ -548,10 +596,26 @@ class Game(object):
                       card_tostring(play_card), end='')
                 print('  Count:', cards_score(self.linear_play))
                 self.print_state()
-            # players take turns (except when one player is in "Go")
-            if not self.is_go:
+
+            # if the move makes the count hit 31, set the 31 flag
+            if cards_score(self.linear_play) == 31:
+                if verbose:
+                    print('Player {} hit 31'.format(self.turn_idx+1))
+                self.flag_31 = True
+
+            # score the move for player_1 if it's a 15, pair, or run
+            play_score = score_play(self.linear_play)
+            if play_score:
+                if verbose:
+                    print('Player {} scores:'.format(self.turn_idx+1), play_score)
+                self.award_points(self.turn_idx, play_score)
+
+            # players take turns (except when one player is in "Go",
+            # or this player has hit 31)
+            if not self.is_go and not self.flag_31:
                 self.turn_idx = int(not self.turn_idx)
-        pass
+
+        return True
 
     def show_round(self, verbose=False):
         '''
