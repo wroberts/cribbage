@@ -6,23 +6,13 @@
 #define COMP_SWAP(a,b) if ((b) < (a)) { count_t t = a; a = b; b = t; }
 //#define DEBUG 1
 
-void print_face_counts(count_t face_counts[5][2])
-{
-    printf("%d:%d, %d:%d, %d:%d, %d:%d, %d:%d\n",
-           face_counts[0][0],face_counts[0][1],
-           face_counts[1][0],face_counts[1][1],
-           face_counts[2][0],face_counts[2][1],
-           face_counts[3][0],face_counts[3][1],
-           face_counts[4][0],face_counts[4][1]);
-}
-
 /*
  * The values of having a set of card face_values of the given size:
  * 0 of a kind - 0 points
  * 1 of a kind - 0 points
  * 2 of a kind - 2 points
  * 3 of a kind - 6 points (2 x 3)
- * 4 of a kind - 12 points (3 x 4)
+ * 4 of a kind - 12 points (2 x 6)
  */
 static const score_t PAIR_SCORES[5] = { 0, 0, 2, 6, 12 };
 
@@ -65,6 +55,18 @@ static const unsigned char COMBINATIONS[NUM_COMBINATIONS][5] = {
     { 1, 2, 3, 4, 0xFF },
     { 0, 1, 2, 3, 4 },
 };
+
+#ifdef DEBUG
+void print_face_counts(count_t face_counts[5][2])
+{
+    printf("%d:%d, %d:%d, %d:%d, %d:%d, %d:%d\n",
+           face_counts[0][0],face_counts[0][1],
+           face_counts[1][0],face_counts[1][1],
+           face_counts[2][0],face_counts[2][1],
+           face_counts[3][0],face_counts[3][1],
+           face_counts[4][0],face_counts[4][1]);
+}
+#endif // DEBUG
 
 /*
  * Scores a cribbage hand.
