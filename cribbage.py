@@ -527,12 +527,6 @@ class Game(object):
 
         # loop forever
         while True:
-            # exit the loop if the round is over (no player has cards left)
-            if sum(map(len, self.hands)) == 0:
-                if verbose:
-                    print('Round is over')
-                break
-
             # determine which plays the player can legally make
             legal_moves = [idx for idx, card in
                            enumerate(self.hands[self.turn_idx]) if
@@ -555,6 +549,13 @@ class Game(object):
                 self.is_go = False
                 self.flag_31 = False
                 self.last_player = None
+
+                # exit the loop if the round is over (no player has cards left)
+                if sum(map(len, self.hands)) == 0:
+                    if verbose:
+                        print('Round is over')
+                        self.print_state()
+                    break
 
                 # restart with the opponent of the player who played the last
                 # card
@@ -602,6 +603,13 @@ class Game(object):
                 if verbose:
                     print('Player {} hit 31'.format(self.turn_idx+1))
                 self.flag_31 = True
+
+            # if the opponent player has no more cards left, toggle
+            # the "Go" flag
+            if not self.hands[int(not self.turn_idx)]:
+                if verbose:
+                    print('Player {} says go'.format(int(not self.turn_idx) + 1))
+                self.is_go = True
 
             # score the move for player_1 if it's a 15, pair, or run
             play_score = score_play(self.linear_play)
