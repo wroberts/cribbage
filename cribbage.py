@@ -304,11 +304,14 @@ class Game(object):
             assert len(set(discard_idxs)) == 2
             assert all(0 <= i < 6 for i in discard_idxs)
             discard_idxs = set(discard_idxs)
-            discards = [c for i,c in enumerate(self.hands[idx]) if i in discard_idxs]
+            discards = [c for i,c in enumerate(self.hands[idx])
+                        if i in discard_idxs]
             if verbose:
-                print('Player {} discards: '.format(idx+1), ' '.join(card_tostring(c) for c in sorted(discards)))
+                print('Player {} discards: '.format(idx+1),
+                      ' '.join(card_tostring(c) for c in sorted(discards)))
             self.crib.extend(discards)
-            self.hands[idx] = [c for i,c in enumerate(self.hands[idx]) if i not in discard_idxs]
+            self.hands[idx] = [c for i,c in enumerate(self.hands[idx])
+                               if i not in discard_idxs]
         if verbose:
             self.print_state()
         # randomly cut a card from the deck to serve as the "starter"
