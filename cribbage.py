@@ -182,6 +182,30 @@ class CribbagePlayer(object):
         '''
         raise NotImplementedError()
 
+    def play_card(self, hand, is_dealer, own_pile, other_pile, linear_play, legal_moves):
+        '''
+        Asks the player to select one card from `hand` to play during a
+        cribbage round.
+
+        Return an index into the hand array.
+
+        Arguments:
+        - `hand`: an array of 1 to 4 card values
+        - `is_dealer`: a flag to indicate whether the given player is
+          currently the dealer or not
+        - `own_pile`: an array of 0 to 3 card values that the given
+          player has already played in this round
+        - `other_pile`: an array of 0 to 4 card values that the
+          player's opponent has played in this round
+        - `linear_play`: the array of card values that have been
+          played in this round by both players, zippered into a single
+          list
+        - `legal_moves`: a list of indices into `hand` indicating
+          which cards from the hand may be played legally at this
+          point in the game
+        '''
+        raise NotImplementedError()
+
 class RandomCribbagePlayer(CribbagePlayer):
     '''A CribbagePlayer that always makes a random move.'''
 
@@ -202,6 +226,62 @@ class RandomCribbagePlayer(CribbagePlayer):
           currently the dealer or not
         '''
         return random.sample(range(6), 2)
+
+    def play_card(self, hand, is_dealer, own_pile, other_pile, linear_play, legal_moves):
+        '''
+        Asks the player to select one card from `hand` to play during a
+        cribbage round.
+
+        Return an index into the hand array.
+
+        Arguments:
+        - `hand`: an array of 1 to 4 card values
+        - `is_dealer`: a flag to indicate whether the given player is
+          currently the dealer or not
+        - `own_pile`: an array of 0 to 3 card values that the given
+          player has already played in this round
+        - `other_pile`: an array of 0 to 4 card values that the
+          player's opponent has played in this round
+        - `linear_play`: the array of card values that have been
+          played in this round by both players, zippered into a single
+          list
+        - `legal_moves`: a list of indices into `hand` indicating
+          which cards from the hand may be played legally at this
+          point in the game
+        '''
+        return random.choice(legal_moves)
+
+def card_score(card):
+    '''
+    Returns the number of points the given card value is worth.
+
+    Arguments:
+    - `card`:
+    '''
+    return CARD_VALUES[split_card(card)[0]]
+
+def cards_score(cards):
+    '''
+    Calls `card_score` on every value in `cards` and returns the sum.
+
+    Arguments:
+    - `cards`:
+    '''
+    return sum(card_score(card) for card in cards)
+
+def is_legal_play(card, linear_play):
+    '''
+    Tests whether the given card value is a legal play in a game of
+    cribbage, assuming that the cards in `linear_play` have previously
+    been played during the same round.
+
+    Arguments:
+    - `card`:
+    - `linear_play`:
+    '''
+    lp_score = cards_score(linear_play)
+    c_score = card_score(card)
+    return lp_score + c_score <= 31
 
 class Game(object):
     '''
@@ -235,6 +315,14 @@ class Game(object):
         # the card value of the "starter" or "cut" card for the
         # current game round
         self.starter_card = None
+        # the player whose turn it currently is to play a card
+        self.turn_idx = None
+        # the array of cards that have been played already during the
+        # current game round by the two players
+        self.faceups = None
+        # the same cards recorded in self.faceups, but linearised into
+        # a single list, based on the time that the cards were played
+        self.linear_play = None
 
     def do_round(self, verbose=False):
         '''
@@ -355,11 +443,91 @@ class Game(object):
 
     def play_round(self, verbose=False):
         '''
-        Blah
+        Plays out cards (pegging) for a single round of cribbage.
+
+            Starting with the non-dealer player, each player in turn
+            lays one card face up on the table in front of him or her,
+            stating the count--that is, the cumulative value of the
+            cards that have been laid (for example, the first player
+            lays a five and says "five", the next lays a six and says
+            "eleven", and so on)--without the count going above
+            31. The cards are not laid in the centre of the table as,
+            at the end of the "play," each player needs to pick up the
+            cards they have laid. Players score points during this
+            process for causing the count to reach exactly fifteen,
+            for runs (consecutively played, but not necessarily in
+            order) and for pairs. Three or four of a kind are counted
+            as multiple pairs: three of a kind is the same as three
+            different pairs, or 6 points, and four of a kind is 6
+            different kinds of pairs, or 12 points.
+
+            If a player cannot play without causing the count exceed
+            31, he calls "Go." Continuing with the player on his left,
+            the other player(s) continue(s) the play until no one can
+            play without the count exceeding 31. A player is obligated
+            to play a card unless there is no card in their hand that
+            can be played without the count exceeding 31 (one cannot
+            voluntarily pass). Once 31 is reached or no one is able to
+            play, the player who played the last card scores one point
+            if the count is still under 31 and two if it is exactly
+            31. The count is then reset to zero and those players with
+            cards remaining repeat the process starting with the
+            player to the left of the player who played the last
+            card. When no player has any cards the game proceeds to
+            the "show."
+
+            Players choose the order in which to lay their cards in
+            order to maximize their scores; experienced players refer
+            to this as either good or poor "pegging" or
+            "pegsmanship". If one player reaches the target (usually
+            61 or 121), the game ends immediately and that player
+            wins. When the scores are level during a game, the
+            players' pegs will be side by side, and it is thought that
+            this gave rise to the phrase "level pegging".[5]
+
+        Returns True if the game is not over after the deal; False if
+        the game is over (or was already over before the deal).
 
         Arguments:
         - `verbose`:
         '''
+        # start with non-dealer player
+        self.turn_idx = int(not self.dealer_idx)
+        # players take turns laying one card face up on the table
+        # without the count going over 31
+        self.faceups = [[], []]
+        self.linear_play = []
+        play_count = 0
+        while True:
+            # determine which plays the player can legally make
+            legal_moves = [idx for idx, card in
+                           enumerate(self.hands[self.turn_idx]) if
+                           is_legal_play(card, self.linear_play)]
+            #
+            
+            # ask the player to choose
+            play_idx = self.players[self.turn_idx].play_card(
+                self.hands[self.turn_idx],
+                self.turn_idx == self.dealer_idx,
+                self.faceups[self.turn_idx],
+                self.faceups[int(not self.turn_idx)],
+                self.linear_play,
+                legal_moves)
+            # sanity checking
+            assert 0 <= play_idx < len(self.hands[self.turn_idx])
+            if len(self.linear_play) == 4: break # TODO
+            play_card = self.hands[self.turn_idx][play_idx]
+            assert is_legal_play(play_card, self.linear_play)
+            self.hands[self.turn_idx] = [c for i,c in enumerate(self.hands[self.turn_idx]) if i != play_idx]
+            self.faceups[self.turn_idx].append(play_card)
+            self.linear_play.append(play_card)
+            if verbose:
+                print('Player {} plays:'.format(self.turn_idx+1),
+                      card_tostring(play_card), end='')
+                print('  Count:', cards_score(self.linear_play))
+                self.print_state()
+            # players take turns
+            self.turn_idx = int(not self.turn_idx)
         pass
 
     def show_round(self, verbose=False):
@@ -375,7 +543,8 @@ class Game(object):
         for idx in range(2):
             print('Player {}{}  '.format(idx+1, '(D)' if idx == self.dealer_idx else '   '), end='')
             if self.hands:
-                print(' '.join([card_tostring(c) for c in sorted(self.hands[idx])]), end='')
+                print('{:17}'.format(' '.join([card_tostring(c) for c in sorted(self.hands[idx])])),
+                      end='')
             print('  {:3} Points'.format(self.scores[idx]), end='')
             if self.crib and idx == self.dealer_idx:
                 print('  Crib', ' '.join([card_tostring(c) for c in sorted(self.crib)]), end='')
