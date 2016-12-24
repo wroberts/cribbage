@@ -295,7 +295,7 @@ class Game(object):
                       else [dealer_hand, nondealer_hand])
         if verbose:
             print('Dealing cards')
-            self.display_state()
+            self.print_state()
         # ask players to select cards to discard to crib
         self.crib = []
         for idx, player in enumerate(self.players):
@@ -310,7 +310,7 @@ class Game(object):
             self.crib.extend(discards)
             self.hands[idx] = [c for i,c in enumerate(self.hands[idx]) if i not in discard_idxs]
         if verbose:
-            self.display_state()
+            self.print_state()
         # randomly cut a card from the deck to serve as the "starter"
         self.starter_card = random.choice(self.deck)
         # check for "his nibs"
@@ -368,7 +368,7 @@ class Game(object):
         '''
         pass
 
-    def display_state(self):
+    def print_state(self):
         for idx in range(2):
             print('Player {}{}  '.format(idx+1, '(D)' if idx == game.turn else '   '), end='')
             if game.hands:
