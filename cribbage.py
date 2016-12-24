@@ -307,7 +307,7 @@ class Game(object):
             discards = [c for i,c in enumerate(self.hands[idx])
                         if i in discard_idxs]
             if verbose:
-                print('Player {} discards: '.format(idx+1),
+                print('Player {} discards:'.format(idx+1),
                       ' '.join(card_tostring(c) for c in sorted(discards)))
             self.crib.extend(discards)
             self.hands[idx] = [c for i,c in enumerate(self.hands[idx])
