@@ -222,7 +222,7 @@ class Game(object):
         # The players cut for first deal, and the person who cuts the
         # lowest card deals.
         # Randomly pick one player to start.
-        self.turn = random.randrange(2)
+        self.dealer_idx = random.randrange(2)
         self.target_score = 121
         # a flag to cache the game state
         self.over = False
@@ -290,8 +290,8 @@ class Game(object):
         nondealer_hand = self.deck[:12][::2]
         dealer_hand = self.deck[:12][1::2]
         self.deck = self.deck[12:]
-        # self.turn indicates the player who is dealer
-        self.hands = ([nondealer_hand, dealer_hand] if self.turn
+        # self.dealer_idx indicates the player who is dealer
+        self.hands = ([nondealer_hand, dealer_hand] if self.dealer_idx
                       else [dealer_hand, nondealer_hand])
         if verbose:
             print('Dealing cards')
@@ -299,7 +299,7 @@ class Game(object):
         # ask players to select cards to discard to crib
         self.crib = []
         for idx, player in enumerate(self.players):
-            discard_idxs = player.discard(self.hands[idx], idx == self.turn)
+            discard_idxs = player.discard(self.hands[idx], idx == self.dealer_idx)
             # sanity checking
             assert len(set(discard_idxs)) == 2
             assert all(0 <= i < 6 for i in discard_idxs)
@@ -323,7 +323,7 @@ class Game(object):
         if starter_value == 10:
             if verbose:
                 print('Dealer gets two points for his nibs')
-            if not self.award_points(self.turn, 2):
+            if not self.award_points(self.dealer_idx, 2):
                 return False
         return True
 
@@ -373,11 +373,11 @@ class Game(object):
 
     def print_state(self):
         for idx in range(2):
-            print('Player {}{}  '.format(idx+1, '(D)' if idx == self.turn else '   '), end='')
+            print('Player {}{}  '.format(idx+1, '(D)' if idx == self.dealer_idx else '   '), end='')
             if self.hands:
                 print(' '.join([card_tostring(c) for c in sorted(self.hands[idx])]), end='')
             print('  {:3} Points'.format(self.scores[idx]), end='')
-            if self.crib and idx == self.turn:
+            if self.crib and idx == self.dealer_idx:
                 print('  Crib', ' '.join([card_tostring(c) for c in sorted(self.crib)]), end='')
             print()
 
