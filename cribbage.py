@@ -8,6 +8,9 @@ import math
 import numpy as np
 import random
 
+# ------------------------------------------------------------
+# Cards
+
 # Cards are integers:
 
 CARD_FACES = 'A234567890JQK'
@@ -28,7 +31,7 @@ def make_deck():
     return range(52)
 
 # ------------------------------------------------------------
-# Cribbage
+# Cribbage scoring
 
 def make_random_hand():
     return random.sample(make_deck(), 4)
@@ -142,8 +145,6 @@ def n_choose_k(n,k):
 # 26
 # n_choose_k(6,2)
 # 15
-
-
 
 # In [411]: test_score()
 # [36, 3, 24, 23]
