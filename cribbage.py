@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 from collections import Counter
 import itertools
 import math
@@ -83,7 +84,7 @@ def score_hand(hand, draw=None, verbose=False):
                     run_score = np.product([face_counts[x] for x in
                                             range(run_begin, run_begin + run_length)]) * run_length
                     if verbose:
-                        print 'run', run_begin, last_v, run_score
+                        print('run', run_begin, last_v, run_score)
                     score += run_score
                 run_begin = None
     # score pairs/triples/quads/etc.
@@ -94,7 +95,7 @@ def score_hand(hand, draw=None, verbose=False):
         if count > 1:
             pair_score = math.factorial(count) / math.factorial(count - 2)
             if verbose:
-                print 'pair', _f, count, pair_score
+                print('pair', _f, count, pair_score)
             score += pair_score
     # score 15s
     card_values = [CARD_VALUES[x] for x in face_values]
@@ -102,7 +103,7 @@ def score_hand(hand, draw=None, verbose=False):
         for vlist in itertools.combinations(card_values, comb_len):
             if sum(vlist) == 15:
                 if verbose:
-                    print 'fifteen'
+                    print('fifteen')
                 score += 2
     # score flush
     suit_values = set([s for (f,s) in split_values_hand])
@@ -110,28 +111,28 @@ def score_hand(hand, draw=None, verbose=False):
         if draw is not None and list(suit_values)[0] == draw_suit:
             # draw 5
             if verbose:
-                print 'flush 5'
+                print('flush 5')
             score += len(hand) + 1
         else:
             if verbose:
-                print 'flush'
+                print('flush')
             score += len(hand)
     # score special jack
     if draw is not None and [f for (f,s) in split_values_hand if s == draw_suit and f == 10]:
         if verbose:
-            print 'special jack'
+            print('special jack')
         score += 1
     if verbose:
-        print 'score', score
+        print('score', score)
     return score
 
 def test_score():
     global hand, draw
     hand, draw = make_random_hand_and_draw()
-    print hand
-    print draw
-    print 'hand', ', '.join([print_card(v) for v in hand])
-    print 'draw', print_card(draw)
+    print(hand)
+    print(draw)
+    print('hand', ', '.join([print_card(v) for v in hand]))
+    print('draw', print_card(draw))
     score_hand(hand, draw, verbose=True)
 
 def n_choose_k(n,k):
