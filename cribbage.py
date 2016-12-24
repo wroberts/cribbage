@@ -373,12 +373,12 @@ class Game(object):
 
     def print_state(self):
         for idx in range(2):
-            print('Player {}{}  '.format(idx+1, '(D)' if idx == game.turn else '   '), end='')
-            if game.hands:
-                print(' '.join([card_tostring(c) for c in sorted(game.hands[idx])]), end='')
-            print('  {:3} Points'.format(game.scores[idx]), end='')
-            if game.crib and idx == game.turn:
-                print('  Crib', ' '.join([card_tostring(c) for c in sorted(game.crib)]), end='')
+            print('Player {}{}  '.format(idx+1, '(D)' if idx == self.turn else '   '), end='')
+            if self.hands:
+                print(' '.join([card_tostring(c) for c in sorted(self.hands[idx])]), end='')
+            print('  {:3} Points'.format(self.scores[idx]), end='')
+            if self.crib and idx == self.turn:
+                print('  Crib', ' '.join([card_tostring(c) for c in sorted(self.crib)]), end='')
             print()
 
 # testing
