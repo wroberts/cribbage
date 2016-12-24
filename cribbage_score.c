@@ -18,7 +18,8 @@ void print_face_counts(count_t face_counts[5][2])
 
 static const score_t PAIR_SCORES[5] = {0, 0, 2, 6, 12};
 static const score_t CARD_VALUES[13] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10 };
-static const unsigned char COMBINATIONS[26][5] = {
+static const int NUM_COMBINATIONS = 26;
+static const unsigned char COMBINATIONS[NUM_COMBINATIONS][5] = {
     { 0, 1, 0xFF, 0xFF, 0xFF },
     { 0, 2, 0xFF, 0xFF, 0xFF },
     { 0, 3, 0xFF, 0xFF, 0xFF },
@@ -167,7 +168,7 @@ score_t score_hand(card_t card1, card_t card2, card_t card3, card_t card4, card_
                                CARD_VALUES[f3],
                                CARD_VALUES[f4],
                                CARD_VALUES[fd] };
-    for (int i = 0; i < 26; i++)
+    for (int i = 0; i < NUM_COMBINATIONS; i++)
     {
         score_t acc = 0;
         for (int j = 0; j < 5; j++)
