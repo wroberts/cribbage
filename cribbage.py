@@ -323,6 +323,8 @@ class Game(object):
         # the same cards recorded in self.faceups, but linearised into
         # a single list, based on the time that the cards were played
         self.linear_play = None
+        # during a round, we keep track of the last_player
+        self.last_player = None
 
     def do_round(self, verbose=False):
         '''
@@ -497,14 +499,32 @@ class Game(object):
         # without the count going over 31
         self.faceups = [[], []]
         self.linear_play = []
+        # a flag that indicates whether this round has gone to "Go" or
+        # not
+        self.is_go = False
+        self.last_player = None
         play_count = 0
         while True:
             # determine which plays the player can legally make
             legal_moves = [idx for idx, card in
                            enumerate(self.hands[self.turn_idx]) if
                            is_legal_play(card, self.linear_play)]
-            #
-            
+            # if there are no legal moves that this player can play
+            if not legal_moves:
+                # are we already in "Go"?
+                if self.is_go:
+                    # the round is over
+                    pass
+                else:
+                    # then we call 'Go' and make it the other player's
+                    # turn
+                    # if verbose:
+                    #     print('Player {} says go'.format(self.turn_idx+1))
+                    # if not self.award_points(int(not self.turn_idx), 1):
+                    #     return False
+                    self.turn_idx = int(not self.turn_idx)
+                    self.is_go = True
+                    continue
             # ask the player to choose
             play_idx = self.players[self.turn_idx].play_card(
                 self.hands[self.turn_idx],
@@ -513,6 +533,8 @@ class Game(object):
                 self.faceups[int(not self.turn_idx)],
                 self.linear_play,
                 legal_moves)
+            # record the last player to make a move
+            self.last_player = self.turn_idx
             # sanity checking
             assert 0 <= play_idx < len(self.hands[self.turn_idx])
             if len(self.linear_play) == 4: break # TODO
@@ -526,8 +548,9 @@ class Game(object):
                       card_tostring(play_card), end='')
                 print('  Count:', cards_score(self.linear_play))
                 self.print_state()
-            # players take turns
-            self.turn_idx = int(not self.turn_idx)
+            # players take turns (except when one player is in "Go")
+            if not self.is_go:
+                self.turn_idx = int(not self.turn_idx)
         pass
 
     def show_round(self, verbose=False):
