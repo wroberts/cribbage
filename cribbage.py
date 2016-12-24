@@ -23,7 +23,7 @@ def make_card(face, suit):
 def split_card(vint):
     return vint % 13, vint // 13
 
-def print_card(vint):
+def card_tostring(vint):
     v, s = split_card(vint)
     return '{}{}'.format(CARD_FACES[v], CARD_SUITS[s])
 
@@ -134,8 +134,8 @@ def test_score():
     hand, draw = make_random_hand_and_draw()
     print(hand)
     print(draw)
-    print('hand', ', '.join([print_card(v) for v in hand]))
-    print('draw', print_card(draw))
+    print('hand', ', '.join([card_tostring(v) for v in hand]))
+    print('draw', card_tostring(draw))
     score_hand(hand, draw, verbose=True)
 
 def n_choose_k(n,k):
@@ -306,7 +306,7 @@ class Game(object):
             discard_idxs = set(discard_idxs)
             discards = [c for i,c in enumerate(self.hands[idx]) if i in discard_idxs]
             if verbose:
-                print('Player {} discards: '.format(idx+1), ' '.join(print_card(c) for c in sorted(discards)))
+                print('Player {} discards: '.format(idx+1), ' '.join(card_tostring(c) for c in sorted(discards)))
             self.crib.extend(discards)
             self.hands[idx] = [c for i,c in enumerate(self.hands[idx]) if i not in discard_idxs]
         if verbose:
@@ -316,7 +316,7 @@ class Game(object):
         # check for "his nibs"
         starter_value, _starter_suit = split_card(self.starter_card)
         if verbose:
-            print('Starter card is ', print_card(self.starter_card))
+            print('Starter card is ', card_tostring(self.starter_card))
         if starter_value == 10:
             if verbose:
                 print('Dealer gets two points for his nibs')
@@ -372,10 +372,10 @@ class Game(object):
         for idx in range(2):
             print('Player {}{}  '.format(idx+1, '(D)' if idx == game.turn else '   '), end='')
             if game.hands:
-                print(' '.join([print_card(c) for c in sorted(game.hands[idx])]), end='')
+                print(' '.join([card_tostring(c) for c in sorted(game.hands[idx])]), end='')
             print('  {:3} Points'.format(game.scores[idx]), end='')
             if game.crib and idx == game.turn:
-                print('  Crib', ' '.join([print_card(c) for c in sorted(game.crib)]), end='')
+                print('  Crib', ' '.join([card_tostring(c) for c in sorted(game.crib)]), end='')
             print()
 
 # testing
