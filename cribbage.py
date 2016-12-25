@@ -367,6 +367,12 @@ class Game(object):
         self.last_player = None
         # the cards played by both players during a round
         self.round_played = []
+        # a flag that indicates whether the current sequence of the
+        # current game round has gone to "Go" or not
+        self.is_go = False
+        # a flag that indicates whether the last player hit 31 or not
+        # during the current sequence of the current game round
+        self.flag_31 = False
 
     def do_round(self, verbose=False):
         '''
