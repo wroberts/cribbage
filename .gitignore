@@ -7,5 +7,5 @@
 /.ipynb_checkpoints/
 /cribbage/_cribbage_score.so
 /cribbage/c_cribbage_score.c
-/cribbage/cribbage
+/test_c_scoring/cribbage
 build/
