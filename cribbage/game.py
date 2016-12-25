@@ -35,6 +35,8 @@ class Game(object):
         self.target_score = 121
         # a flag to cache the game state
         self.over = False
+        # indicates the index of the player that won
+        self.winner = None
         # a game consists of a series of Round objects
         self.rounds = []
         # the last one in the series is called the current_round
@@ -104,5 +106,6 @@ class Game(object):
                 print('Player {} wins with {} points'.format(
                     player_idx + 1, self.scores[player_idx]))
             self.over = True
+            self.winner = player_idx
             return False
         return True
