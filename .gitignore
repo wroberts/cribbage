@@ -5,7 +5,7 @@
 *~
 .DS_Store
 /.ipynb_checkpoints/
-/c_cribbage_score.c
-/c_cribbage_score.so
-/cribbage
+/cribbage/_cribbage_score.so
+/cribbage/c_cribbage_score.c
+/cribbage/cribbage
 build/

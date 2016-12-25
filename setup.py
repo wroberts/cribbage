@@ -4,5 +4,7 @@ from Cython.Build import cythonize
 
 setup(
     name = 'C Cribbage Scorer',
-    ext_modules = cythonize([Extension("c_cribbage_score", ["c_cribbage_score.pyx", "cribbage_score.c"])])
+    ext_modules = cythonize([Extension("cribbage._cribbage_score",
+                                       ["cribbage/c_cribbage_score.pyx",
+                                        "cribbage/cribbage_score.c"])])
 )
