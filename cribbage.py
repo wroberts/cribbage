@@ -434,8 +434,6 @@ class Game(object):
         # self.dealer_idx indicates the player who is dealer
         self.hands = ([nondealer_hand, dealer_hand] if self.dealer_idx
                       else [dealer_hand, nondealer_hand])
-        # copy self.hands
-        self.orig_hands = [x[:] for x in self.hands]
         if verbose:
             print('Dealing cards')
             self.print_state()
@@ -455,6 +453,8 @@ class Game(object):
             self.crib.extend(discards)
             self.hands[idx] = [c for i,c in enumerate(self.hands[idx])
                                if i not in discard_idxs]
+        # copy self.hands after discarding
+        self.orig_hands = [x[:] for x in self.hands]
         if verbose:
             self.print_state()
         # randomly cut a card from the deck to serve as the "starter"
