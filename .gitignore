@@ -7,6 +7,6 @@
 /.ipynb_checkpoints/
 /.ropeproject/
 /cribbage/_cribbage_score.so
-/cribbage/c_cribbage_score.c
+/cribbage/cribbage_score_wrapper.c
 /test_c_scoring/cribbage
 build/
