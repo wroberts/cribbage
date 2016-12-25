@@ -70,6 +70,14 @@ class Game(object):
                     return True
         return False
 
+    def play(self, verbose=False):
+        '''
+        Plays through the whole game of cribbage until it is over.
+        '''
+        while self.play_round(verbose=verbose):
+            if verbose:
+                print('New round')
+
     def award_points(self, player_idx, num_points, verbose=False):
         '''
         Awards `num_points` to player `player_idx`.
