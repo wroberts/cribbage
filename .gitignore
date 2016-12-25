@@ -6,7 +6,7 @@
 .DS_Store
 /.ipynb_checkpoints/
 /.ropeproject/
+/cribbage/_cribbage_score.c
 /cribbage/_cribbage_score.so
-/cribbage/cribbage_score_wrapper.c
 /test_c_scoring/cribbage
 build/
