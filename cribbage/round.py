@@ -118,7 +118,7 @@ class Round(object):
         # randomly cut a card from the deck to serve as the "starter"
         self.starter_card = random.choice(self.deck)
         # check for "his nibs"
-        starter_value, _starter_suit = split_card(self.starter_card)
+        starter_value = split_card(self.starter_card)[0]
         if verbose:
             print('Starter card is ', card_tostring(self.starter_card))
         if starter_value == 10:
