@@ -1,3 +1,10 @@
+==========
+ Cribbage
+==========
+
+C Extension
+===========
+
 There is a C function which can score a cribbage hand 100 times faster
 than doing it in pure Python.
 
@@ -9,3 +16,10 @@ Then::
 
     import c_cribbage_score
     c_cribbage_score.score_hand(hand, draw)
+
+Testing
+=======
+
+In the base directory of the project, do::
+
+    pytest
