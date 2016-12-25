@@ -567,13 +567,15 @@ class Game(object):
             if (self.is_go and not legal_moves) or self.flag_31:
                 # then last_player gets awarded 1 or 2 points, and we restart the sequence
                 if self.flag_31:
-                    self.award_points(self.last_player, 2)
+                    if not self.award_points(self.last_player, 2):
+                        return False
                 else:
-                    self.award_points(self.last_player, 1)
+                    if not self.award_points(self.last_player, 1):
+                        return False
                 # restart the sequence
                 if verbose:
                     print('Sequence is over')
-                self.round_played.append(self.faceups)
+                self.round_played.extend(self.faceups)
                 self.faceups = [[], []]
                 self.linear_play = []
                 self.is_go = False
@@ -647,7 +649,8 @@ class Game(object):
             if play_score:
                 if verbose:
                     print('Player {} scores:'.format(self.turn_idx+1), play_score)
-                self.award_points(self.turn_idx, play_score)
+                if not self.award_points(self.turn_idx, play_score):
+                    return False
 
             # players take turns (except when one player is in "Go",
             # or this player has hit 31)
@@ -663,7 +666,50 @@ class Game(object):
         Arguments:
         - `verbose`:
         '''
-        pass
+        # reconstruct the hands the two players had at the beginning
+        # of the round
+        orig_hands = [reduce(lambda x, y: x + y,
+                             game.round_played[player_num::2],
+                             [])
+                      for player_num in range(2)]
+
+        # score the non-dealer player's hand
+        if verbose:
+            print('Scoring player {}:'.format(int(not self.dealer_idx)+1),
+                  ' '.join([card_tostring(c) for c in sorted(orig_hands[int(not self.dealer_idx)])]))
+            print('Starter card is ', card_tostring(self.starter_card))
+        hand_score = score_hand(orig_hands[int(not self.dealer_idx)], self.starter_card, verbose=verbose)
+        if verbose:
+            print('Player {} scores,'.format(int(not self.dealer_idx)+1), hand_score)
+        if not self.award_points(int(not self.dealer_idx), hand_score):
+            return False
+
+        # score the dealer's hand
+        if verbose:
+            print('Scoring player {}:'.format(self.dealer_idx+1),
+                  ' '.join([card_tostring(c) for c in sorted(orig_hands[self.dealer_idx])]))
+            print('Starter card is ', card_tostring(self.starter_card))
+        hand_score = score_hand(orig_hands[self.dealer_idx], self.starter_card, verbose=verbose)
+        if verbose:
+            print('Player {} scores,'.format(self.dealer_idx+1), hand_score)
+        if not self.award_points(self.dealer_idx, hand_score):
+            return False
+
+        # score the dealer's crib
+        if verbose:
+            print('Scoring crib:',
+                  ' '.join([card_tostring(c) for c in sorted(self.crib)]))
+            print('Starter card is ', card_tostring(self.starter_card))
+        hand_score = score_hand(self.crib, self.starter_card, verbose=verbose)
+        if verbose:
+            print('Player {} scores,'.format(self.dealer_idx+1), hand_score)
+        if not self.award_points(self.dealer_idx, hand_score):
+            return False
+
+        # swap the dealer
+        self.dealer_idx = int(not self.dealer_idx)
+
+        return True
 
     def print_state(self):
         for idx in range(2):
@@ -680,4 +726,6 @@ class Game(object):
 player1 = RandomCribbagePlayer()
 player2 = RandomCribbagePlayer()
 game = Game([player1, player2])
-game.do_round(verbose=True)
+#game.do_round(verbose=True)
+while game.do_round(verbose=True):
+    print('New round')
