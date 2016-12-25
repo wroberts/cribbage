@@ -527,8 +527,8 @@ class Game(object):
             players' pegs will be side by side, and it is thought that
             this gave rise to the phrase "level pegging".[5]
 
-        Returns True if the game is not over after the deal; False if
-        the game is over (or was already over before the deal).
+        Returns True if the game is not over after the play; False if
+        the game is over (or was already over before the play).
 
         Arguments:
         - `verbose`:
@@ -661,7 +661,34 @@ class Game(object):
 
     def show_round(self, verbose=False):
         '''
-        Blah
+        Scores all hands after a round of cribbage.
+
+            Once the play is complete, each player in turn, starting
+            with the player on the left of the dealer, displays his
+            hand on the table and scores points based on its content
+            in conjunction with the starter card. Points are scored
+            for combinations of cards totalling fifteen, runs, pairs
+            (multiple pairs are scored pair by pair, but may be
+            referred to as three or four of a kind), a flush and
+            having a Jack of the same suit as the starter card ("one
+            for his nob [or nobs or nibs]"). A four-card flush scores
+            four and cannot include the cut or starter; a five-card
+            flush scores five.
+
+            The dealer scores his hand last and then turns the cards
+            in the crib face up. These cards are then scored by the
+            dealer as an additional hand, also in conjunction with the
+            starter card. Unlike the dealer's own hand, the crib
+            cannot score a four-card flush, but it can score a
+            five-card flush with the starter.
+
+            All scores from 0 to 29 are possible, with the exception
+            of 19, 25, 26 and 27.[6] Players may refer colloquially to
+            a hand scoring zero points as having a score of
+            nineteen.[7]
+
+        Returns True if the game is not over after the show; False if
+        the game is over (or was already over before the show).
 
         Arguments:
         - `verbose`:
