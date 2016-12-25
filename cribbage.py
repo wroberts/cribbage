@@ -348,6 +348,8 @@ class Game(object):
         self.deck = None
         # the hands of the two players during the current game round
         self.hands = None
+        # copy of self.hands
+        self.orig_hands = None
         # the crib of the current game round
         self.crib = None
         # the card value of the "starter" or "cut" card for the
@@ -423,6 +425,8 @@ class Game(object):
         # self.dealer_idx indicates the player who is dealer
         self.hands = ([nondealer_hand, dealer_hand] if self.dealer_idx
                       else [dealer_hand, nondealer_hand])
+        # copy self.hands
+        self.orig_hands = [x[:] for x in self.hands]
         if verbose:
             print('Dealing cards')
             self.print_state()
@@ -693,32 +697,28 @@ class Game(object):
         Arguments:
         - `verbose`:
         '''
-        # reconstruct the hands the two players had at the beginning
-        # of the round
-        orig_hands = [reduce(lambda x, y: x + y,
-                             game.round_played[player_num::2],
-                             [])
-                      for player_num in range(2)]
-
         # score the non-dealer player's hand
+        nondealer_idx = int(not self.dealer_idx)
+        nondealer_hand = self.orig_hands[nondealer_idx]
         if verbose:
-            print('Scoring player {}:'.format(int(not self.dealer_idx)+1),
-                  ' '.join([card_tostring(c) for c in sorted(orig_hands[int(not self.dealer_idx)])]))
+            print('Scoring player {}:'.format(nondealer_idx + 1),
+                  ' '.join([card_tostring(c) for c in sorted(nondealer_hand)]))
             print('Starter card is ', card_tostring(self.starter_card))
-        hand_score = score_hand(orig_hands[int(not self.dealer_idx)], self.starter_card, verbose=verbose)
+        hand_score = score_hand(nondealer_hand, self.starter_card, verbose=verbose)
         if verbose:
-            print('Player {} scores,'.format(int(not self.dealer_idx)+1), hand_score)
-        if not self.award_points(int(not self.dealer_idx), hand_score):
+            print('Player {} scores,'.format(nondealer_idx + 1), hand_score)
+        if not self.award_points(nondealer_idx, hand_score):
             return False
 
         # score the dealer's hand
+        dealer_hand = self.orig_hands[self.dealer_idx]
         if verbose:
-            print('Scoring player {}:'.format(self.dealer_idx+1),
-                  ' '.join([card_tostring(c) for c in sorted(orig_hands[self.dealer_idx])]))
+            print('Scoring player {}:'.format(self.dealer_idx + 1),
+                  ' '.join([card_tostring(c) for c in sorted(dealer_hand)]))
             print('Starter card is ', card_tostring(self.starter_card))
-        hand_score = score_hand(orig_hands[self.dealer_idx], self.starter_card, verbose=verbose)
+        hand_score = score_hand(dealer_hand, self.starter_card, verbose=verbose)
         if verbose:
-            print('Player {} scores,'.format(self.dealer_idx+1), hand_score)
+            print('Player {} scores,'.format(self.dealer_idx + 1), hand_score)
         if not self.award_points(self.dealer_idx, hand_score):
             return False
 
@@ -729,7 +729,7 @@ class Game(object):
             print('Starter card is ', card_tostring(self.starter_card))
         hand_score = score_hand(self.crib, self.starter_card, verbose=verbose)
         if verbose:
-            print('Player {} scores,'.format(self.dealer_idx+1), hand_score)
+            print('Player {} scores,'.format(self.dealer_idx + 1), hand_score)
         if not self.award_points(self.dealer_idx, hand_score):
             return False
 
