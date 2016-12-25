@@ -3,7 +3,8 @@ cdef extern from "cribbage_score.h":
                                    unsigned char card2,
                                    unsigned char card3,
                                    unsigned char card4,
-                                   unsigned char draw_card)
+                                   unsigned char draw_card,
+                                   unsigned char is_crib)
 
-def score_hand(hand, draw):
-    return c_score_hand(hand[0], hand[1], hand[2], hand[3], draw)
+def score_hand(hand, draw, crib=False):
+    return c_score_hand(hand[0], hand[1], hand[2], hand[3], draw, crib)

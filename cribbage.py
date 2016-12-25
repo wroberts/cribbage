@@ -46,7 +46,7 @@ def pairwise(iterable):
     next(b, None)
     return itertools.izip(a, b)
 
-def score_hand(hand, draw=None, verbose=False):
+def score_hand(hand, draw=None, crib=False, verbose=False):
     '''
     Scores a Cribbage hand.
 
@@ -117,9 +117,10 @@ def score_hand(hand, draw=None, verbose=False):
                 print('flush 5')
             score += len(hand) + 1
         else:
-            if verbose:
-                print('flush')
-            score += len(hand)
+            if not crib:
+                if verbose:
+                    print('flush 4')
+                score += len(hand)
     # score special jack
     if draw is not None and [f for (f,s) in split_values_hand if s == draw_suit and f == 10]:
         if verbose:
@@ -733,7 +734,7 @@ class Game(object):
             print('Scoring crib:',
                   ' '.join([card_tostring(c) for c in sorted(self.crib)]))
             print('Starter card is ', card_tostring(self.starter_card))
-        hand_score = score_hand(self.crib, self.starter_card, verbose=verbose)
+        hand_score = score_hand(self.crib, self.starter_card, crib=True, verbose=verbose)
         if verbose:
             print('Player {} scores,'.format(self.dealer_idx + 1), hand_score)
         if not self.award_points(self.dealer_idx, hand_score):

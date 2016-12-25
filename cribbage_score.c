@@ -76,7 +76,7 @@ void print_face_counts(count_t face_counts[5][2])
  *
  * Returns the number of points to score for the given hand and draw.
  */
-score_t score_hand(card_t card1, card_t card2, card_t card3, card_t card4, card_t draw_card)
+score_t score_hand(card_t card1, card_t card2, card_t card3, card_t card4, card_t draw_card, flag_t is_crib)
 {
     // sanity check
     if (card1 > 51 ||
@@ -225,10 +225,13 @@ score_t score_hand(card_t card1, card_t card2, card_t card3, card_t card4, card_
         }
         else
         {
+            if (!is_crib)
+            {
 #ifdef DEBUG
-            printf("flush 4\n");
+                printf("flush 4\n");
 #endif // DEBUG
-            score += 4;
+                score += 4;
+            }
         }
     }
 

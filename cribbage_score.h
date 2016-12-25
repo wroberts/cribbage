@@ -9,11 +9,14 @@ typedef char count_t;
 typedef unsigned char ucount_t;
 // a type for a score
 typedef int score_t;
+// a type for a flag
+typedef unsigned char flag_t;
 
 score_t score_hand(card_t card1,
                    card_t card2,
                    card_t card3,
                    card_t card4,
-                   card_t draw_card);
+                   card_t draw_card,
+                   flag_t is_crib);
 
 #endif /* _CRIBBAGE_SCORE_H_ */
