@@ -60,7 +60,7 @@ class Round(object):
         # during the current sequence of the current game round
         self.flag_31 = False
 
-    def deal_round(self, verbose=False):
+    def deal(self, verbose=False):
         '''
         Shuffles and deals the cards for a single round of cribbage.
 
@@ -128,7 +128,7 @@ class Round(object):
                 return False
         return True
 
-    def play_round(self, verbose=False):
+    def play(self, verbose=False):
         '''
         Plays out cards (pegging) for a single round of cribbage.
 
@@ -305,7 +305,7 @@ class Round(object):
 
         return True
 
-    def show_round(self, verbose=False):
+    def show(self, verbose=False):
         '''
         Scores all hands after a round of cribbage.
 

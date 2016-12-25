@@ -62,9 +62,9 @@ class Game(object):
             print('Starting new round')
         self.current_round = Round(self, self.players, self.dealer_idx)
         self.rounds.append(self.current_round)
-        if self.current_round.deal_round(verbose=verbose):
-            if self.current_round.play_round(verbose=verbose):
-                if self.current_round.show_round(verbose=verbose):
+        if self.current_round.deal(verbose=verbose):
+            if self.current_round.play(verbose=verbose):
+                if self.current_round.show(verbose=verbose):
                     # swap the dealer
                     self.dealer_idx = int(not self.dealer_idx)
                     return True
