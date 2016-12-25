@@ -151,19 +151,12 @@ def n_choose_k(n,k):
     '''Returns the number of ways of choosing `k` items from a set of `n`.'''
     return math.factorial(n) // (math.factorial(k) * math.factorial(n-k))
 
+# the number of ways of making 15s in a given hand with starter card
 # n_choose_k(5,2) + n_choose_k(5,3) + n_choose_k(5,4) + n_choose_k(5,5)
 # 26
+# the number of ways of choosing two cards to discard into the crib
 # n_choose_k(6,2)
 # 15
-
-# In [411]: test_score()
-# [36, 3, 24, 23]
-# 25
-# hand JD, 4S, QH, JH
-# draw KH
-# pair 10 2 2
-# special jack
-# score 3
 
 
 # ------------------------------------------------------------
