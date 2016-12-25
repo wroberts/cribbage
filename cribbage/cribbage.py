@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 import random
-from .cards import CARD_FACES, CARD_VALUES, card_tostring, make_deck, split_card
-from .cribbage_score import score_hand
+from cribbage.cards import card_tostring, cards_worth, make_deck, split_card
+from cribbage.cribbage_score import is_legal_play, score_hand, score_play
 
 # ------------------------------------------------------------
 # Cribbage Game
@@ -101,76 +101,6 @@ class RandomCribbagePlayer(CribbagePlayer):
         '''
         return random.choice(legal_moves)
 
-def card_score(card):
-    '''
-    Returns the number of points the given card value is worth.
-
-    Arguments:
-    - `card`:
-    '''
-    return CARD_VALUES[split_card(card)[0]]
-
-def cards_score(cards):
-    '''
-    Calls `card_score` on every value in `cards` and returns the sum.
-
-    Arguments:
-    - `cards`:
-    '''
-    return sum(card_score(card) for card in cards)
-
-def is_legal_play(card, linear_play):
-    '''
-    Tests whether the given card value is a legal play in a game of
-    cribbage, assuming that the cards in `linear_play` have previously
-    been played during the same round.
-
-    Arguments:
-    - `card`:
-    - `linear_play`:
-    '''
-    lp_score = cards_score(linear_play)
-    c_score = card_score(card)
-    return lp_score + c_score <= 31
-
-def score_play(linear_play, verbose=False):
-    '''
-    Scores the last play in a game.
-
-    Arguments:
-    - `linear_play`: a list containing the card values played, in
-      order, during the round
-    '''
-    # the value we will return
-    play_score = 0
-    # we only need to know the face values thare played
-    face_values = [split_card(c)[0] for c in linear_play]
-    if verbose:
-        print('Score', ' '.join(CARD_FACES[f] for f in face_values))
-    if cards_score(linear_play) == 15:
-        if verbose:
-            print('fifteen')
-        play_score +=2
-    # look for pairs and tuples
-    for backwards in range(len(linear_play), 1, -1):
-        back_list = sorted(face_values[-backwards:])
-        if len(set(back_list)) == 1:
-            # pairlike
-            pair_score = [2,6,12][len(back_list)-2]
-            if verbose:
-                print('pair {} points'.format(pair_score))
-            play_score += pair_score
-            break
-        elif back_list == range(min(back_list), max(back_list) + 1):
-            # run
-            run_score = len(back_list)
-            if run_score >= 3:
-                if verbose:
-                    print('run {} points'.format(run_score))
-                play_score += run_score
-                break
-    return play_score
-
 class Round(object):
     '''
     A single round of cribbage in a gaame between two CribbagePlayers.
@@ -260,13 +190,13 @@ class Round(object):
             assert len(set(discard_idxs)) == 2
             assert all(0 <= i < 6 for i in discard_idxs)
             discard_idxs = set(discard_idxs)
-            discards = [c for i,c in enumerate(self.hands[idx])
+            discards = [c for i, c in enumerate(self.hands[idx])
                         if i in discard_idxs]
             if verbose:
                 print('Player {} discards:'.format(idx+1),
                       ' '.join(card_tostring(c) for c in sorted(discards)))
             self.crib.extend(discards)
-            self.hands[idx] = [c for i,c in enumerate(self.hands[idx])
+            self.hands[idx] = [c for i, c in enumerate(self.hands[idx])
                                if i not in discard_idxs]
         # copy self.hands after discarding
         self.orig_hands = [x[:] for x in self.hands]
@@ -424,18 +354,18 @@ class Round(object):
             assert is_legal_play(play_card, self.linear_play)
 
             # make the move
-            self.hands[self.turn_idx] = [c for i,c in enumerate(self.hands[self.turn_idx])
+            self.hands[self.turn_idx] = [c for i, c in enumerate(self.hands[self.turn_idx])
                                          if i != play_idx]
             self.faceups[self.turn_idx].append(play_card)
             self.linear_play.append(play_card)
             if verbose:
                 print('Player {} plays:'.format(self.turn_idx+1),
                       card_tostring(play_card), end='')
-                print('  Count:', cards_score(self.linear_play))
+                print('  Count:', cards_worth(self.linear_play))
                 self.print_state()
 
             # if the move makes the count hit 31, set the 31 flag
-            if cards_score(self.linear_play) == 31:
+            if cards_worth(self.linear_play) == 31:
                 if verbose:
                     print('Player {} hit 31'.format(self.turn_idx+1))
                 self.flag_31 = True

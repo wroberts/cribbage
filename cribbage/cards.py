@@ -59,6 +59,27 @@ def pairwise(iterable):
     return itertools.izip(a, b)
 
 # ------------------------------------------------------------
+# Determining cards' worth (for making 15s and 31s)
+
+def card_worth(card):
+    '''
+    Returns the number of points the given card value is worth.
+
+    Arguments:
+    - `card`:
+    '''
+    return CARD_VALUES[split_card(card)[0]]
+
+def cards_worth(cards):
+    '''
+    Calls `card_worth` on every value in `cards` and returns the sum.
+
+    Arguments:
+    - `cards`:
+    '''
+    return sum(card_worth(card) for card in cards)
+
+# ------------------------------------------------------------
 # Notes
 
 # def n_choose_k(n,k):
