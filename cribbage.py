@@ -466,11 +466,11 @@ class Game(object):
         if starter_value == 10:
             if verbose:
                 print('Dealer gets two points for his nibs')
-            if not self.award_points(self.dealer_idx, 2):
+            if not self.award_points(self.dealer_idx, 2, verbose=verbose):
                 return False
         return True
 
-    def award_points(self, player_idx, num_points):
+    def award_points(self, player_idx, num_points, verbose=False):
         '''
         Awards `num_points` to player `player_idx`.
 
@@ -492,6 +492,9 @@ class Game(object):
         self.scores[player_idx] += num_points
         # check if that player is now over target_score
         if self.scores[player_idx] >= self.target_score:
+            if verbose:
+                print('Player {} wins with {} points'.format(
+                    player_idx + 1, self.scores[player_idx]))
             self.over = True
             return False
         return True
@@ -580,10 +583,10 @@ class Game(object):
             if (self.is_go and not legal_moves) or self.flag_31:
                 # then last_player gets awarded 1 or 2 points, and we restart the sequence
                 if self.flag_31:
-                    if not self.award_points(self.last_player, 2):
+                    if not self.award_points(self.last_player, 2, verbose=verbose):
                         return False
                 else:
-                    if not self.award_points(self.last_player, 1):
+                    if not self.award_points(self.last_player, 1, verbose=verbose):
                         return False
                 # restart the sequence
                 if verbose:
@@ -663,7 +666,7 @@ class Game(object):
             if play_score:
                 if verbose:
                     print('Player {} scores:'.format(self.turn_idx+1), play_score)
-                if not self.award_points(self.turn_idx, play_score):
+                if not self.award_points(self.turn_idx, play_score, verbose=verbose):
                     return False
 
             # players take turns (except when one player is in "Go",
@@ -717,7 +720,7 @@ class Game(object):
         hand_score = score_hand(nondealer_hand, self.starter_card, verbose=verbose)
         if verbose:
             print('Player {} scores,'.format(nondealer_idx + 1), hand_score)
-        if not self.award_points(nondealer_idx, hand_score):
+        if not self.award_points(nondealer_idx, hand_score, verbose=verbose):
             return False
 
         # score the dealer's hand
@@ -729,7 +732,7 @@ class Game(object):
         hand_score = score_hand(dealer_hand, self.starter_card, verbose=verbose)
         if verbose:
             print('Player {} scores,'.format(self.dealer_idx + 1), hand_score)
-        if not self.award_points(self.dealer_idx, hand_score):
+        if not self.award_points(self.dealer_idx, hand_score, verbose=verbose):
             return False
 
         # score the dealer's crib
@@ -740,7 +743,7 @@ class Game(object):
         hand_score = score_hand(self.crib, self.starter_card, crib=True, verbose=verbose)
         if verbose:
             print('Player {} scores,'.format(self.dealer_idx + 1), hand_score)
-        if not self.award_points(self.dealer_idx, hand_score):
+        if not self.award_points(self.dealer_idx, hand_score, verbose=verbose):
             return False
 
         # swap the dealer
