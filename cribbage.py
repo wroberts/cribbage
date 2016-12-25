@@ -5,8 +5,8 @@ from __future__ import print_function
 from collections import Counter
 import itertools
 import math
-import numpy as np
 import random
+import numpy as np
 
 # ------------------------------------------------------------
 # Cards
@@ -18,25 +18,31 @@ CARD_SUITS = 'SHDC'
 CARD_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10]
 
 def make_card(face, suit):
+    '''Creates a card value with the given `face` and `suit`.'''
     return face + suit * 13
 
 def split_card(vint):
+    '''Splits a card value into its `face` and `suit` values.'''
     return vint % 13, vint // 13
 
 def card_tostring(vint):
+    '''Returns a string representation of the given card value.'''
     v, s = split_card(vint)
     return '{}{}'.format(CARD_FACES[v], CARD_SUITS[s])
 
 def make_deck():
+    '''Creates a list containing all 52 card values.'''
     return range(52)
 
 # ------------------------------------------------------------
 # Cribbage scoring
 
 def make_random_hand():
+    '''Create a random 4-card cribbage hand.'''
     return random.sample(make_deck(), 4)
 
 def make_random_hand_and_draw():
+    '''Create a random 4-card cribbage hand, and a random card as the starter.'''
     hd = random.sample(make_deck(), 5)
     return hd[:4], hd[4]
 
@@ -53,6 +59,7 @@ def score_hand(hand, draw=None, crib=False, verbose=False):
     Arguments:
     - `hand`: a list of four card values
     - `draw`: a card value, or None
+    - `crib`: a flag indicating if the given hand is a crib or not
     '''
     assert len(hand) == 4
     score = 0
@@ -131,6 +138,7 @@ def score_hand(hand, draw=None, crib=False, verbose=False):
     return score
 
 def test_score():
+    '''Utility function to test the score_hand method.'''
     global hand, draw
     hand, draw = make_random_hand_and_draw()
     print(hand)
@@ -140,6 +148,7 @@ def test_score():
     score_hand(hand, draw, verbose=True)
 
 def n_choose_k(n,k):
+    '''Returns the number of ways of choosing `k` items from a set of `n`.'''
     return math.factorial(n) // (math.factorial(k) * math.factorial(n-k))
 
 # n_choose_k(5,2) + n_choose_k(5,3) + n_choose_k(5,4) + n_choose_k(5,5)
@@ -633,7 +642,8 @@ class Game(object):
             assert is_legal_play(play_card, self.linear_play)
 
             # make the move
-            self.hands[self.turn_idx] = [c for i,c in enumerate(self.hands[self.turn_idx]) if i != play_idx]
+            self.hands[self.turn_idx] = [c for i,c in enumerate(self.hands[self.turn_idx])
+                                         if i != play_idx]
             self.faceups[self.turn_idx].append(play_card)
             self.linear_play.append(play_card)
             if verbose:
@@ -746,6 +756,7 @@ class Game(object):
         return True
 
     def print_state(self):
+        '''Print a representation of the current game state to stdout.'''
         for idx in range(2):
             print('Player {}{}  '.format(idx+1, '(D)' if idx == self.dealer_idx else '   '), end='')
             if self.hands:
