@@ -389,7 +389,7 @@ class Game(object):
         if self.deal_round(verbose=verbose):
             if self.play_round(verbose=verbose):
                 return self.show_round(verbose=verbose)
-        return True
+        return False
 
     def deal_round(self, verbose=False):
         '''
