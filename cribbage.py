@@ -324,29 +324,22 @@ def score_play(linear_play, verbose=False):
                 break
     return play_score
 
-class Game(object):
+class Round(object):
     '''
-    An object representing a game of cribbage between two
-    CribbagePlayers.
+    A single round of cribbage in a gaame between two CribbagePlayers.
     '''
 
-    def __init__(self, players):
+    def __init__(self, game, players, dealer_idx):
         '''
         Constructor.
 
         Arguments:
-        - `players`: a list of two CribbagePlayer objects
+        - `players`:
+        - `dealer_idx`:
         '''
+        self.game = game
         self.players = players
-        # scores start at zero
-        self.scores = [0, 0]
-        # The players cut for first deal, and the person who cuts the
-        # lowest card deals.
-        # Randomly pick one player to start.
-        self.dealer_idx = random.randrange(2)
-        self.target_score = 121
-        # a flag to cache the game state
-        self.over = False
+        self.dealer_idx = dealer_idx
         # the deck of the current game round
         self.deck = None
         # the hands of the two players during the current game round
@@ -377,31 +370,6 @@ class Game(object):
         # during the current sequence of the current game round
         self.flag_31 = False
 
-    def do_round(self, verbose=False):
-        '''
-        Executes a single round of cribbage.
-
-            Play proceeds through a succession of "hands", each hand
-            consisting of a "deal", "the play" and "the show." At any
-            time during any of these stages, if a player reaches the
-            target score (usually 121), play ends immediately with
-            that player being the winner of the game. This can even
-            happen during the deal, since the dealer can score if a
-            Jack is cut as the starter.
-
-        Returns True if the game is not over after the round; False if
-        the game is over (or was already over before the round).
-
-        Arguments:
-        - `verbose`:
-        '''
-        if verbose:
-            print('Starting new round')
-        if self.deal_round(verbose=verbose):
-            if self.play_round(verbose=verbose):
-                return self.show_round(verbose=verbose)
-        return False
-
     def deal_round(self, verbose=False):
         '''
         Shuffles and deals the cards for a single round of cribbage.
@@ -422,7 +390,7 @@ class Game(object):
         Arguments:
         - `verbose`:
         '''
-        if self.over:
+        if self.game.over:
             return False
         # create a new shuffled deck
         self.deck = make_deck()
@@ -466,37 +434,8 @@ class Game(object):
         if starter_value == 10:
             if verbose:
                 print('Dealer gets two points for his nibs')
-            if not self.award_points(self.dealer_idx, 2, verbose=verbose):
+            if not self.game.award_points(self.dealer_idx, 2, verbose=verbose):
                 return False
-        return True
-
-    def award_points(self, player_idx, num_points, verbose=False):
-        '''
-        Awards `num_points` to player `player_idx`.
-
-        Returns True if neither player has yet reached `target_score`,
-        or False if one or more players have already finished the
-        game.
-
-        Arguments:
-        - `player_idx`:
-        - `num_points`:
-        '''
-        if self.over:
-            return False
-        # check that neither player is over target_score
-        if any(score >= self.target_score for score in self.scores):
-            self.over = True
-            return False
-        # add the points to the given player's score
-        self.scores[player_idx] += num_points
-        # check if that player is now over target_score
-        if self.scores[player_idx] >= self.target_score:
-            if verbose:
-                print('Player {} wins with {} points'.format(
-                    player_idx + 1, self.scores[player_idx]))
-            self.over = True
-            return False
         return True
 
     def play_round(self, verbose=False):
@@ -583,10 +522,10 @@ class Game(object):
             if (self.is_go and not legal_moves) or self.flag_31:
                 # then last_player gets awarded 1 or 2 points, and we restart the sequence
                 if self.flag_31:
-                    if not self.award_points(self.last_player, 2, verbose=verbose):
+                    if not self.game.award_points(self.last_player, 2, verbose=verbose):
                         return False
                 else:
-                    if not self.award_points(self.last_player, 1, verbose=verbose):
+                    if not self.game.award_points(self.last_player, 1, verbose=verbose):
                         return False
                 # restart the sequence
                 if verbose:
@@ -666,7 +605,7 @@ class Game(object):
             if play_score:
                 if verbose:
                     print('Player {} scores:'.format(self.turn_idx+1), play_score)
-                if not self.award_points(self.turn_idx, play_score, verbose=verbose):
+                if not self.game.award_points(self.turn_idx, play_score, verbose=verbose):
                     return False
 
             # players take turns (except when one player is in "Go",
@@ -719,8 +658,8 @@ class Game(object):
             print('Starter card is ', card_tostring(self.starter_card))
         hand_score = score_hand(nondealer_hand, self.starter_card, verbose=verbose)
         if verbose:
-            print('Player {} scores,'.format(nondealer_idx + 1), hand_score)
-        if not self.award_points(nondealer_idx, hand_score, verbose=verbose):
+            print('Player {}\'s hand scores'.format(nondealer_idx + 1), hand_score)
+        if not self.game.award_points(nondealer_idx, hand_score, verbose=verbose):
             return False
 
         # score the dealer's hand
@@ -731,8 +670,8 @@ class Game(object):
             print('Starter card is ', card_tostring(self.starter_card))
         hand_score = score_hand(dealer_hand, self.starter_card, verbose=verbose)
         if verbose:
-            print('Player {} scores,'.format(self.dealer_idx + 1), hand_score)
-        if not self.award_points(self.dealer_idx, hand_score, verbose=verbose):
+            print('Player {}\'s hand scores'.format(self.dealer_idx + 1), hand_score)
+        if not self.game.award_points(self.dealer_idx, hand_score, verbose=verbose):
             return False
 
         # score the dealer's crib
@@ -742,31 +681,115 @@ class Game(object):
             print('Starter card is ', card_tostring(self.starter_card))
         hand_score = score_hand(self.crib, self.starter_card, crib=True, verbose=verbose)
         if verbose:
-            print('Player {} scores,'.format(self.dealer_idx + 1), hand_score)
-        if not self.award_points(self.dealer_idx, hand_score, verbose=verbose):
+            print('Player {}\'s crib scores,'.format(self.dealer_idx + 1), hand_score)
+        if not self.game.award_points(self.dealer_idx, hand_score, verbose=verbose):
             return False
-
-        # swap the dealer
-        self.dealer_idx = int(not self.dealer_idx)
 
         return True
 
     def print_state(self):
-        '''Print a representation of the current game state to stdout.'''
+        '''Print a representation of the current round state to stdout.'''
         for idx in range(2):
             print('Player {}{}  '.format(idx+1, '(D)' if idx == self.dealer_idx else '   '), end='')
             if self.hands:
                 print('{:17}'.format(' '.join([card_tostring(c) for c in sorted(self.hands[idx])])),
                       end='')
-            print('  {:3} Points'.format(self.scores[idx]), end='')
+            print('  {:3} Points'.format(self.game.scores[idx]), end='')
             if self.crib and idx == self.dealer_idx:
                 print('  Crib', ' '.join([card_tostring(c) for c in sorted(self.crib)]), end='')
             print()
+
+class Game(object):
+    '''
+    An object representing a game of cribbage between two
+    CribbagePlayers.
+    '''
+
+    def __init__(self, players):
+        '''
+        Constructor.
+
+        Arguments:
+        - `players`: a list of two CribbagePlayer objects
+        '''
+        self.players = players
+        # scores start at zero
+        self.scores = [0, 0]
+        # The players cut for first deal, and the person who cuts the
+        # lowest card deals.
+        # Randomly pick one player to start.
+        self.dealer_idx = random.randrange(2)
+        self.target_score = 121
+        # a flag to cache the game state
+        self.over = False
+        # a game consists of a series of Round objects
+        self.rounds = []
+        # the last one in the series is called the current_round
+        self.current_round = None
+
+    def play_round(self, verbose=False):
+        '''
+        Executes a single round of cribbage.
+
+            Play proceeds through a succession of "hands", each hand
+            consisting of a "deal", "the play" and "the show." At any
+            time during any of these stages, if a player reaches the
+            target score (usually 121), play ends immediately with
+            that player being the winner of the game. This can even
+            happen during the deal, since the dealer can score if a
+            Jack is cut as the starter.
+
+        Returns True if the game is not over after the round; False if
+        the game is over (or was already over before the round).
+
+        Arguments:
+        - `verbose`:
+        '''
+        if verbose:
+            print('Starting new round')
+        self.current_round = Round(self, self.players, self.dealer_idx)
+        self.rounds.append(self.current_round)
+        if self.current_round.deal_round(verbose=verbose):
+            if self.current_round.play_round(verbose=verbose):
+                if self.current_round.show_round(verbose=verbose):
+                    # swap the dealer
+                    self.dealer_idx = int(not self.dealer_idx)
+                    return True
+        return False
+
+    def award_points(self, player_idx, num_points, verbose=False):
+        '''
+        Awards `num_points` to player `player_idx`.
+
+        Returns True if neither player has yet reached `target_score`,
+        or False if one or more players have already finished the
+        game.
+
+        Arguments:
+        - `player_idx`:
+        - `num_points`:
+        '''
+        if self.over:
+            return False
+        # check that neither player is over target_score
+        if any(score >= self.target_score for score in self.scores):
+            self.over = True
+            return False
+        # add the points to the given player's score
+        self.scores[player_idx] += num_points
+        # check if that player is now over target_score
+        if self.scores[player_idx] >= self.target_score:
+            if verbose:
+                print('Player {} wins with {} points'.format(
+                    player_idx + 1, self.scores[player_idx]))
+            self.over = True
+            return False
+        return True
 
 # testing
 player1 = RandomCribbagePlayer()
 player2 = RandomCribbagePlayer()
 game = Game([player1, player2])
 #game.do_round(verbose=True)
-while game.do_round(verbose=True):
+while game.play_round(verbose=True):
     print('New round')
