@@ -4,6 +4,7 @@
 !*.xcodeproj/project.pbxproj
 *~
 .DS_Store
+/.cache/
 /.ipynb_checkpoints/
 /.ropeproject/
 /cribbage/_cribbage_score.c
