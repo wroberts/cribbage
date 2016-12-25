@@ -4,12 +4,25 @@
 from __future__ import absolute_import, print_function
 from cribbage.game import Game
 from cribbage.randomplayer import RandomCribbagePlayer
+from cribbage.simpleplayer import SimpleCribbagePlayer
 
 # ------------------------------------------------------------
 # Cribbage Game
 
-# testing
-player1 = RandomCribbagePlayer()
-player2 = RandomCribbagePlayer()
-game = Game([player1, player2])
-game.play(verbose=True)
+stats = [0,0]
+for i in range(1000):
+    g = Game([RandomCribbagePlayer(), RandomCribbagePlayer()])
+    g.play()
+    stats[g.winner] += 1
+
+# stats
+# [487, 513]
+
+stats = [0,0]
+for i in range(500):
+    g = Game([RandomCribbagePlayer(), SimpleCribbagePlayer()])
+    g.play()
+    stats[g.winner] += 1
+
+# stats
+# [16, 484]
