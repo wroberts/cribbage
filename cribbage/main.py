@@ -56,6 +56,7 @@ for i in range(500):
 
 # stats (after optimizing code)
 # [298, 202]
+# [325, 175]
 
 def myfunc():
     stats = [0,0]
@@ -65,4 +66,21 @@ def myfunc():
         stats[g.winner] += 1
 
 import cProfile
-cProfile.run('myfunc()')
+cProfile.run('myfunc()', sort='time')
+
+# deck=make_deck()
+# random.shuffle(deck)
+# p=SimpleCribbagePlayer()
+# hand=deck[:6]
+# def wrap_discard():
+#     for i in range(1000):
+#         p.discard(hand,False)
+# import hotshot
+# prof = hotshot.Profile("stones.prof")
+# prof.runcall(wrap_discard)
+# prof.close()
+
+# import hotshot.stats
+# stats = hotshot.stats.load("stones.prof")
+# stats.sort_stats('time', 'calls')
+# stats.print_stats(20)
