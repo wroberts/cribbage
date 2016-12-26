@@ -24,11 +24,13 @@ def explore_score_hand():
     score_hand(hand, draw, verbose=True)
 
 def make_testcases():
+    '''Produce random test cases.'''
     for i in range(100):
         hand, draw = make_random_hand_and_draw()
         print('assert score_hand({!r}, {!r}) == {}'.format(hand, draw, score_hand(hand, draw)))
 
 def score_hand_tester(fn):
+    '''Randomly built test cases to peg scoring behaviour.'''
     assert fn([22, 48, 25, 47], 0) == 2
     assert fn([12, 16, 34, 35], 46) == 3
     assert fn([49, 39, 48, 13], 5) == 2
@@ -229,9 +231,38 @@ def score_hand_tester(fn):
     assert fn([17, 45, 25, 46], 44) == 8
     assert fn([20, 31, 40, 6], 50) == 7
     assert fn([31, 36, 18, 30], 10) == 8
+
+def score_hand_tester_2(fn):
+    '''
+    Test cases taken from here:
+
+    http://codegolf.stackexchange.com/q/5515
+    '''
+    # 5S 5H 5D JS | KS  gives  21
+    assert fn([4, 17, 30, 10], 12, False) == 21
+    # AS 2D 3H JS | 4S !  gives  9
+    assert fn([0, 27, 15, 10], 3, True) == 9
+    # JD 3C 4H 5H | 5S  gives  12
+    assert fn([36, 41, 16, 17], 4, False) == 12
+    # 9S 8S 7S 6S | 5H !  gives  9
+    assert fn([8, 7, 6, 5], 17, True) == 9
+    # 9S 8S 7S 6S | 5H  gives  13
+    assert fn([8, 7, 6, 5], 17, False) == 13
+    # 8D 7D 6D 5D | 4D !  gives  14
+    assert fn([33, 32, 31, 30], 29, True) == 14
+    # 8D 7D 6D 5D | 4D  gives  14
+    assert fn([33, 32, 31, 30], 29, False) == 14
+    # AD KD 3C QD | 6D  gives  0
+    assert fn([26, 38, 41, 37], 31, False) == 0
 
 def test_score_hand():
     score_hand_tester(score_hand)
 
 def test_c_score_hand():
     score_hand_tester(c_score_hand)
+
+def test_score_hand_2():
+    score_hand_tester_2(score_hand)
+
+def test_c_score_hand_2():
+    score_hand_tester_2(c_score_hand)
