@@ -36,6 +36,10 @@ def card_tostring(vint):
     v, s = split_card(vint)
     return '{}{}'.format(CARD_FACES[v], CARD_SUITS[s])
 
+def string_tocard(sval):
+    '''Converts a string representation into a card value.'''
+    return make_card(CARD_FACES.index(sval[0]), CARD_SUITS.index(sval[1]))
+
 def make_deck():
     '''Creates a list containing all 52 card values.'''
     return range(52)
