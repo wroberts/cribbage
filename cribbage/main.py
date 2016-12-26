@@ -84,3 +84,12 @@ cProfile.run('myfunc()', sort='time')
 # stats = hotshot.stats.load("stones.prof")
 # stats.sort_stats('time', 'calls')
 # stats.print_stats(20)
+
+stats = [0,0]
+for i in range(500):
+    g = Game([SimpleCribbagePlayer(estimate_discard=False), SimpleCribbagePlayer(estimate_playcard=False)])
+    g.play()
+    stats[g.winner] += 1
+
+# stats
+# [48, 452]
