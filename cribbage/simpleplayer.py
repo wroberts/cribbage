@@ -3,6 +3,7 @@
 
 from __future__ import absolute_import, print_function
 import itertools
+import numpy as np
 import random
 from cribbage.cards import make_deck
 from cribbage.player import CribbagePlayer
@@ -10,15 +11,18 @@ try:
     from cribbage._cribbage_score import score_hand
 except ImportError:
     from cribbage.cribbage_score import score_hand
+from cribbage.cribbage_score import score_play
 
 class SimpleCribbagePlayer(CribbagePlayer):
     '''
     Cribbage player with simple AI!!!
     '''
 
-    def __init__(self):
+    def __init__(self, estimate_discard=True, estimate_playcard=True):
         '''Constructor.'''
         super(SimpleCribbagePlayer, self).__init__()
+        self.estimate_discard = estimate_discard
+        self.estimate_playcard = estimate_playcard
 
     def discard(self, hand, is_dealer):
         '''
@@ -32,11 +36,16 @@ class SimpleCribbagePlayer(CribbagePlayer):
         - `is_dealer`: a flag to indicate whether the given player is
           currently the dealer or not
         '''
+        if not self.estimate_discard:
+            return random.sample(range(6), 2)
         deck = sorted(set(make_deck()) - set(hand))
         results = {}
         for keep in itertools.combinations(hand, 4):
-            samples = [score_hand(keep, draw=random.choice(deck))
-                       for i in range(1000)]
+            num_samples = 1000
+            # pre-sample draw cards
+            draw_cards = np.random.randint(low=4, high=7, size=num_samples)
+            samples = [score_hand(keep, draw=draw_cards[i])
+                       for i in range(num_samples)]
             results[tuple(sorted(keep))] = sum(samples) / float(len(samples))
         # get the best hand
         best_hand = max((v,k) for (k,v) in results.items())[1]
@@ -67,5 +76,12 @@ class SimpleCribbagePlayer(CribbagePlayer):
           which cards from the hand may be played legally at this
           point in the game
         '''
-        # TODO
-        return random.choice(legal_moves)
+        if not self.estimate_playcard:
+            return random.choice(legal_moves)
+        choices = [hand[x] for x in legal_moves]
+        results = {}
+        for choice in choices:
+            results[choice] = score_play(linear_play + [choice])
+        max_value = max(results.values())
+        best_choices = [k for (k,v) in results.items() if v == max_value]
+        return hand.index(random.choice(best_choices))
