@@ -13,6 +13,22 @@ except ImportError:
     from cribbage.cribbage_score import score_hand
 from cribbage.cribbage_score import score_play
 
+KEEP_COMBINATIONS = [(0, 1, 2, 3),
+                     (0, 1, 2, 4),
+                     (0, 1, 2, 5),
+                     (0, 1, 3, 4),
+                     (0, 1, 3, 5),
+                     (0, 1, 4, 5),
+                     (0, 2, 3, 4),
+                     (0, 2, 3, 5),
+                     (0, 2, 4, 5),
+                     (0, 3, 4, 5),
+                     (1, 2, 3, 4),
+                     (1, 2, 3, 5),
+                     (1, 2, 4, 5),
+                     (1, 3, 4, 5),
+                     (2, 3, 4, 5)]
+
 class SimpleCribbagePlayer(CribbagePlayer):
     '''
     Cribbage player with simple AI!!!
@@ -39,11 +55,15 @@ class SimpleCribbagePlayer(CribbagePlayer):
         if not self.estimate_discard:
             return random.sample(range(6), 2)
         deck = sorted(set(make_deck()) - set(hand))
+        npdeck = np.array(deck)
+        nphand = np.array(hand)
         results = {}
-        for keep in itertools.combinations(hand, 4):
+        for keep_idxs in KEEP_COMBINATIONS:
+            keep = list(nphand[list(keep_idxs)])
             num_samples = 1000
             # pre-sample draw cards
-            draw_cards = np.random.randint(low=4, high=7, size=num_samples)
+            draw_card_idxs = np.random.randint(low=0, high=len(deck), size=num_samples)
+            draw_cards = npdeck[draw_card_idxs]
             samples = [score_hand(keep, draw=draw_cards[i])
                        for i in range(num_samples)]
             results[tuple(sorted(keep))] = sum(samples) / float(len(samples))

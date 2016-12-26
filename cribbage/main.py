@@ -54,6 +54,9 @@ for i in range(500):
 # stats
 # [326, 174]
 
+# stats (after optimizing code)
+# [298, 202]
+
 def myfunc():
     stats = [0,0]
     for i in range(100):
