@@ -2,6 +2,8 @@
  Cribbage
 ==========
 
+Python library for experimenting with the game of cribbage.
+
 C Extension
 ===========
 
