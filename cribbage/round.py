@@ -251,6 +251,7 @@ class Round(object):
                 self.turn_idx = int(not self.turn_idx)
                 self.is_go = True
                 continue
+
             # ask the player to choose
             play_idx = self.players[self.turn_idx].play_card(
                 self.hands[self.turn_idx],
@@ -259,12 +260,14 @@ class Round(object):
                 self.faceups[int(not self.turn_idx)],
                 self.linear_play,
                 legal_moves)
-            # record the last player to make a move
-            self.last_player = self.turn_idx
+
             # sanity checking
             assert 0 <= play_idx < len(self.hands[self.turn_idx])
             play_card = self.hands[self.turn_idx][play_idx]
             assert is_legal_play(play_card, self.linear_play)
+
+            # record the last player to make a move
+            self.last_player = self.turn_idx
 
             # make the move
             self.hands[self.turn_idx] = [c for i, c in enumerate(self.hands[self.turn_idx])
