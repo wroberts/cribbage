@@ -34,8 +34,10 @@ class Round(object):
         self.deck = None
         # the hands of the two players during the current game round
         self.hands = None
-        # copy of self.hands
-        self.orig_hands = None
+        # copy of self.hands directly after the deal
+        self.dealt_hands = None
+        # copy of self.hands directly after discarding, before play
+        self.kept_hands = None
         # the crib of the current game round
         self.crib = None
         # the card value of the "starter" or "cut" card for the
@@ -53,6 +55,9 @@ class Round(object):
         self.last_player = None
         # the cards played by both players during a round
         self.round_played = []
+        # the set of all cards that have been "seen" by both players
+        # during this round, used for counting cards
+        self.played_cards = set()
         # a flag that indicates whether the current sequence of the
         # current game round has gone to "Go" or not
         self.is_go = False
@@ -95,6 +100,8 @@ class Round(object):
         if verbose:
             print('Dealing cards')
             self.print_state()
+        # copy self.hands after dealing
+        self.dealt_hands = [x[:] for x in self.hands]
         # ask players to select cards to discard to crib
         self.crib = []
         for idx, player in enumerate(self.players):
@@ -112,7 +119,7 @@ class Round(object):
             self.hands[idx] = [c for i, c in enumerate(self.hands[idx])
                                if i not in discard_idxs]
         # copy self.hands after discarding
-        self.orig_hands = [x[:] for x in self.hands]
+        self.kept_hands = [x[:] for x in self.hands]
         if verbose:
             self.print_state()
         # randomly cut a card from the deck to serve as the "starter"
@@ -126,6 +133,8 @@ class Round(object):
                 print('Dealer gets two points for his nibs')
             if not self.game.award_points(self.dealer_idx, 2, verbose=verbose):
                 return False
+        # add the starter to the set of played cards
+        self.played_cards.add(self.starter_card)
         return True
 
     def play(self, verbose=False):
@@ -266,6 +275,9 @@ class Round(object):
             play_card = self.hands[self.turn_idx][play_idx]
             assert is_legal_play(play_card, self.linear_play)
 
+            # add the played card to the set of played cards
+            self.played_cards.add(play_card)
+
             # record the last player to make a move
             self.last_player = self.turn_idx
 
@@ -344,7 +356,7 @@ class Round(object):
         '''
         # score the non-dealer player's hand
         nondealer_idx = int(not self.dealer_idx)
-        nondealer_hand = self.orig_hands[nondealer_idx]
+        nondealer_hand = self.kept_hands[nondealer_idx]
         if verbose:
             print('Scoring player {}:'.format(nondealer_idx + 1),
                   ' '.join([card_tostring(c) for c in sorted(nondealer_hand)]))
@@ -356,7 +368,7 @@ class Round(object):
             return False
 
         # score the dealer's hand
-        dealer_hand = self.orig_hands[self.dealer_idx]
+        dealer_hand = self.kept_hands[self.dealer_idx]
         if verbose:
             print('Scoring player {}:'.format(self.dealer_idx + 1),
                   ' '.join([card_tostring(c) for c in sorted(dealer_hand)]))
