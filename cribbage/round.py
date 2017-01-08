@@ -263,12 +263,14 @@ class Round(object):
 
             # ask the player to choose
             play_idx = self.players[self.turn_idx].play_card(
-                self.hands[self.turn_idx],
-                self.turn_idx == self.dealer_idx,
-                self.faceups[self.turn_idx],
-                self.faceups[int(not self.turn_idx)],
-                self.linear_play,
-                legal_moves)
+                is_dealer=self.dealer_idx == self.turn_idx,
+                hand=self.hands[self.turn_idx],
+                played_cards=self.played_cards,
+                is_go=self.is_go,
+                linear_play=self.linear_play,
+                own_score=self.game.scores[self.turn_idx],
+                other_score=self.game.scores[int(not self.turn_idx)],
+                legal_moves=legal_moves)
 
             # sanity checking
             assert 0 <= play_idx < len(self.hands[self.turn_idx])
