@@ -48,16 +48,15 @@ def encode_categories(vec, start_offset, values):
 # own score: 121 units
 # other player's score: 121 units
 
-def discard_repr(current_round, player_idx):
+def discard_repr(is_dealer,
+                 hand,
+                 player_score,
+                 opponent_score):
     rv = np.zeros(1+51+121+121, dtype=int)
-    is_dealer = current_round.dealer_idx == player_idx
     rv[0] = int(is_dealer)
-    hand = current_round.dealt_hands[player_idx]
     encode_categories(rv, 1, hand)
-    own_score = current_round.game.scores[player_idx]
-    one_hot(rv, 53, own_score)
-    other_score = current_round.game.scores[int(not player_idx)]
-    one_hot(rv, 174, other_score)
+    one_hot(rv, 53, player_score)
+    one_hot(rv, 174, opponent_score)
     return rv
 
 # ------------------------------------------------------------
