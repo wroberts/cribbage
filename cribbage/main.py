@@ -18,15 +18,22 @@ def compare_players(players, num_games=1000):
 # Cribbage Game
 
 stats = compare_players([RandomCribbagePlayer(), RandomCribbagePlayer()])
+print('Random vs. random:', stats)
 
 # stats
 # [487, 513]
 
 stats = compare_players([RandomCribbagePlayer(), SimpleCribbagePlayer()], 500)
+print('Random vs. simple:', stats)
 
 # with discard()
 # stats
 # [16, 484]
+
+stats = compare_players([RandomCribbagePlayer(),
+                         SimpleCribbagePlayer(estimate_playcard=False)],
+                        500)
+print('Random vs. simple (only discard):', stats)
 
 # with play_card()
 # stats
@@ -39,6 +46,7 @@ stats = compare_players([RandomCribbagePlayer(), SimpleCribbagePlayer()], 500)
 stats = compare_players([RandomCribbagePlayer(),
                          SimpleCribbagePlayer(estimate_discard=False)],
                         500)
+print('Random vs. simple (only play_card):', stats)
 
 # stats
 # [161, 339]
@@ -46,6 +54,7 @@ stats = compare_players([RandomCribbagePlayer(),
 stats = compare_players([SimpleCribbagePlayer(),
                          SimpleCribbagePlayer(estimate_playcard=False)],
                         500)
+print('Simple vs. simple (only discard):', stats)
 
 # stats
 # [326, 174]
@@ -82,6 +91,7 @@ cProfile.run('myfunc()', sort='time')
 stats = compare_players([SimpleCribbagePlayer(estimate_discard=False),
                          SimpleCribbagePlayer(estimate_playcard=False)],
                         500)
+print('Simple (only play_card) vs. simple (only discard):', stats)
 
 # stats
 # [48, 452]
