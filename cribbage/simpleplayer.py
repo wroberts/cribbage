@@ -74,7 +74,15 @@ class SimpleCribbagePlayer(CribbagePlayer):
         # return indices to discard
         return [idx for idx, card in enumerate(hand) if card in discard_values]
 
-    def play_card(self, hand, is_dealer, own_pile, other_pile, linear_play, legal_moves):
+    def play_card(self,
+                  is_dealer,
+                  hand,
+                  played_cards,
+                  is_go,
+                  linear_play,
+                  player_score,
+                  opponent_score,
+                  legal_moves):
         '''
         Asks the player to select one card from `hand` to play during a
         cribbage round.
@@ -82,16 +90,17 @@ class SimpleCribbagePlayer(CribbagePlayer):
         Return an index into the hand array.
 
         Arguments:
-        - `hand`: an array of 1 to 4 card values
         - `is_dealer`: a flag to indicate whether the given player is
           currently the dealer or not
-        - `own_pile`: an array of 0 to 3 card values that the given
-          player has already played in this round
-        - `other_pile`: an array of 0 to 4 card values that the
-          player's opponent has played in this round
+        - `hand`: an array of 1 to 4 card values
+        - `played_cards`: a set of card values, containing all cards
+          seen so far in this round (including the starter card)
+        - `is_go`: a flag to indicate if the play is currently in go or not
         - `linear_play`: the array of card values that have been
           played in this round by both players, zippered into a single
           list
+        - `player_score`: the score of the current player
+        - `opponent_score`: the score of the current player's opponent
         - `legal_moves`: a list of indices into `hand` indicating
           which cards from the hand may be played legally at this
           point in the game
