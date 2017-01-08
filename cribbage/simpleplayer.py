@@ -2,9 +2,8 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import, print_function
-import itertools
-import numpy as np
 import random
+import numpy as np
 from cribbage.cards import make_deck
 from cribbage.player import CribbagePlayer
 try:
@@ -112,5 +111,5 @@ class SimpleCribbagePlayer(CribbagePlayer):
         for choice in choices:
             results[choice] = score_play(linear_play + [choice])
         max_value = max(results.values())
-        best_choices = [k for (k,v) in results.items() if v == max_value]
+        best_choices = [k for (k, v) in results.items() if v == max_value]
         return hand.index(random.choice(best_choices))
