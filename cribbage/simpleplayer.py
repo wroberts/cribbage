@@ -39,7 +39,11 @@ class SimpleCribbagePlayer(CribbagePlayer):
         self.estimate_discard = estimate_discard
         self.estimate_playcard = estimate_playcard
 
-    def discard(self, hand, is_dealer):
+    def discard(self,
+                is_dealer,
+                hand,
+                player_score,
+                opponent_score):
         '''
         Asks the player to select two cards from `hand` for discarding to
         the crib.
@@ -47,9 +51,11 @@ class SimpleCribbagePlayer(CribbagePlayer):
         Return is a list of two indices into the hand array.
 
         Arguments:
-        - `hand`: an array of 6 card values
         - `is_dealer`: a flag to indicate whether the given player is
           currently the dealer or not
+        - `hand`: an array of 6 card values
+        - `player_score`: the score of the current player
+        - `opponent_score`: the score of the current player's opponent
         '''
         if not self.estimate_discard:
             return random.sample(range(6), 2)
