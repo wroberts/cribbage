@@ -268,8 +268,8 @@ class Round(object):
                 played_cards=self.played_cards,
                 is_go=self.is_go,
                 linear_play=self.linear_play,
-                own_score=self.game.scores[self.turn_idx],
-                other_score=self.game.scores[int(not self.turn_idx)],
+                player_score=self.game.scores[self.turn_idx],
+                opponent_score=self.game.scores[int(not self.turn_idx)],
                 legal_moves=legal_moves)
 
             # sanity checking
