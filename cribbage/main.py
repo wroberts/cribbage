@@ -6,23 +6,23 @@ from cribbage.game import Game
 from cribbage.randomplayer import RandomCribbagePlayer
 from cribbage.simpleplayer import SimpleCribbagePlayer
 
+def compare_players(players, num_games=1000):
+    stats = [0, 0]
+    for i in range(num_games):
+        g = Game(players)
+        g.play()
+        stats[g.winner] += 1
+    return stats
+
 # ------------------------------------------------------------
 # Cribbage Game
 
-stats = [0,0]
-for i in range(1000):
-    g = Game([RandomCribbagePlayer(), RandomCribbagePlayer()])
-    g.play()
-    stats[g.winner] += 1
+stats = compare_players([RandomCribbagePlayer(), RandomCribbagePlayer()])
 
 # stats
 # [487, 513]
 
-stats = [0,0]
-for i in range(500):
-    g = Game([RandomCribbagePlayer(), SimpleCribbagePlayer()])
-    g.play()
-    stats[g.winner] += 1
+stats = compare_players([RandomCribbagePlayer(), SimpleCribbagePlayer()], 500)
 
 # with discard()
 # stats
@@ -36,20 +36,16 @@ for i in range(500):
 # http://www.socscistatistics.com/tests/chisquare/Default2.aspx
 # The chi-square statistic is 0.5879. The p-value is .443236.
 
-stats = [0,0]
-for i in range(500):
-    g = Game([RandomCribbagePlayer(), SimpleCribbagePlayer(estimate_discard=False)])
-    g.play()
-    stats[g.winner] += 1
+stats = compare_players([RandomCribbagePlayer(),
+                         SimpleCribbagePlayer(estimate_discard=False)],
+                        500)
 
 # stats
 # [161, 339]
 
-stats = [0,0]
-for i in range(500):
-    g = Game([SimpleCribbagePlayer(), SimpleCribbagePlayer(estimate_playcard=False)])
-    g.play()
-    stats[g.winner] += 1
+stats = compare_players([SimpleCribbagePlayer(),
+                         SimpleCribbagePlayer(estimate_playcard=False)],
+                        500)
 
 # stats
 # [326, 174]
@@ -59,11 +55,9 @@ for i in range(500):
 # [325, 175]
 
 def myfunc():
-    stats = [0,0]
-    for i in range(100):
-        g = Game([SimpleCribbagePlayer(), SimpleCribbagePlayer(estimate_playcard=False)])
-        g.play()
-        stats[g.winner] += 1
+    stats = compare_players([SimpleCribbagePlayer(),
+                             SimpleCribbagePlayer(estimate_playcard=False)],
+                            100)
 
 import cProfile
 cProfile.run('myfunc()', sort='time')
@@ -85,11 +79,9 @@ cProfile.run('myfunc()', sort='time')
 # stats.sort_stats('time', 'calls')
 # stats.print_stats(20)
 
-stats = [0,0]
-for i in range(500):
-    g = Game([SimpleCribbagePlayer(estimate_discard=False), SimpleCribbagePlayer(estimate_playcard=False)])
-    g.play()
-    stats[g.winner] += 1
+stats = compare_players([SimpleCribbagePlayer(estimate_discard=False),
+                         SimpleCribbagePlayer(estimate_playcard=False)],
+                        500)
 
 # stats
 # [48, 452]
