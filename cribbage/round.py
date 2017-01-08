@@ -104,20 +104,24 @@ class Round(object):
         self.dealt_hands = [x[:] for x in self.hands]
         # ask players to select cards to discard to crib
         self.crib = []
-        for idx, player in enumerate(self.players):
-            discard_idxs = player.discard(self.hands[idx], idx == self.dealer_idx)
+        for player_idx, player in enumerate(self.players):
+            discard_idxs = player.discard(
+                is_dealer=self.dealer_idx == player_idx,
+                hand=self.dealt_hands[player_idx],
+                player_score=self.game.scores[player_idx],
+                opponent_score=self.game.scores[int(not player_idx)])
             # sanity checking
             assert len(set(discard_idxs)) == 2
             assert all(0 <= i < 6 for i in discard_idxs)
             discard_idxs = set(discard_idxs)
-            discards = [c for i, c in enumerate(self.hands[idx])
+            discards = [c for i, c in enumerate(self.hands[player_idx])
                         if i in discard_idxs]
             if verbose:
-                print('Player {} discards:'.format(idx+1),
+                print('Player {} discards:'.format(player_idx+1),
                       ' '.join(card_tostring(c) for c in sorted(discards)))
             self.crib.extend(discards)
-            self.hands[idx] = [c for i, c in enumerate(self.hands[idx])
-                               if i not in discard_idxs]
+            self.hands[player_idx] = [c for i, c in enumerate(self.hands[player_idx])
+                                      if i not in discard_idxs]
         # copy self.hands after discarding
         self.kept_hands = [x[:] for x in self.hands]
         if verbose:
