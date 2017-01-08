@@ -74,21 +74,21 @@ def discard_repr(current_round, player_idx):
 # own score: 121 units
 # other player's score: 121 units
 
-def play_repr(current_round, player_idx):
+def play_repr(is_dealer,
+              hand,
+              played_cards,
+              is_go,
+              linear_play,
+              player_score,
+              opponent_score):
     rv = np.zeros(1+52+52+1+104+121+121, dtype=int)
-    is_dealer = current_round.dealer_idx == player_idx
     rv[0] = int(is_dealer)
-    hand = current_round.dealt_hands[player_idx]
     encode_categories(rv, 1, hand)
-    played_cards = current_round.played_cards
     encode_categories(rv, 53, played_cards)
-    is_go = current_round.is_go
     rv[105] = int(is_go)
-    play_state = [split_card(card)[0] for card in current_round.linear_play] # TODO: speedup
+    play_state = [split_card(card)[0] for card in linear_play] # TODO: speedup
     for bank_idx, card_value in enumerate(play_state[-8:]):
         one_hot(rv, 106 + 13 * bank_idx, card_value)
-    own_score = current_round.game.scores[player_idx]
-    one_hot(rv, 211, own_score)
-    other_score = current_round.game.scores[int(not player_idx)]
-    one_hot(rv, 332, other_score)
+    one_hot(rv, 211, player_score)
+    one_hot(rv, 332, opponent_score)
     return rv
