@@ -13,7 +13,11 @@ for inspiration.
 '''
 
 from cribbage.cards import split_card
+from cribbage.player import CribbagePlayer
 import numpy as np
+
+# ------------------------------------------------------------
+# Utility functions
 
 def one_hot(vec, start_offset, value):
     '''
@@ -91,3 +95,93 @@ def play_repr(is_dealer,
     one_hot(rv, 211, player_score)
     one_hot(rv, 332, opponent_score)
     return rv
+
+# ------------------------------------------------------------
+# Recording cribbage game state
+
+class NeuralRecordingCribbagePlayer(CribbagePlayer):
+    '''
+    A CribbagePlayer wrapper that records the game states it observes.
+    '''
+
+    def __init__(self, player):
+        '''Constructor.'''
+        super(NeuralRecordingCribbagePlayer, self).__init__()
+        self.player = player
+        self.discard_states = []
+        self.play_card_states = []
+
+    def reset(self):
+        '''
+        Resets this player's internal state record lists.
+        '''
+        self.discard_states = []
+        self.play_card_states = []
+
+    def discard(self,
+                is_dealer,
+                hand,
+                player_score,
+                opponent_score):
+        '''
+        Asks the player to select two cards from `hand` for discarding to
+        the crib.
+
+        Return is a list of two indices into the hand array.
+
+        Arguments:
+        - `is_dealer`: a flag to indicate whether the given player is
+          currently the dealer or not
+        - `hand`: an array of 6 card values
+        - `player_score`: the score of the current player
+        - `opponent_score`: the score of the current player's opponent
+        '''
+        state = discard_repr(is_dealer,
+                             hand,
+                             player_score,
+                             opponent_score)
+        self.discard_states.append(state)
+        return self.player.discard(is_dealer, hand, player_score, opponent_score)
+
+    def play_card(self,
+                  is_dealer,
+                  hand,
+                  played_cards,
+                  is_go,
+                  linear_play,
+                  player_score,
+                  opponent_score,
+                  legal_moves):
+        '''
+        Asks the player to select one card from `hand` to play during a
+        cribbage round.
+
+        Return an index into the hand array.
+
+        Arguments:
+        - `is_dealer`: a flag to indicate whether the given player is
+          currently the dealer or not
+        - `hand`: an array of 1 to 4 card values
+        - `played_cards`: a set of card values, containing all cards
+          seen so far in this round (including the starter card)
+        - `is_go`: a flag to indicate if the play is currently in go or not
+        - `linear_play`: the array of card values that have been
+          played in this round by both players, zippered into a single
+          list
+        - `player_score`: the score of the current player
+        - `opponent_score`: the score of the current player's opponent
+        - `legal_moves`: a list of indices into `hand` indicating
+          which cards from the hand may be played legally at this
+          point in the game
+        '''
+        state = play_repr(is_dealer,
+                          hand,
+                          played_cards,
+                          is_go,
+                          linear_play,
+                          player_score,
+                          opponent_score)
+        self.play_card_states.append(state)
+        return self.player.play_card(is_dealer, hand, played_cards, is_go,
+                                     linear_play, player_score, opponent_score,
+                                     legal_moves)
