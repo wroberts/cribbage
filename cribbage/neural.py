@@ -13,6 +13,7 @@ for inspiration.
 '''
 
 from cribbage.cards import split_card
+from cribbage.cribbage_score import is_legal_play
 from cribbage.player import CribbagePlayer
 import numpy as np
 
@@ -45,17 +46,17 @@ def encode_categories(vec, start_offset, values):
         vec[start_offset + value] = 1
 
 # ------------------------------------------------------------
-# Discard representation
+# Discard state and action representation
 
 # 1 unit: is it my crib?
 # 52 on/off with 6 on for own hand
 # own score: 121 units
 # other player's score: 121 units
 
-def discard_repr(is_dealer,
-                 hand,
-                 player_score,
-                 opponent_score):
+def discard_state_repr(is_dealer,
+                       hand,
+                       player_score,
+                       opponent_score):
     rv = np.zeros(1+51+121+121, dtype=int)
     rv[0] = int(is_dealer)
     encode_categories(rv, 1, hand)
@@ -63,8 +64,20 @@ def discard_repr(is_dealer,
     one_hot(rv, 174, opponent_score)
     return rv
 
+def discard_action_repr(discards):
+    '''
+    Constructs a vector representation of a discard action.
+
+    Arguments:
+    - `discards`: an iterable of length 2 containing two card values
+      (0-51 incl.)
+    '''
+    rv = np.zeros(52, dtype=int)
+    encode_categories(rv, 0, discards)
+    return rv
+
 # ------------------------------------------------------------
-# Play card representation
+# Play card state and action representation
 
 # 1 unit: is it my crib?
 # 52 on/off with up to 4 on for own hand
@@ -77,13 +90,13 @@ def discard_repr(is_dealer,
 # own score: 121 units
 # other player's score: 121 units
 
-def play_repr(is_dealer,
-              hand,
-              played_cards,
-              is_go,
-              linear_play,
-              player_score,
-              opponent_score):
+def play_state_repr(is_dealer,
+                    hand,
+                    played_cards,
+                    is_go,
+                    linear_play,
+                    player_score,
+                    opponent_score):
     rv = np.zeros(1+52+52+1+104+121+121, dtype=int)
     rv[0] = int(is_dealer)
     encode_categories(rv, 1, hand)
@@ -94,6 +107,17 @@ def play_repr(is_dealer,
         one_hot(rv, 106 + 13 * bank_idx, card_value)
     one_hot(rv, 211, player_score)
     one_hot(rv, 332, opponent_score)
+    return rv
+
+def play_action_repr(play_card):
+    '''
+    Constructs a vector representation of a play_card action.
+
+    Arguments:
+    - `play_card`: a card value (0-51 incl.)
+    '''
+    rv = np.zeros(52, dtype=int)
+    one_hot(rv, 0, play_card)
     return rv
 
 # ------------------------------------------------------------
@@ -153,14 +177,21 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
         - `player_score`: the score of the current player
         - `opponent_score`: the score of the current player's opponent
         '''
-        state = discard_repr(is_dealer,
-                             hand,
-                             player_score,
-                             opponent_score)
-        action = self.player.discard(is_dealer, hand, player_score, opponent_score)
+        state = discard_state_repr(is_dealer,
+                                   hand,
+                                   player_score,
+                                   opponent_score)
+        dicard_idxs = self.player.discard(is_dealer, hand, player_score, opponent_score)
+        # sanity checking
+        assert len(set(discard_idxs)) == 2
+        assert all(0 <= i < 6 for i in discard_idxs)
+        discard_idxs = set(discard_idxs)
+        discards = [c for i, c in enumerate(hand) if i in discard_idxs]
+        # construct a vector representation of discards
+        action = discard_action_repr(discards)
         # reward is zero since game is not over
         self.record_discard_state(0, state, action)
-        return action
+        return dicard_idxs
 
     def record_play_card_state(self, reward, state, action):
         if self.last_play_card_state is not None:
@@ -202,20 +233,26 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
           which cards from the hand may be played legally at this
           point in the game
         '''
-        state = play_repr(is_dealer,
-                          hand,
-                          played_cards,
-                          is_go,
-                          linear_play,
-                          player_score,
-                          opponent_score)
-        action = self.player.play_card(
+        state = play_state_repr(is_dealer,
+                                hand,
+                                played_cards,
+                                is_go,
+                                linear_play,
+                                player_score,
+                                opponent_score)
+        play_idx = self.player.play_card(
             is_dealer, hand, played_cards, is_go,
             linear_play, player_score, opponent_score,
             legal_moves)
+        # sanity checking
+        assert 0 <= play_idx < len(hand)
+        play_card = hand[play_idx]
+        assert is_legal_play(play_card, linear_play)
+        # construct a vector representation of play_card
+        action = play_action_repr(play_card)
         # reward is zero since game is not over
         self.record_play_card_state(0, state, action)
-        return action
+        return play_idx
 
     def round_over(self):
         '''
