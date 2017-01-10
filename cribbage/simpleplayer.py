@@ -33,10 +33,14 @@ class SimpleCribbagePlayer(CribbagePlayer):
     Cribbage player with simple AI!!!
     '''
 
-    def __init__(self, estimate_discard=True, estimate_playcard=True):
+    def __init__(self,
+                 estimate_discard=True,
+                 num_discard_samples=1000,
+                 estimate_playcard=True):
         '''Constructor.'''
         super(SimpleCribbagePlayer, self).__init__()
         self.estimate_discard = estimate_discard
+        self.num_discard_samples = num_discard_samples
         self.estimate_playcard = estimate_playcard
 
     def discard(self,
@@ -65,7 +69,7 @@ class SimpleCribbagePlayer(CribbagePlayer):
         results = {}
         for keep_idxs in KEEP_COMBINATIONS:
             keep = list(nphand[list(keep_idxs)])
-            num_samples = 1000
+            num_samples = self.num_discard_samples
             # pre-sample draw cards
             draw_card_idxs = np.random.randint(low=0, high=len(deck), size=num_samples)
             draw_cards = npdeck[draw_card_idxs]
