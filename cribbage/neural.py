@@ -181,7 +181,7 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
                                    hand,
                                    player_score,
                                    opponent_score)
-        dicard_idxs = self.player.discard(is_dealer, hand, player_score, opponent_score)
+        discard_idxs = self.player.discard(is_dealer, hand, player_score, opponent_score)
         # sanity checking
         assert len(set(discard_idxs)) == 2
         assert all(0 <= i < 6 for i in discard_idxs)
@@ -191,7 +191,7 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
         action = discard_action_repr(discards)
         # reward is zero since game is not over
         self.record_discard_state(0, state, action)
-        return dicard_idxs
+        return discard_idxs
 
     def record_play_card_state(self, reward, state, action):
         if self.last_play_card_state is not None:
