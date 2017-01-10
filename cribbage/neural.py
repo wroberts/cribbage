@@ -108,15 +108,32 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
         '''Constructor.'''
         super(NeuralRecordingCribbagePlayer, self).__init__()
         self.player = player
+        self.last_discard_state = None
+        self.last_discard_action = None
         self.discard_states = []
+        self.last_play_card_state = None
+        self.last_play_card_action = None
         self.play_card_states = []
 
     def reset(self):
         '''
         Resets this player's internal state record lists.
         '''
+        self.last_discard_state = None
+        self.last_discard_action = None
         self.discard_states = []
+        self.last_play_card_state = None
+        self.last_play_card_action = None
         self.play_card_states = []
+
+    def record_discard_state(self, reward, state, action):
+        if self.last_discard_state is not None:
+            self.discard_states.append((self.last_discard_state,
+                                        self.last_discard_action,
+                                        reward,
+                                        state))
+        self.last_discard_state = state
+        self.last_discard_action = action
 
     def discard(self,
                 is_dealer,
@@ -140,8 +157,19 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
                              hand,
                              player_score,
                              opponent_score)
-        self.discard_states.append(state)
-        return self.player.discard(is_dealer, hand, player_score, opponent_score)
+        action = self.player.discard(is_dealer, hand, player_score, opponent_score)
+        # reward is zero since game is not over
+        self.record_discard_state(0, state, action)
+        return action
+
+    def record_play_card_state(self, reward, state, action):
+        if self.last_play_card_state is not None:
+            self.play_card_states.append((self.last_play_card_state,
+                                          self.last_play_card_action,
+                                          reward,
+                                          state))
+        self.last_play_card_state = state
+        self.last_play_card_action = action
 
     def play_card(self,
                   is_dealer,
@@ -181,7 +209,27 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
                           linear_play,
                           player_score,
                           opponent_score)
-        self.play_card_states.append(state)
-        return self.player.play_card(is_dealer, hand, played_cards, is_go,
-                                     linear_play, player_score, opponent_score,
-                                     legal_moves)
+        action = self.player.play_card(
+            is_dealer, hand, played_cards, is_go,
+            linear_play, player_score, opponent_score,
+            legal_moves)
+        # reward is zero since game is not over
+        self.record_play_card_state(0, state, action)
+        return action
+
+    def round_over(self):
+        '''
+        Notification that the current round is over.
+        '''
+        pass
+
+    def game_over(self, has_won):
+        '''
+        Notification that the current game is over.  The argument to the
+        function is a flag indicating if this player won or not.
+
+        Arguments:
+        - `has_won`:
+        '''
+        self.record_discard_state(int(has_won), None, None)
+        self.record_play_card_state(int(has_won), None, None)
