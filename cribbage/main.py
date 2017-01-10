@@ -101,3 +101,21 @@ p1 = NeuralRecordingCribbagePlayer(RandomCribbagePlayer())
 p2 = NeuralRecordingCribbagePlayer(SimpleCribbagePlayer())
 g = Game([p1, p2])
 g.play()
+
+
+# estimate the number of discard() samples we need for good
+# performance in simpleplayer
+for num_samples in [5, 10, 20, 50, 100, 200, 500, 1000]:
+    stats = compare_players([SimpleCribbagePlayer(),
+                             SimpleCribbagePlayer(num_discard_samples=num_samples)],
+                            200)
+    print('Simple vs simple (num_discard_samples = {}):'.format(num_samples), stats)
+
+# Simple vs simple (num_discard_samples = 5): [116, 84]
+# Simple vs simple (num_discard_samples = 10): [99, 101]
+# Simple vs simple (num_discard_samples = 20): [96, 104]
+# Simple vs simple (num_discard_samples = 50): [107, 93]
+# Simple vs simple (num_discard_samples = 100): [104, 96]
+# Simple vs simple (num_discard_samples = 200): [102, 98]
+# Simple vs simple (num_discard_samples = 500): [98, 102]
+# Simple vs simple (num_discard_samples = 1000): [102, 98]
