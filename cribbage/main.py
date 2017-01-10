@@ -95,3 +95,9 @@ print('Simple (only play_card) vs. simple (only discard):', stats)
 
 # stats
 # [48, 452]
+
+from cribbage.neural import NeuralRecordingCribbagePlayer
+p1 = NeuralRecordingCribbagePlayer(RandomCribbagePlayer())
+p2 = NeuralRecordingCribbagePlayer(SimpleCribbagePlayer())
+g = Game([p1, p2])
+g.play()
