@@ -70,6 +70,9 @@ class Game(object):
                     # swap the dealer
                     self.dealer_idx = int(not self.dealer_idx)
                     return True
+        # notify the players of the winner
+        for player_idx, player in enumerate(self.players):
+            player.game_over(player_idx == self.winner)
         return False
 
     def play(self, verbose=False):

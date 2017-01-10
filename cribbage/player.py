@@ -69,3 +69,19 @@ class CribbagePlayer(object):
           point in the game
         '''
         raise NotImplementedError()
+
+    def round_over(self):
+        '''
+        Notification that the current round is over.
+        '''
+        pass
+
+    def game_over(self, has_won):
+        '''
+        Notification that the current game is over.  The argument to the
+        function is a flag indicating if this player won or not.
+
+        Arguments:
+        - `has_won`:
+        '''
+        pass

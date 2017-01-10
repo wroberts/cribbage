@@ -244,6 +244,9 @@ class Round(object):
                     if verbose:
                         print('Round is over')
                         self.print_state()
+                    # notify the players that the round is over
+                    for player in self.players:
+                        player.round_over()
                     # exit the loop
                     break
 
