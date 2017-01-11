@@ -266,6 +266,7 @@ def make_dqlearner(store, name):
     # validation will be performed by playing cribbage against a random
     # player
     model.validation_fn(compare_dqlearner_to_random_player)
+    model.num_epochs(5)
     return model
 
 dqlearner_a = make_dqlearner(store, 'dqlearner_a')
@@ -279,4 +280,3 @@ dqlearner = dqlearner_a if random.random() < 0.5 else dqlearner_b
 # update those values
 # train updated values
 dqlearner.training((selected_states, updated_values))
-dqlearner.num_epochs(5)
