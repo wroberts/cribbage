@@ -35,7 +35,7 @@ class SimpleCribbagePlayer(CribbagePlayer):
 
     def __init__(self,
                  estimate_discard=True,
-                 num_discard_samples=1000,
+                 num_discard_samples=20,
                  estimate_playcard=True):
         '''Constructor.'''
         super(SimpleCribbagePlayer, self).__init__()
