@@ -12,6 +12,6 @@ import itertools
 
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
-    a, b = itertools.tee(iterable)
-    next(b, None)
-    return itertools.izip(a, b)
+    iter1, iter2 = itertools.tee(iterable)
+    next(iter2, None)
+    return itertools.izip(iter1, iter2)
