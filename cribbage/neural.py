@@ -14,6 +14,7 @@ for inspiration.
 
 from cribbage.cards import split_card
 from cribbage.cribbage_score import is_legal_play
+from cribbage.game import Game
 from cribbage.player import CribbagePlayer
 import numpy as np
 
@@ -271,3 +272,44 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
         self.record_discard_state(int(has_won), None, None)
         self.record_play_card_state(int(has_won), None, None)
         self.player.game_over(has_won)
+
+
+def record_player1_states(player1, player2):
+    '''
+    Plays a single game of cribbage between player1 and player2.
+
+    Returns the discard and play_card (s,a,r,s) tuples seen by player1
+    during the game: `(discard_sars, play_card_sars)`.
+
+    Arguments:
+    - `player1`:
+    - `player2`:
+    '''
+    # wrap player1 object in a recorder
+    player1 = NeuralRecordingCribbagePlayer(player1)
+    game = Game([player1, player2])
+    game.play()
+    return (player1.discard_states,
+            player1.play_card_states)
+
+def record_both_player_states(player1, player2):
+    '''
+    Plays a single game of cribbage between player1 and player2.
+
+    Returns the discard and play_card (s,a,r,s) tuples seen by both
+    players during the game: `(p1_discard_sars, p1_play_card_sars,
+    p2_discard_sars, p2_play_card_sars)`.
+
+    Arguments:
+    - `player1`:
+    - `player2`:
+    '''
+    # wrap player objects in recorders
+    player1 = NeuralRecordingCribbagePlayer(player1)
+    player2 = NeuralRecordingCribbagePlayer(player2)
+    game = Game([player1, player2])
+    game.play()
+    return (player1.discard_states,
+            player1.play_card_states,
+            player2.discard_states,
+            player2.play_card_states)

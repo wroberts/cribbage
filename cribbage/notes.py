@@ -113,25 +113,7 @@ for num_samples in [5, 10, 20, 50, 100, 200, 500, 1000]:
 # Simple vs simple (num_discard_samples = 500): [98, 102]
 # Simple vs simple (num_discard_samples = 1000): [102, 98]
 
-from cribbage.neural import NeuralRecordingCribbagePlayer
-def record_player1_states(player1, player2):
-    # wrap player1 object in a recorder
-    player1 = NeuralRecordingCribbagePlayer(player1)
-    game = Game([player1, player2])
-    game.play()
-    return (player1.discard_states,
-            player1.play_card_states)
-
-def record_both_player_states(player1, player2):
-    # wrap player objects in recorders
-    player1 = NeuralRecordingCribbagePlayer(player1)
-    player2 = NeuralRecordingCribbagePlayer(player2)
-    game = Game([player1, player2])
-    game.play()
-    return (player1.discard_states,
-            player1.play_card_states,
-            player2.discard_states,
-            player2.play_card_states)
+from cribbage.neural import record_both_player_states
 
 #states = record_both_player_states(RandomCribbagePlayer(), SimpleCribbagePlayer())
 
