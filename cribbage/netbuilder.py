@@ -14,7 +14,7 @@ import itertools
 import json
 import os
 import random
-from cribbage.utils import open_atomic, doubler
+from cribbage.utils import doubler, mkdir_p, open_atomic
 import numpy as np
 
 class ModelStore(object):
@@ -31,6 +31,10 @@ class ModelStore(object):
         - `path`:
         '''
         self.path = path
+
+    def ensure_exists(self):
+        '''Ensure the directory used by this ModelStore exists.'''
+        mkdir_p(self.abs_path)
 
     @property
     def abs_path(self):
@@ -82,12 +86,32 @@ class Model(object):
         self.use_num_epochs = None
         # metadata dictionary for this Model
         self.metadata = None
-        self.load_metadata()
+        self.ensure_exists()
+        try:
+            self.load_metadata()
+        except IOError:
+            # no metadata file present, initialise metadata
+            self.metadata = {
+                'num_training_samples': 0,
+                'num_epochs': 0,
+                'num_minibatches': 0,
+                'snapshots': [],
+            }
+            self.save_metadata()
+
+    @property
+    def model_path(self):
+        '''Get the path where this Model's files are stored.'''
+        return os.path.join(self.store.abs_path, self.model_name)
+
+    def ensure_exists(self):
+        '''Ensure the directory used by this Model exists.'''
+        mkdir_p(self.model_path)
 
     @property
     def metadata_filename(self):
         '''Get this Model's metadata filename.'''
-        return os.path.join(self.store.abs_path, self.model_name, 'metadata.json')
+        return os.path.join(self.model_path, 'metadata.json')
 
     def load_metadata(self):
         '''Loads metadata for this Model from disk.'''
