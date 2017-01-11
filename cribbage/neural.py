@@ -57,7 +57,7 @@ def discard_state_repr(is_dealer,
                        hand,
                        player_score,
                        opponent_score):
-    rv = np.zeros(1+51+121+121, dtype=int)
+    rv = np.zeros(1+52+121+121, dtype=int)
     rv[0] = int(is_dealer)
     encode_categories(rv, 1, hand)
     one_hot(rv, 53, player_score)
@@ -105,8 +105,8 @@ def play_state_repr(is_dealer,
     play_state = [split_card(card)[0] for card in linear_play] # TODO: speedup
     for bank_idx, card_value in enumerate(play_state[-8:]):
         one_hot(rv, 106 + 13 * bank_idx, card_value)
-    one_hot(rv, 211, player_score)
-    one_hot(rv, 332, opponent_score)
+    one_hot(rv, 210, player_score)
+    one_hot(rv, 331, opponent_score)
     return rv
 
 def play_action_repr(play_card):
