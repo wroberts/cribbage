@@ -72,13 +72,15 @@ class Model(object):
         '''
         pass # TODO
 
-    def hidden(self, hidden_size, activation='sigmoid'):
+    def hidden(self, hidden_size, activation='sigmoid', dropout=None):
         '''
         Creates a hidden layer of the given size.
 
         Arguments:
         - `hidden_size`:
         - `activation`:
+        - `dropout`: if not None, the probability that a node's output
+          will be dropped
         '''
         pass # TODO
 
@@ -211,9 +213,9 @@ store = ModelStore('models')
 # create and configure a new model
 dautoenc = Model(store, 'dautoenc')
 # network architecture
-dautoenc.input(294)
-dautoenc.hidden(150, 'rectify') # Dense
-dautoenc.output(294, 'rectify') # Dense
+dautoenc.input(295)
+dautoenc.hidden(150, 'rectify', dropout=0.2) # Dense
+dautoenc.output(295, 'rectify') # Dense
 dautoenc.objective('squared_error')
 dautoenc.update('adadelta')
 # build a validation set with fixed random state
@@ -231,10 +233,10 @@ build(dautoenc)
 # create and configure a new model
 dautoenc2 = Model(store, 'dautoenc2')
 # network architecture
-dautoenc2.input(294)
-dautoenc2.hidden(150, 'rectify') # Dense
-dautoenc2.hidden(150, 'rectify') # Dense
-dautoenc2.output(294, 'rectify') # Dense
+dautoenc2.input(295)
+dautoenc2.hidden(150, 'rectify', dropout=0.2) # Dense
+dautoenc2.hidden(150, 'rectify', dropout=0.2) # Dense
+dautoenc2.output(295, 'rectify') # Dense
 dautoenc2.objective('squared_error')
 dautoenc2.update('adadelta')
 # initialise weights on first layer
@@ -255,9 +257,9 @@ build(dautoenc2)
 # Q-learning model for discard()
 def make_dqlearner(store, name):
     model = Model(store, name)
-    model.input(294)
-    model.hidden(150, 'rectify') # Dense
-    model.hidden(150, 'rectify') # Dense
+    model.input(295)
+    model.hidden(150, 'rectify', dropout=0.2) # Dense
+    model.hidden(150, 'rectify', dropout=0.2) # Dense
     model.output(52, 'rectify') # Dense: top two activations indicate cards to play
     model.objective('squared_error')
     model.update('adadelta')
