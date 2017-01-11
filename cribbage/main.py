@@ -127,3 +127,32 @@ def record_states(player1, player2):
 
 #states = record_states(RandomCribbagePlayer(), SimpleCribbagePlayer())
 
+import random
+def random_discard_sars_gen(random_seed = None):
+    '''
+    Infinite generator over discard (state, action, reward,
+    next_state) tuples, using a random player.  Produces about 2700
+    states per second on samarkand.
+
+    Arguments:
+    - `random_seed`:
+    '''
+    random.seed(random_seed)
+    player = RandomCribbagePlayer()
+    while True:
+        discard_states1, _pcs1, discard_states2, _pcs2 = record_states(player, player)
+        for state in discard_states1:
+            yield state
+        for state in discard_states2:
+            yield state
+
+def random_discard_state_gen(random_seed = None):
+    '''
+    Infinite generator over discard states, using a random player.
+    Produces about 2700 states per second on samarkand.
+
+    Arguments:
+    - `random_seed`:
+    '''
+    for (state, _a, _r, _s) in random_discard_sars_gen(random_seed):
+        yield state
