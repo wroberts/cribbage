@@ -258,7 +258,7 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
         '''
         Notification that the current round is over.
         '''
-        pass
+        self.player.round_over()
 
     def game_over(self, has_won):
         '''
@@ -270,3 +270,4 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
         '''
         self.record_discard_state(int(has_won), None, None)
         self.record_play_card_state(int(has_won), None, None)
+        self.player.game_over(has_won)
