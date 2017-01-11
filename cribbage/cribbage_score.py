@@ -13,7 +13,8 @@ from collections import Counter
 import itertools
 import math
 import numpy as np
-from .cards import CARD_FACES, CARD_VALUES, card_worth, cards_worth, pairwise, split_card
+from .cards import CARD_FACES, CARD_VALUES, card_worth, cards_worth, split_card
+from .utils import pairwise
 
 def score_hand(hand, draw=None, crib=False, verbose=False):
     '''

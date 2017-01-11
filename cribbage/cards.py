@@ -13,7 +13,6 @@ Ace to 12 representing King), and a "suit" value (0 representing
 Spades to 3 representing Clubs).
 '''
 
-import itertools
 import random
 
 # ------------------------------------------------------------
@@ -55,12 +54,6 @@ def make_random_hand_and_draw():
     '''Create a random 4-card cribbage hand, and a random card as the starter.'''
     hd = random.sample(make_deck(), 5)
     return hd[:4], hd[4]
-
-def pairwise(iterable):
-    "s -> (s0,s1), (s1,s2), (s2, s3), ..."
-    a, b = itertools.tee(iterable)
-    next(b, None)
-    return itertools.izip(a, b)
 
 # ------------------------------------------------------------
 # Determining cards' worth (for making 15s and 31s)
