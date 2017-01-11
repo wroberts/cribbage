@@ -273,10 +273,21 @@ dqlearner_a = make_dqlearner(store, 'dqlearner_a')
 dqlearner_b = make_dqlearner(store, 'dqlearner_b')
 # training will be done with online policy updating
 # randomly select action-chooser network and action-value-estimator network
-dqlearner = dqlearner_a if random.random() < 0.5 else dqlearner_b
+if random.random() < 0.5:
+    dqlearner_update = dqlearner_a
+    dqlearner_scorer = dqlearner_b
+else:
+    dqlearner_update = dqlearner_b
+    dqlearner_scorer = dqlearner_a
 # play a bunch of games against random player and record (s,a,r,s) discard states
+QLearningPlayer(dqlearner_update)
 # randomly select a bunch of these states
+selected_sars = BLAH
+pre_states, _actions, rewards, post_states = selected_sars
 # calculate values of (s,a) using the action-value-estimator
+previous_scores = dqlearner_scorer.score(post_states)
+previous_values = dqlearner_update.score(post_states)
 # update those values
+updated_values = previous_values + alpha * (rewards + gamma * previous_scores - previous_values)
 # train updated values
-dqlearner.training((selected_states, updated_values))
+dqlearner_update.training((pre_states, updated_values))
