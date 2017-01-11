@@ -25,6 +25,18 @@ def doubler(iterable):
     for val in iterable:
         yield (val, val)
 
+def mkdir_p(path):
+    '''
+    Functionality similar to mkdir -p.
+    '''
+    try:
+        os.makedirs(path)
+    except OSError as exc: # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
 # ------------------------------------------------------------
 #  Atomic file I/O
 # ------------------------------------------------------------
