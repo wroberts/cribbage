@@ -58,12 +58,21 @@ def discard_state_repr(is_dealer,
                        hand,
                        player_score,
                        opponent_score):
-    rv = np.zeros(1+52+121+121, dtype=int)
-    rv[0] = int(is_dealer)
-    encode_categories(rv, 1, hand)
-    one_hot(rv, 53, player_score)
-    one_hot(rv, 174, opponent_score)
-    return rv
+    '''
+    Constructs a vector representation of a discard state.
+
+    Arguments:
+    - `is_dealer`:
+    - `hand`:
+    - `player_score`:
+    - `opponent_score`:
+    '''
+    retval = np.zeros(1+52+121+121, dtype=int)
+    retval[0] = int(is_dealer)
+    encode_categories(retval, 1, hand)
+    one_hot(retval, 53, player_score)
+    one_hot(retval, 174, opponent_score)
+    return retval
 
 def discard_action_repr(discards):
     '''
@@ -73,9 +82,9 @@ def discard_action_repr(discards):
     - `discards`: an iterable of length 2 containing two card values
       (0-51 incl.)
     '''
-    rv = np.zeros(52, dtype=int)
-    encode_categories(rv, 0, discards)
-    return rv
+    retval = np.zeros(52, dtype=int)
+    encode_categories(retval, 0, discards)
+    return retval
 
 # ------------------------------------------------------------
 # Play card state and action representation
@@ -98,17 +107,29 @@ def play_state_repr(is_dealer,
                     linear_play,
                     player_score,
                     opponent_score):
-    rv = np.zeros(1+52+52+1+104+121+121, dtype=int)
-    rv[0] = int(is_dealer)
-    encode_categories(rv, 1, hand)
-    encode_categories(rv, 53, played_cards)
-    rv[105] = int(is_go)
+    '''
+    Constructs a vector representation of a play_card state.
+
+    Arguments:
+    - `is_dealer`:
+    - `hand`:
+    - `played_cards`:
+    - `is_go`:
+    - `linear_play`:
+    - `player_score`:
+    - `opponent_score`:
+    '''
+    retval = np.zeros(1+52+52+1+104+121+121, dtype=int)
+    retval[0] = int(is_dealer)
+    encode_categories(retval, 1, hand)
+    encode_categories(retval, 53, played_cards)
+    retval[105] = int(is_go)
     play_state = [split_card(card)[0] for card in linear_play] # TODO: speedup
     for bank_idx, card_value in enumerate(play_state[-8:]):
-        one_hot(rv, 106 + 13 * bank_idx, card_value)
-    one_hot(rv, 210, player_score)
-    one_hot(rv, 331, opponent_score)
-    return rv
+        one_hot(retval, 106 + 13 * bank_idx, card_value)
+    one_hot(retval, 210, player_score)
+    one_hot(retval, 331, opponent_score)
+    return retval
 
 def play_action_repr(play_card):
     '''
@@ -117,9 +138,9 @@ def play_action_repr(play_card):
     Arguments:
     - `play_card`: a card value (0-51 incl.)
     '''
-    rv = np.zeros(52, dtype=int)
-    one_hot(rv, 0, play_card)
-    return rv
+    retval = np.zeros(52, dtype=int)
+    one_hot(retval, 0, play_card)
+    return retval
 
 # ------------------------------------------------------------
 # Recording cribbage game state
@@ -152,6 +173,14 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
         self.play_card_states = []
 
     def record_discard_state(self, reward, state, action):
+        '''
+        Appends a (s,a,r,s) tuple onto this player's discard_states list.
+
+        Arguments:
+        - `reward`:
+        - `state`:
+        - `action`:
+        '''
         if self.last_discard_state is not None:
             self.discard_states.append((self.last_discard_state,
                                         self.last_discard_action,
@@ -195,6 +224,15 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
         return discard_idxs
 
     def record_play_card_state(self, reward, state, action):
+        '''
+        Appends a play_card (s,a,r,s) tuple onto this player's
+        play_card_states list.
+
+        Arguments:
+        - `reward`:
+        - `state`:
+        - `action`:
+        '''
         if self.last_play_card_state is not None:
             self.play_card_states.append((self.last_play_card_state,
                                           self.last_play_card_action,
