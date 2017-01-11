@@ -96,13 +96,6 @@ print('Simple (only play_card) vs. simple (only discard):', stats)
 # stats
 # [48, 452]
 
-from cribbage.neural import NeuralRecordingCribbagePlayer
-p1 = NeuralRecordingCribbagePlayer(RandomCribbagePlayer())
-p2 = NeuralRecordingCribbagePlayer(SimpleCribbagePlayer())
-g = Game([p1, p2])
-g.play()
-
-
 # estimate the number of discard() samples we need for good
 # performance in simpleplayer
 for num_samples in [5, 10, 20, 50, 100, 200, 500, 1000]:
@@ -119,3 +112,18 @@ for num_samples in [5, 10, 20, 50, 100, 200, 500, 1000]:
 # Simple vs simple (num_discard_samples = 200): [102, 98]
 # Simple vs simple (num_discard_samples = 500): [98, 102]
 # Simple vs simple (num_discard_samples = 1000): [102, 98]
+
+from cribbage.neural import NeuralRecordingCribbagePlayer
+def record_states(player1, player2):
+    # wrap player objects in recorders
+    player1 = NeuralRecordingCribbagePlayer(player1)
+    player2 = NeuralRecordingCribbagePlayer(player2)
+    game = Game([player1, player2])
+    game.play()
+    return (player1.discard_states,
+            player1.play_card_states,
+            player2.discard_states,
+            player2.play_card_states)
+
+#states = record_states(RandomCribbagePlayer(), SimpleCribbagePlayer())
+
