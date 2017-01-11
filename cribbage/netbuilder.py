@@ -123,6 +123,10 @@ class Model(object):
         with open_atomic(self.metadata_filename, 'wb') as output_file:
             output_file.write(json.dumps(self.metadata, indent=4))
 
+    @property
+    def best_validation_error(self):
+        pass # TODO
+
     def input(self, input_size):
         '''
         Creates an input layer of the given size.
@@ -333,6 +337,33 @@ def make_dqlearner(store, name):
     model.num_epochs(5)
     return model
 
+def get_best_actions(qlearner_model, states_matrix):
+    '''
+    Given a Model with a Q-learning neural network in it, and a matrix
+    of N states, returns a vector of length N containing the argmax of
+    the network's outputs for each state (the action the network would
+    choose in that state).
+
+    Arguments:
+    - `qlearner_model`:
+    - `states_matrix`:
+    '''
+    return None # TODO
+
+def get_scores(qlearner_model, states_matrix, actions_vector):
+    '''
+    Given a Model with a Q-learning neural network in it, and a matrix
+    of N states, and a vector of N integer values (each of which can
+    be one-hot encoded to action vectors), returns a vector of length
+    N giving the network's valuation of those state-action pairs.
+
+    Arguments:
+    - `qlearner_model`:
+    - `states_matrix`:
+    - `actions_vector`:
+    '''
+    return None # TODO
+
 dqlearner_a = make_dqlearner(store, 'dqlearner_a')
 dqlearner_b = make_dqlearner(store, 'dqlearner_b')
 # training will be done with online policy updating
@@ -349,9 +380,9 @@ record_player1_states(QLearningPlayer(dqlearner_update), RandomCribbagePlayer())
 selected_sars = BLAH
 pre_states, actions, rewards, post_states = selected_sars
 # calculate values of (s,a) using the action-value-estimator
-best_actions = dqlearner_update.best_actions(post_states)
-value_estimates = dqlearner_scorer.score(post_states, best_actions)
-previous_values = dqlearner_update.score(pre_states, actions)
+best_actions = get_best_actions(dqlearner_update, post_states)
+value_estimates = get_scores(dqlearner_scorer, post_states, best_actions)
+previous_values = get_scores(dqlearner_update, pre_states, actions)
 # update those values
 updated_values = previous_values + alpha * (rewards + gamma * value_estimates - previous_values)
 # train updated values
