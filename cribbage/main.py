@@ -114,7 +114,15 @@ for num_samples in [5, 10, 20, 50, 100, 200, 500, 1000]:
 # Simple vs simple (num_discard_samples = 1000): [102, 98]
 
 from cribbage.neural import NeuralRecordingCribbagePlayer
-def record_states(player1, player2):
+def record_player1_states(player1, player2):
+    # wrap player1 object in a recorder
+    player1 = NeuralRecordingCribbagePlayer(player1)
+    game = Game([player1, player2])
+    game.play()
+    return (player1.discard_states,
+            player1.play_card_states)
+
+def record_both_player_states(player1, player2):
     # wrap player objects in recorders
     player1 = NeuralRecordingCribbagePlayer(player1)
     player2 = NeuralRecordingCribbagePlayer(player2)
@@ -125,7 +133,7 @@ def record_states(player1, player2):
             player2.discard_states,
             player2.play_card_states)
 
-#states = record_states(RandomCribbagePlayer(), SimpleCribbagePlayer())
+#states = record_both_player_states(RandomCribbagePlayer(), SimpleCribbagePlayer())
 
 import random
 def random_discard_sars_gen(random_seed = None):
@@ -140,7 +148,7 @@ def random_discard_sars_gen(random_seed = None):
     random.seed(random_seed)
     player = RandomCribbagePlayer()
     while True:
-        discard_states1, _pcs1, discard_states2, _pcs2 = record_states(player, player)
+        discard_states1, _pcs1, discard_states2, _pcs2 = record_both_player_states(player, player)
         for state in discard_states1:
             yield state
         for state in discard_states2:
