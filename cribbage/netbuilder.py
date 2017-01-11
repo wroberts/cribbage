@@ -320,14 +320,15 @@ else:
     dqlearner_update = dqlearner_b
     dqlearner_scorer = dqlearner_a
 # play a bunch of games against random player and record (s,a,r,s) discard states
-QLearningPlayer(dqlearner_update)
+record_player1_states(QLearningPlayer(dqlearner_update), RandomCribbagePlayer())
 # randomly select a bunch of these states
 selected_sars = BLAH
-pre_states, _actions, rewards, post_states = selected_sars
+pre_states, actions, rewards, post_states = selected_sars
 # calculate values of (s,a) using the action-value-estimator
-previous_scores = dqlearner_scorer.score(post_states)
-previous_values = dqlearner_update.score(post_states)
+best_actions = dqlearner_update.best_actions(post_states)
+value_estimates = dqlearner_scorer.score(post_states, best_actions)
+previous_values = dqlearner_update.score(pre_states, actions)
 # update those values
-updated_values = previous_values + alpha * (rewards + gamma * previous_scores - previous_values)
+updated_values = previous_values + alpha * (rewards + gamma * value_estimates - previous_values)
 # train updated values
 dqlearner_update.training((pre_states, updated_values))
