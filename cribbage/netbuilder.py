@@ -15,6 +15,21 @@ import random
 from cribbage.utils import doubler
 import numpy as np
 
+class ModelStore(object):
+    '''
+    An object representing a directory where Model objects are saved to
+    disk.
+    '''
+
+    def __init__(self, path):
+        '''
+        Constructor.
+
+        Arguments:
+        - `path`:
+        '''
+        self.path = path
+
 class Model(object):
     '''An object wrapping a Lasagne feedforward neural network.'''
 
