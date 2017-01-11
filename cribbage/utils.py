@@ -15,3 +15,8 @@ def pairwise(iterable):
     iter1, iter2 = itertools.tee(iterable)
     next(iter2, None)
     return itertools.izip(iter1, iter2)
+
+def doubler(iterable):
+    '''(x, y, z, ...) -> ((x, x), (y, y), (z, z), ...)'''
+    for val in iterable:
+        yield (val, val)

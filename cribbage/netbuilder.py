@@ -9,15 +9,11 @@ Declarative description language for producing persistent neural
 network models.
 '''
 
+from __future__ import absolute_import
 import itertools
 import random
+from cribbage.utils import doubler
 import numpy as np
-
-def doubler(iterable):
-    '''(x, y, z, ...) -> ((x, x), (y, y), (z, z), ...)'''
-    for x in iterable:
-        yield (x, x)
-
 
 class Model(object):
     '''An object wrapping a Lasagne feedforward neural network.'''
