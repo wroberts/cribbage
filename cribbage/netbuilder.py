@@ -30,8 +30,8 @@ class Model(object):
         '''
         self.store = store
         self.model_name = model_name
-        self.objective = 'squared_error'
-        self.update = 'adadelta'
+        self.objective_name = 'squared_error'
+        self.update_name = 'adadelta'
         # validation is computed after this many minibatches have been
         # trained
         self.validation_interval = 50
@@ -101,7 +101,7 @@ class Model(object):
         Arguments:
         - `objective_fn`:
         '''
-        self.objective = objective_fn
+        self.objective_name = objective_fn
 
     def update(self, update_fn):
         '''
@@ -111,7 +111,7 @@ class Model(object):
         Arguments:
         - `update_fn`:
         '''
-        self.update = update_fn
+        self.update_name = update_fn
 
     def validation(self, validation_set):
         '''
