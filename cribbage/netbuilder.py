@@ -11,8 +11,10 @@ network models.
 
 from __future__ import absolute_import
 import itertools
+import json
+import os
 import random
-from cribbage.utils import doubler
+from cribbage.utils import open_atomic, doubler
 import numpy as np
 
 class ModelStore(object):
@@ -29,6 +31,11 @@ class ModelStore(object):
         - `path`:
         '''
         self.path = path
+
+    @property
+    def abs_path(self):
+        '''Get this ModelStore's absolute path.'''
+        return os.path.abspath(self.path)
 
 class Model(object):
     '''An object wrapping a Lasagne feedforward neural network.'''
@@ -73,6 +80,24 @@ class Model(object):
         # stops after this many loops through the training set.  only
         # use if training set is of finite size.
         self.use_num_epochs = None
+        # metadata dictionary for this Model
+        self.metadata = None
+        self.load_metadata()
+
+    @property
+    def metadata_filename(self):
+        '''Get this Model's metadata filename.'''
+        return os.path.join(self.store.abs_path, self.model_name, 'metadata.json')
+
+    def load_metadata(self):
+        '''Loads metadata for this Model from disk.'''
+        with open(self.metadata_filename, 'rb') as input_file:
+            self.metadata = json.loads(input_file.read().decode('utf-8'), use_decimal=True)
+
+    def save_metadata(self):
+        '''Saves metadata for this Model to disk.'''
+        with open_atomic(self.metadata_filename, 'wb') as output_file:
+            output_file.write(json.dumps(self.metadata, indent=4))
 
     def input(self, input_size):
         '''
