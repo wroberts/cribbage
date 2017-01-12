@@ -63,19 +63,21 @@ def random_skip(seq, p=0.2):
         if random.random() < p:
             yield item
 
-dautoenc.network
-data = T.matrix('data')
-predictions = lasagne.layers.get_output(dautoenc.network)
-targets = T.matrix('targets')
-loss = lasagne.objectives.squared_error(predictions, targets)
-loss = lasagne.objectives.aggregate(loss, mode='mean')
-validation_predictions = lasagne.layers.get_output(dautoenc.network, data, deterministic=True)
-validation_loss = lasagne.objectives.squared_error(validation_predictions, targets)
-validation_loss = lasagne.objectives.aggregate(validation_loss, mode='mean')
+# http://stackoverflow.com/a/8991553/1062499
+def grouper(n, iterable):
+    it = iter(iterable)
+    while True:
+       chunk = tuple(itertools.islice(it, n))
+       if not chunk:
+           return
+       yield chunk
+
+def minibatcher(n, iterable):
+    for item in grouper(n, iterable):
+        yield np.array(item)
 
 # models will be stored in the models/ directory
 store = ModelStore('models')
-
 # create and configure a new model
 dautoenc = Model(store, 'dautoenc')
 # network architecture
@@ -84,6 +86,7 @@ dautoenc.hidden(150, 'rectify', dropout=0.2) # Dense
 dautoenc.output(295, 'rectify') # Dense
 dautoenc.objective('squared_error')
 dautoenc.update('adadelta')
+dautoenc.update_params({}) # 'learning_rate': 1.0, 'rho': 0.95, 'epsilon': 1e-6
 # build a validation set with fixed random state
 val_set = list(itertools.islice(doubler(random_skip(random_discard_state_gen(42))), 500))
 dautoenc.validation(val_set)
@@ -95,6 +98,60 @@ dautoenc.minibatch_size(500)
 dautoenc.num_minibatches(10000)
 # build the model
 build(dautoenc)
+
+# implementation of build
+
+data = T.matrix('data')
+predictions = lasagne.layers.get_output(dautoenc.network, data)
+targets = T.matrix('targets')
+loss = lasagne.objectives.squared_error(predictions, targets)
+loss = lasagne.objectives.aggregate(loss, mode='mean')
+validation_predictions = lasagne.layers.get_output(dautoenc.network, data, deterministic=True)
+validation_loss = lasagne.objectives.squared_error(validation_predictions, targets)
+validation_loss = lasagne.objectives.aggregate(validation_loss, mode='mean')
+
+if dautoenc.minibatch_size_value is not None:
+    minibatcher_fn = lambda xs: minibatcher(dautoenc.minibatch_size_value, xs)
+else:
+    minibatcher_fn = lambda xs: xs
+training_inputs = minibatcher_fn(dautoenc.training_inputs)
+training_outputs = minibatcher_fn(dautoenc.training_outputs)
+
+params = lasagne.layers.get_all_params(dautoenc.network, trainable=True)
+update_fn = UPDATE_NAMES[dautoenc.update_name]
+updates = update_fn(loss, params, **dautoenc.update_params_value)
+
+train_fn = theano.function([data, targets], loss, updates=updates)
+
+validation_fn = theano.function([data, targets], validation_loss)
+
+import time
+start_time = time.time()
+
+train_err = 0
+train_minibatches = 0
+for num_minibatches, (input_minibatch, output_minibatch) in enumerate(
+        itertools.izip(training_inputs, training_outputs)):
+
+    train_err += train_fn(input_minibatch, output_minibatch)
+    train_minibatches += 1
+
+    dautoenc.validation_interval = 1
+    if (num_minibatches + 1) % dautoenc.validation_interval == 0:
+        # compute validation
+        validation_err = 0
+        for input_minibatch, output_minibatch in itertools.izip(*map(minibatcher_fn, dautoenc.validation_set)):
+            validation_err += validation_fn(input_minibatch, output_minibatch)
+
+        # Then we print the results for this epoch:
+        print('Last training round took {:.3f}s'.format(time.time() - start_time))
+        print('  training loss:\t\t{:.6f}'.format(train_err / dautoenc.validation_interval))
+        print('  validation loss:\t\t{:.6f}'.format(validation_err))
+        start_time = time.time()
+        train_err = 0
+
+# ------------------------------------------------------------
+# Notes
 
 # create and configure a new model
 dautoenc2 = Model(store, 'dautoenc2')
