@@ -286,8 +286,61 @@ class Model(object):
             self._build_network()
         return self._network
 
-    def set_weights(self, param_name, param_set):
+    @property
+    def network_layers(self):
+        '''
+        Returns a dictionary mapping layer names to lasagne Layer objects.
+        '''
+        return dict((layer.name, layer) for layer in
+                    lasagne.layers.get_all_layers(dautoenc.network)
+                    if layer.name is not None)
+
+    def get_layer(self, layer_name):
+        '''
+        Returns the lasagne Layer from this Model's neural network with
+        the given name.
+
+        Arguments:
+        - `layer_name`:
+        '''
+        return self.network_layers[layer_name]
+
+    def make_snapshot(self):
+        # np.savez('model.npz', *lasagne.layers.get_all_param_values(network))
+        # self.metadata['snapshots'].append(BLAH)
+        # self.save_metadata()
         pass # TODO
+
+    def load_snapshot(self, snapshot_filename):
+        # with np.load('model.npz') as f:
+        #     param_values = [f['arr_%d' % i] for i in range(len(f.files))]
+        # lasagne.layers.set_all_param_values(self.network, param_values)
+        pass # TODO
+
+    def set_weights(self, layer_name, values):
+        '''
+        Sets the weight parameters (weight matrix and bias) on the given
+        layer of this network to the values given.
+
+        Arguments:
+        - `layer_name`:
+        - `values`: a list of weight parameter matrices
+        '''
+        params = self.get_layer(layer_name).get_params()
+        assert len(values) == len(params)
+        for (value, param) in zip(values, params):
+            assert value.shape == param.get_value().shape
+            param.set_value(value)
+
+    def get_weights(self, layer_name):
+        '''
+        Returns the weight parameters (weight matrix and bias) for the
+        given layer of this network.
+
+        Arguments:
+        - `layer_name`:
+        '''
+        return [param.get_value() for param in self.get_layer(layer_name).get_params()]
 
     def objective(self, objective_fn):
         '''
