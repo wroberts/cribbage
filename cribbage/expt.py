@@ -51,6 +51,18 @@ def random_discard_state_gen(random_seed = None):
     for (state, _a, _r, _s) in random_discard_sars_gen(random_seed):
         yield state
 
+def random_skip(seq, p=0.2):
+    '''
+    Generator yields items from a sequence, randomly skipping some of them.
+
+    Arguments:
+    - `seq`:
+    - `p`:
+    '''
+    for item in seq:
+        if random.random() < p:
+            yield item
+
 dautoenc.network
 data = T.matrix('data')
 predictions = lasagne.layers.get_output(dautoenc.network)
@@ -73,10 +85,10 @@ dautoenc.output(295, 'rectify') # Dense
 dautoenc.objective('squared_error')
 dautoenc.update('adadelta')
 # build a validation set with fixed random state
-val_set = list(itertools.islice(doubler(random_discard_state_gen(42)), 500))
+val_set = list(itertools.islice(doubler(random_skip(random_discard_state_gen(42))), 500))
 dautoenc.validation(val_set)
 # training stream with non-fixed random state
-stream = doubler(random_discard_state_gen())
+stream = doubler(random_skip(random_discard_state_gen()))
 dautoenc.training(stream)
 # configure training loop
 dautoenc.minibatch_size(500)
@@ -97,10 +109,10 @@ dautoenc2.update('adadelta')
 dautoenc = Model(store, 'dautoenc').best_validation_error
 dautoenc2.set_weights('hidden1', dautoenc.get_weights('hidden1'))
 # build a validation set with fixed random state
-val_set = list(itertools.islice(doubler(random_discard_state_gen(42)), 500))
+val_set = list(itertools.islice(doubler(random_skip(random_discard_state_gen(42)), 500)))
 dautoenc2.validation(val_set)
 # training stream with non-fixed random state
-stream = doubler(random_discard_state_gen())
+stream = doubler(random_skip(random_discard_state_gen()))
 dautoenc2.training(stream)
 # configure training loop
 dautoenc2.minibatch_size(500)
