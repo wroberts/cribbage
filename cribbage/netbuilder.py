@@ -389,7 +389,15 @@ class Model(object):
         self.use_num_epochs = num_epochs
 
 
-
+dautoenc.network
+data = T.matrix('data')
+predictions = lasagne.layers.get_output(dautoenc.network)
+targets = T.matrix('targets')
+loss = lasagne.objectives.squared_error(predictions, targets)
+loss = lasagne.objectives.aggregate(loss, mode='mean')
+validation_predictions = lasagne.layers.get_output(dautoenc.network, data, deterministic=True)
+validation_loss = lasagne.objectives.squared_error(validation_predictions, targets)
+validation_loss = lasagne.objectives.aggregate(validation_loss, mode='mean')
 
 # models will be stored in the models/ directory
 store = ModelStore('models')
