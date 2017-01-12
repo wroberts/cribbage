@@ -434,7 +434,9 @@ class Model(object):
         self.use_minibatch_size = minibatch_size
 
     def num_minibatches(self, num_minibatches):
-        '''Configures how long training should run for.  Useful if the training set is infinitely long.
+        '''
+        Configures how long training should run for.  Useful if the
+        training set is infinitely long.
 
         Arguments:
         - `num_minibatches`:
@@ -442,7 +444,9 @@ class Model(object):
         self.use_num_minibatches = num_minibatches
 
     def num_epochs(self, num_epochs):
-        '''Configures how long training should run for, if the training set is of finite length.
+        '''
+        Configures how long training should run for, if the training set
+        is of finite length.
 
         Arguments:
         - `num_epochs`:
