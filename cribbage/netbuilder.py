@@ -379,11 +379,24 @@ class Model(NetworkWrapper):
                     lasagne.layers.get_all_layers(self.network)
                     if layer.name is not None)
 
-    def make_snapshot(self):
-        # np.savez('model.npz', *lasagne.layers.get_all_param_values(network))
-        # self.metadata['snapshots'].append(BLAH)
-        # self.save_metadata()
-        pass # TODO
+    def save_snapshot(self, train_err, validation_err):
+        '''
+        Saves a snapshot of this Model's network to disk.  Also records
+        metadata about the snapshot, such as training and validation
+        error.
+
+        Arguments:
+        - `train_err`:
+        - `validation_err`:
+        '''
+        snapshot_filename = os.path.join(self.model_path, '{:10d}.npz'.format(self.metadata['num_minibatches']))
+        np.savez(snapshot_filename, *lasagne.layers.get_all_param_values(self.network))
+        self.metadata['snapshots'].append({
+            'num_minibatches': self.metadata['num_minibatches'],
+            'train_err': train_err,
+            'validation_err': validation_err,
+        })
+        self.save_metadata()
 
     def load_snapshot(self, snapshot_filename):
         # with np.load('model.npz') as f:
