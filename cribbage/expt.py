@@ -16,7 +16,7 @@ from cribbage.netbuilder import ModelStore, Model, build
 from cribbage.neural import record_both_player_states, record_player1_states
 from cribbage.randomplayer import RandomCribbagePlayer
 from cribbage.simpleplayer import SimpleCribbagePlayer
-from cribbage.utils import doubler, mkdir_p, open_atomic
+from cribbage.utils import doubled, mkdir_p, open_atomic
 import lasagne
 import numpy as np
 import theano
@@ -75,10 +75,10 @@ dautoenc.objective('squared_error')
 dautoenc.update('adadelta')
 dautoenc.update_params({}) # 'learning_rate': 1.0, 'rho': 0.95, 'epsilon': 1e-6
 # build a validation set with fixed random state
-val_set = list(itertools.islice(doubler(random_skip(random_discard_state_gen(42))), 500))
+val_set = list(itertools.islice(doubled(random_skip(random_discard_state_gen(42))), 500))
 dautoenc.validation(val_set)
 # training stream with non-fixed random state
-stream = doubler(random_skip(random_discard_state_gen()))
+stream = doubled(random_skip(random_discard_state_gen()))
 dautoenc.training(stream)
 # configure training loop
 dautoenc.minibatch_size(500)
@@ -102,10 +102,10 @@ dautoenc2.update('adadelta')
 dautoenc = Model(store, 'dautoenc').best_validation_error
 dautoenc2.set_weights('hidden1', dautoenc.get_weights('hidden1'))
 # build a validation set with fixed random state
-val_set = list(itertools.islice(doubler(random_skip(random_discard_state_gen(42)), 500)))
+val_set = list(itertools.islice(doubled(random_skip(random_discard_state_gen(42)), 500)))
 dautoenc2.validation(val_set)
 # training stream with non-fixed random state
-stream = doubler(random_skip(random_discard_state_gen()))
+stream = doubled(random_skip(random_discard_state_gen()))
 dautoenc2.training(stream)
 # configure training loop
 dautoenc2.minibatch_size(500)
