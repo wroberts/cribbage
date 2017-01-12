@@ -574,6 +574,8 @@ def build(model):
         train_minibatches += 1
         model.metadata['num_minibatches'] += 1
 
+        # TODO: stop when training criterion is reached
+
         if (num_minibatches + 1) % model.validation_interval == 0:
             # compute validation
             validation_err = 0
