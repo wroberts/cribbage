@@ -116,7 +116,7 @@ class Model(object):
     def load_metadata(self):
         '''Loads metadata for this Model from disk.'''
         with open(self.metadata_filename, 'rb') as input_file:
-            self.metadata = json.loads(input_file.read().decode('utf-8'), use_decimal=True)
+            self.metadata = json.loads(input_file.read().decode('utf-8'))
 
     def save_metadata(self):
         '''Saves metadata for this Model to disk.'''
