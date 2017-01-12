@@ -201,7 +201,7 @@ class Model(NetworkWrapper):
         # minibatch size; if this is not None, training (input,
         # output) pairs are grouped into blocks of this size during
         # training
-        self.use_minibatch_size = None
+        self.minibatch_size_value = None
         # training length
         # number of minibatches to train; if this is not None,
         # training stops after this many minibatches have been seen
@@ -447,7 +447,7 @@ class Model(NetworkWrapper):
         Arguments:
         - `minibatch_size`:
         '''
-        self.use_minibatch_size = minibatch_size
+        self.minibatch_size_value = minibatch_size
 
     def num_minibatches(self, num_minibatches):
         '''
