@@ -90,4 +90,4 @@ def open_atomic(filepath, mode='w+b', fsync=False, **kwargs):
                 if fsync:
                     output_file.flush()
                     os.fsync(output_file.fileno())
-    os.rename(tmppath, filepath)
+        os.rename(tmppath, filepath)
