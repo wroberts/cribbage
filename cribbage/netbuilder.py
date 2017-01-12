@@ -258,15 +258,23 @@ class Model(object):
         assert self.metadata['architecture'][0]['layer'] == 'input'
         assert self.metadata['architecture'][-1]['layer'] == 'output'
         if self._network is None:
+            num_hidden_layers = 0
             for layer in self.metadata['architecture']:
                 if layer['layer'] == 'input':
                     assert self._network is None
-                    self._network = lasagne.layers.InputLayer(shape=(None, layer['size']))
+                    self._network = lasagne.layers.InputLayer(shape=(None, layer['size']),
+                                                              name='input')
                 else:
                     assert self._network is not None
                     nonlinearity = NONLINEARITY_NAMES[layer['activation']]
+                    if layer['layer'] == 'hidden':
+                        num_hidden_layers += 1
+                        name = 'hidden{}'.format(num_hidden_layers)
+                    else:
+                        name = 'output'
                     self._network = lasagne.layers.DenseLayer(
                         self._network, num_units=layer['size'],
+                        name=name,
                         nonlinearity=nonlinearity)
                 if 'dropout' in layer and layer['dropout'] is not None:
                     self._network = lasagne.layers.DropoutLayer(self._network, p=layer['dropout'])
