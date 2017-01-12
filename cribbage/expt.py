@@ -11,12 +11,45 @@ Training an AI to play cribbage.
 from __future__ import absolute_import, print_function
 import itertools
 import random
-from cribbage.netbuilder import ModelStore, Model
+from cribbage.game import Game
+from cribbage.netbuilder import ModelStore, Model, build
+from cribbage.neural import record_both_player_states, record_player1_states
+from cribbage.randomplayer import RandomCribbagePlayer
+from cribbage.simpleplayer import SimpleCribbagePlayer
 from cribbage.utils import doubler, mkdir_p, open_atomic
 import lasagne
 import numpy as np
 import theano
 import theano.tensor as T
+
+def random_discard_sars_gen(random_seed = None):
+    '''
+    Infinite generator over discard (state, action, reward,
+    next_state) tuples, using a random player.  Produces about 2700
+    states per second on samarkand.
+
+    Arguments:
+    - `random_seed`:
+    '''
+    random.seed(random_seed)
+    player = RandomCribbagePlayer()
+    while True:
+        discard_states1, _pcs1, discard_states2, _pcs2 = record_both_player_states(player, player)
+        for state in discard_states1:
+            yield state
+        for state in discard_states2:
+            yield state
+
+def random_discard_state_gen(random_seed = None):
+    '''
+    Infinite generator over discard states, using a random player.
+    Produces about 2700 states per second on samarkand.
+
+    Arguments:
+    - `random_seed`:
+    '''
+    for (state, _a, _r, _s) in random_discard_sars_gen(random_seed):
+        yield state
 
 dautoenc.network
 data = T.matrix('data')

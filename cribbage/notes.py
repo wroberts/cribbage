@@ -112,37 +112,3 @@ for num_samples in [5, 10, 20, 50, 100, 200, 500, 1000]:
 # Simple vs simple (num_discard_samples = 200): [102, 98]
 # Simple vs simple (num_discard_samples = 500): [98, 102]
 # Simple vs simple (num_discard_samples = 1000): [102, 98]
-
-from cribbage.neural import record_both_player_states
-
-#states = record_both_player_states(RandomCribbagePlayer(), SimpleCribbagePlayer())
-
-import random
-def random_discard_sars_gen(random_seed = None):
-    '''
-    Infinite generator over discard (state, action, reward,
-    next_state) tuples, using a random player.  Produces about 2700
-    states per second on samarkand.
-
-    Arguments:
-    - `random_seed`:
-    '''
-    random.seed(random_seed)
-    player = RandomCribbagePlayer()
-    while True:
-        discard_states1, _pcs1, discard_states2, _pcs2 = record_both_player_states(player, player)
-        for state in discard_states1:
-            yield state
-        for state in discard_states2:
-            yield state
-
-def random_discard_state_gen(random_seed = None):
-    '''
-    Infinite generator over discard states, using a random player.
-    Produces about 2700 states per second on samarkand.
-
-    Arguments:
-    - `random_seed`:
-    '''
-    for (state, _a, _r, _s) in random_discard_sars_gen(random_seed):
-        yield state
