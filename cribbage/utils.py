@@ -25,6 +25,15 @@ def doubler(iterable):
     for val in iterable:
         yield (val, val)
 
+# http://stackoverflow.com/a/8991553/1062499
+def grouped(n, iterable):
+    it = iter(iterable)
+    while True:
+       chunk = tuple(itertools.islice(it, n))
+       if not chunk:
+           return
+       yield chunk
+
 def mkdir_p(path):
     '''
     Functionality similar to mkdir -p.

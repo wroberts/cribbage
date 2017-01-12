@@ -13,7 +13,8 @@ from __future__ import absolute_import
 import itertools
 import json
 import os
-from cribbage.utils import mkdir_p, open_atomic
+import time
+from cribbage.utils import grouped, mkdir_p, open_atomic
 import lasagne
 import numpy as np
 import theano
@@ -490,6 +491,18 @@ class Model(NetworkWrapper):
         '''
         self.use_num_epochs = num_epochs
 
+def minibatcher(n, iterable):
+    '''
+    Wraps a `grouped` generator around `iterable` and then returns the
+    result inside a numpy array.
+
+    Arguments:
+    - `n`:
+    - `iterable`:
+    '''
+    for item in grouped(n, iterable):
+        yield np.array(item)
+
 def build(model):
     '''
     Builds a model and trains it up until its training criterion is
@@ -498,4 +511,71 @@ def build(model):
     Arguments:
     - `model`:
     '''
-    pass # TODO
+
+    # theano variables for inputs and outputs
+    inputs = T.matrix('inputs')
+    outputs = T.matrix('outputs')
+
+    # the raw output of the network
+    predictions = lasagne.layers.get_output(model.network, inputs)
+
+    # define the loss function between the network output and the
+    # training output
+    loss = lasagne.objectives.squared_error(predictions, outputs)
+    loss = lasagne.objectives.aggregate(loss, mode='mean')
+
+    # for validation, we use the network in deterministic mode (e.g.,
+    # fix dropout)
+    validation_predictions = lasagne.layers.get_output(model.network, inputs, deterministic=True)
+
+    # validation loss is the same as training loss
+    validation_loss = lasagne.objectives.squared_error(validation_predictions, outputs)
+    validation_loss = lasagne.objectives.aggregate(validation_loss, mode='mean')
+
+    # handle minibatching if specified by the model
+    if model.minibatch_size_value is not None:
+        minibatcher_fn = lambda xs: minibatcher(model.minibatch_size_value, xs)
+    else:
+        minibatcher_fn = lambda xs: xs
+
+    # retrieve all trainable parameters from the model's neural network
+    params = lasagne.layers.get_all_params(model.network, trainable=True)
+
+    # define the update function
+    update_fn = UPDATE_NAMES[model.update_name]
+    updates = update_fn(loss, params, **model.update_params_value)
+
+    # compile the training and validation functions in theano
+    train_fn = theano.function([inputs, outputs], loss, updates=updates)
+    validation_fn = theano.function([inputs, outputs], validation_loss)
+
+    # training loop
+    start_time = time.time()
+    train_err = 0
+    train_minibatches = 0
+    for num_minibatches, (input_minibatch, output_minibatch) in enumerate(
+            itertools.izip(minibatcher_fn(model.training_inputs),
+                           minibatcher_fn(model.training_outputs))):
+
+        train_err += train_fn(input_minibatch, output_minibatch)
+        train_minibatches += 1
+        model.metadata['num_minibatches'] += 1
+
+        if (num_minibatches + 1) % model.validation_interval == 0:
+            # compute validation
+            validation_err = 0
+            for input_minibatch, output_minibatch in itertools.izip(*map(minibatcher_fn, model.validation_set)):
+                validation_err += validation_fn(input_minibatch, output_minibatch)
+
+            train_err /= model.validation_interval
+
+            # model snapshot
+            model.save_snapshot(train_err=train_err, validation_err=validation_err)
+
+            # Then we print the results for this epoch:
+            print('Training round {:.1f} secs; training loss {:.6f}; validation loss {:.6f}'.format(
+                time.time() - start_time,
+                train_err,
+                validation_err))
+            start_time = time.time()
+            train_err = 0
