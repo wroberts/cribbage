@@ -57,7 +57,7 @@ def random_skip(seq, p=0.2):
 
     Arguments:
     - `seq`:
-    - `p`:
+    - `p`: the probability of emitting an item
     '''
     for item in seq:
         if random.random() < p:
