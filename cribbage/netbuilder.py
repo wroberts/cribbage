@@ -63,6 +63,16 @@ OBJECTIVE_NAMES = {
     'squared_error': lasagne.objectives.squared_error,
     }
 
+UPDATE_NAMES = {
+    'adadelta': lasagne.updates.adadelta,
+    'adagrad': lasagne.updates.adagrad,
+    'adam': lasagne.updates.adam,
+    'momentum': lasagne.updates.momentum,
+    'nesterov_momentum': lasagne.updates.nesterov_momentum,
+    'rmsprop': lasagne.updates.rmsprop,
+    'sgd': lasagne.updates.sgd,
+}
+
 class NetworkWrapper(object):
     '''An object which wraps a Lasagne feedforward neural network.'''
 
@@ -198,6 +208,8 @@ class Model(NetworkWrapper):
         # and outputs; if not None, they are used for training
         self.training_inputs = None
         self.training_outputs = None
+        # update parameters, e.g., learning rate, for training
+        self.update_params_value = {}
         # minibatch size; if this is not None, training (input,
         # output) pairs are grouped into blocks of this size during
         # training
@@ -439,6 +451,15 @@ class Model(NetworkWrapper):
             inputs, outputs = itertools.tee(training_set)
             self.training_inputs = (i for (i,o) in inputs)
             self.training_outputs = (o for (i,o) in outputs)
+
+    def update_params(self, params):
+        '''
+        Sets update params (e.g., the learning rate) to use for training.
+
+        Arguments:
+        - `params`: a dictionary with keywords and values
+        '''
+        self.update_params_value = params
 
     def minibatch_size(self, minibatch_size):
         '''
