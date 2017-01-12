@@ -468,3 +468,13 @@ class Model(NetworkWrapper):
         - `num_epochs`:
         '''
         self.use_num_epochs = num_epochs
+
+def build(model):
+    '''
+    Builds a model and trains it up until its training criterion is
+    satisfied.
+
+    Arguments:
+    - `model`:
+    '''
+    pass # TODO

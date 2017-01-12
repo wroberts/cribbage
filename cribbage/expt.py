@@ -108,6 +108,9 @@ dautoenc2.num_minibatches(10000)
 # build the model
 build(dautoenc2)
 
+def compare_dqlearner_to_random_player(qlearner_model):
+    pass # TODO
+
 # Q-learning model for discard()
 def make_dqlearner(store, name):
     model = Model(store, name)
