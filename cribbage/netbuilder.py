@@ -64,7 +64,112 @@ OBJECTIVE_NAMES = {
     'squared_error': lasagne.objectives.squared_error,
     }
 
-class Model(object):
+class NetworkWrapper(object):
+    '''An object which wraps a Lasagne feedforward neural network.'''
+
+    def __init__(self):
+        '''Constructor.'''
+        self.objective_name = 'squared_error'
+        self.update_name = 'adadelta'
+        # this variable holds the actual neural network
+        self._network = None
+
+    def _build_network(self, network_arch):
+        '''
+        Builds the Lasagne network for this Model from the description in
+        metadata['architecture'].
+        '''
+        assert len(network_arch) > 1
+        assert network_arch[0]['layer'] == 'input'
+        assert network_arch[-1]['layer'] == 'output'
+        if self._network is None:
+            num_hidden_layers = 0
+            for layer in network_arch:
+                if layer['layer'] == 'input':
+                    assert self._network is None
+                    self._network = lasagne.layers.InputLayer(
+                        shape=(None, layer['size']), name='input')
+                else:
+                    assert self._network is not None
+                    nonlinearity = NONLINEARITY_NAMES[layer['activation']]
+                    if layer['layer'] == 'hidden':
+                        num_hidden_layers += 1
+                        name = 'hidden{}'.format(num_hidden_layers)
+                    else:
+                        name = 'output'
+                    self._network = lasagne.layers.DenseLayer(
+                        self._network, num_units=layer['size'],
+                        name=name,
+                        nonlinearity=nonlinearity)
+                if 'dropout' in layer and layer['dropout'] is not None:
+                    self._network = lasagne.layers.DropoutLayer(self._network, p=layer['dropout'])
+
+    @property
+    def network_layers(self):
+        '''
+        Returns a dictionary mapping layer names to lasagne Layer objects.
+        '''
+        return dict((layer.name, layer) for layer in
+                    lasagne.layers.get_all_layers(self._network)
+                    if layer.name is not None)
+
+    def get_layer(self, layer_name):
+        '''
+        Returns the lasagne Layer from this Model's neural network with
+        the given name.
+
+        Arguments:
+        - `layer_name`:
+        '''
+        return self.network_layers[layer_name]
+
+    def set_weights(self, layer_name, values):
+        '''
+        Sets the weight parameters (weight matrix and bias) on the given
+        layer of this network to the values given.
+
+        Arguments:
+        - `layer_name`:
+        - `values`: a list of weight parameter matrices
+        '''
+        params = self.get_layer(layer_name).get_params()
+        assert len(values) == len(params)
+        for (value, param) in zip(values, params):
+            assert value.shape == param.get_value().shape
+            param.set_value(value)
+
+    def get_weights(self, layer_name):
+        '''
+        Returns the weight parameters (weight matrix and bias) for the
+        given layer of this network.
+
+        Arguments:
+        - `layer_name`:
+        '''
+        return [param.get_value() for param in self.get_layer(layer_name).get_params()]
+
+    def objective(self, objective_fn):
+        '''
+        Sets the objective function used for training.  This defaults to
+        'squared_error'.
+
+        Arguments:
+        - `objective_fn`:
+        '''
+        self.objective_name = objective_fn
+
+    def update(self, update_fn):
+        '''
+        Sets the update method used for training.  This defaults to
+        'adadelta'.
+
+        Arguments:
+        - `update_fn`:
+        '''
+        self.update_name = update_fn
+
+
+class Model(NetworkWrapper):
     '''An object wrapping a Lasagne feedforward neural network.'''
 
     MAX_VALIDATION_SET_SIZE = 10000
@@ -77,10 +182,9 @@ class Model(object):
         - `store`:
         - `model_name`:
         '''
+        super(Model, self).__init__()
         self.store = store
         self.model_name = model_name
-        self.objective_name = 'squared_error'
-        self.update_name = 'adadelta'
         # validation is computed after this many minibatches have been
         # trained
         self.validation_interval = 50
@@ -119,8 +223,6 @@ class Model(object):
         # fully specified (for new Models) or has been fully checked
         # (for Models loaded from disk)
         self.arch_desc_complete = False
-        # this variable holds the actual neural network
-        self._network = None
         # load metadata if possible
         self.ensure_exists()
         try:
@@ -248,42 +350,12 @@ class Model(object):
                                                   'activation': activation})
         self.arch_desc_complete = True
 
-    def _build_network(self):
-        '''
-        Builds the Lasagne network for this Model from the description in
-        metadata['architecture'].
-        '''
-        assert 'architecture' in self.metadata
-        assert len(self.metadata['architecture']) > 1
-        assert self.metadata['architecture'][0]['layer'] == 'input'
-        assert self.metadata['architecture'][-1]['layer'] == 'output'
-        if self._network is None:
-            num_hidden_layers = 0
-            for layer in self.metadata['architecture']:
-                if layer['layer'] == 'input':
-                    assert self._network is None
-                    self._network = lasagne.layers.InputLayer(shape=(None, layer['size']),
-                                                              name='input')
-                else:
-                    assert self._network is not None
-                    nonlinearity = NONLINEARITY_NAMES[layer['activation']]
-                    if layer['layer'] == 'hidden':
-                        num_hidden_layers += 1
-                        name = 'hidden{}'.format(num_hidden_layers)
-                    else:
-                        name = 'output'
-                    self._network = lasagne.layers.DenseLayer(
-                        self._network, num_units=layer['size'],
-                        name=name,
-                        nonlinearity=nonlinearity)
-                if 'dropout' in layer and layer['dropout'] is not None:
-                    self._network = lasagne.layers.DropoutLayer(self._network, p=layer['dropout'])
-
     @property
     def network(self):
         '''Returns this Model's neural network object.'''
         if not self._network:
-            self._build_network()
+            assert 'architecture' in self.metadata
+            self._build_network(self.metadata['architecture'])
         return self._network
 
     @property
@@ -292,18 +364,8 @@ class Model(object):
         Returns a dictionary mapping layer names to lasagne Layer objects.
         '''
         return dict((layer.name, layer) for layer in
-                    lasagne.layers.get_all_layers(dautoenc.network)
+                    lasagne.layers.get_all_layers(self.network)
                     if layer.name is not None)
-
-    def get_layer(self, layer_name):
-        '''
-        Returns the lasagne Layer from this Model's neural network with
-        the given name.
-
-        Arguments:
-        - `layer_name`:
-        '''
-        return self.network_layers[layer_name]
 
     def make_snapshot(self):
         # np.savez('model.npz', *lasagne.layers.get_all_param_values(network))
@@ -316,51 +378,6 @@ class Model(object):
         #     param_values = [f['arr_%d' % i] for i in range(len(f.files))]
         # lasagne.layers.set_all_param_values(self.network, param_values)
         pass # TODO
-
-    def set_weights(self, layer_name, values):
-        '''
-        Sets the weight parameters (weight matrix and bias) on the given
-        layer of this network to the values given.
-
-        Arguments:
-        - `layer_name`:
-        - `values`: a list of weight parameter matrices
-        '''
-        params = self.get_layer(layer_name).get_params()
-        assert len(values) == len(params)
-        for (value, param) in zip(values, params):
-            assert value.shape == param.get_value().shape
-            param.set_value(value)
-
-    def get_weights(self, layer_name):
-        '''
-        Returns the weight parameters (weight matrix and bias) for the
-        given layer of this network.
-
-        Arguments:
-        - `layer_name`:
-        '''
-        return [param.get_value() for param in self.get_layer(layer_name).get_params()]
-
-    def objective(self, objective_fn):
-        '''
-        Sets the objective function used for training.  This defaults to
-        'squared_error'.
-
-        Arguments:
-        - `objective_fn`:
-        '''
-        self.objective_name = objective_fn
-
-    def update(self, update_fn):
-        '''
-        Sets the update method used for training.  This defaults to
-        'adadelta'.
-
-        Arguments:
-        - `update_fn`:
-        '''
-        self.update_name = update_fn
 
     def validation(self, validation_set):
         '''
