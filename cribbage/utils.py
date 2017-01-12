@@ -27,6 +27,14 @@ def doubled(iterable):
 
 # http://stackoverflow.com/a/8991553/1062499
 def grouped(n, iterable):
+    '''
+    >>> list(grouped(3, 'ABCDEFG'))
+    [('A', 'B', 'C'), ('D', 'E', 'F'), ('G',)]
+
+    Arguments:
+    - `n`:
+    - `iterable`:
+    '''
     it = iter(iterable)
     while True:
        chunk = tuple(itertools.islice(it, n))
