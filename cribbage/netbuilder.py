@@ -389,7 +389,7 @@ class Model(NetworkWrapper):
         - `train_err`:
         - `validation_err`:
         '''
-        snapshot_filename = os.path.join(self.model_path, '{:10d}.npz'.format(self.metadata['num_minibatches']))
+        snapshot_filename = os.path.join(self.model_path, '{:010d}.npz'.format(self.metadata['num_minibatches']))
         np.savez(snapshot_filename, *lasagne.layers.get_all_param_values(self.network))
         self.metadata['snapshots'].append({
             'num_minibatches': self.metadata['num_minibatches'],
