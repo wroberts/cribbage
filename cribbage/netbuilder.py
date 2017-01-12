@@ -15,7 +15,10 @@ import json
 import os
 import random
 from cribbage.utils import doubler, mkdir_p, open_atomic
+import lasagne
 import numpy as np
+import theano
+import theano.tensor as T
 
 class ModelStore(object):
     '''
@@ -40,6 +43,26 @@ class ModelStore(object):
     def abs_path(self):
         '''Get this ModelStore's absolute path.'''
         return os.path.abspath(self.path)
+
+NONLINEARITY_NAMES = {
+    'LeakyRectify': lasagne.nonlinearities.LeakyRectify,
+    'ScaledTanH': lasagne.nonlinearities.ScaledTanH,
+    'ScaledTanh': lasagne.nonlinearities.ScaledTanh,
+    'identity': lasagne.nonlinearities.identity,
+    'leaky_rectify': lasagne.nonlinearities.leaky_rectify,
+    'linear': lasagne.nonlinearities.linear,
+    'rectify': lasagne.nonlinearities.rectify,
+    'sigmoid': lasagne.nonlinearities.sigmoid,
+    'softmax': lasagne.nonlinearities.softmax,
+    'tanh': lasagne.nonlinearities.tanh,
+    'theano': lasagne.nonlinearities.theano,
+    'very_leaky_rectify': lasagne.nonlinearities.very_leaky_rectify,
+}
+
+OBJECTIVE_NAMES = {
+    'categorical_crossentropy': lasagne.objectives.categorical_crossentropy,
+    'squared_error': lasagne.objectives.squared_error,
+    }
 
 class Model(object):
     '''An object wrapping a Lasagne feedforward neural network.'''
@@ -86,9 +109,24 @@ class Model(object):
         self.use_num_epochs = None
         # metadata dictionary for this Model
         self.metadata = None
+        # is the network architecture specified by the metadata file?
+        self.arch_frozen = False
+        # if the architecture is loaded from metadata, the input(),
+        # hidden() and output() methods are used to check; this
+        # variable stores which layer we're currently checking
+        self.arch_check_stage = 0
+        # this flag indicates if the network architecture has been
+        # fully specified (for new Models) or has been fully checked
+        # (for Models loaded from disk)
+        self.arch_desc_complete = False
+        # this variable holds the actual neural network
+        self._network = None
+        # load metadata if possible
         self.ensure_exists()
         try:
             self.load_metadata()
+            if 'architecture' in self.metadata:
+                self.arch_frozen = True
         except IOError:
             # no metadata file present, initialise metadata
             self.metadata = {
@@ -127,14 +165,31 @@ class Model(object):
     def best_validation_error(self):
         pass # TODO
 
-    def input(self, input_size):
+    def input(self, input_size, dropout=None):
         '''
         Creates an input layer of the given size.
 
         Arguments:
         - `input_size`:
         '''
-        pass # TODO
+        assert not self.arch_desc_complete
+        if self.arch_frozen:
+            # we're checking the network architecture against the
+            # metadata now
+            assert 'architecture' in self.metadata
+            assert len(self.metadata['architecture']) > 1
+            input_layer = self.metadata['architecture'][0]
+            assert input_layer['layer'] == 'input'
+            assert input_layer['size'] == input_size
+            assert input_layer['dropout'] == dropout
+            self.arch_check_stage = 1
+        else:
+            # we're specifying the network architecture now
+            assert 'architecture' not in self.metadata
+            self.metadata['architecture'] = []
+            self.metadata['architecture'].append({'layer': 'input',
+                                                  'size': input_size,
+                                                  'dropout': dropout})
 
     def hidden(self, hidden_size, activation='sigmoid', dropout=None):
         '''
@@ -146,7 +201,25 @@ class Model(object):
         - `dropout`: if not None, the probability that a node's output
           will be dropped
         '''
-        pass # TODO
+        assert 'architecture' in self.metadata
+        assert not self.arch_desc_complete
+        if self.arch_frozen:
+            # we're checking the network architecture against the
+            # metadata now
+            assert len(self.metadata['architecture']) > 1
+            assert self.arch_check_stage > 0
+            current_layer = self.metadata['architecture'][self.arch_check_stage]
+            assert current_layer['layer'] == 'hidden'
+            assert current_layer['size'] == hidden_size
+            assert current_layer['activation'] == activation
+            assert current_layer['dropout'] == dropout
+            self.arch_check_stage += 1
+        else:
+            # we're specifying the network architecture now
+            self.metadata['architecture'].append({'layer': 'hidden',
+                                                  'size': hidden_size,
+                                                  'activation': activation,
+                                                  'dropout': dropout})
 
     def output(self, output_size, activation='sigmoid'):
         '''
@@ -156,7 +229,54 @@ class Model(object):
         - `output_size`:
         - `activation`:
         '''
-        pass # TODO
+        assert 'architecture' in self.metadata
+        assert not self.arch_desc_complete
+        if self.arch_frozen:
+            # we're checking the network architecture against the
+            # metadata now
+            assert len(self.metadata['architecture']) > 1
+            assert self.arch_check_stage > 0
+            current_layer = self.metadata['architecture'][self.arch_check_stage]
+            assert current_layer['layer'] == 'output'
+            assert current_layer['size'] == output_size
+            assert current_layer['activation'] == activation
+            assert len(self.metadata['architecture']) == self.arch_check_stage + 1
+        else:
+            # we're specifying the network architecture now
+            self.metadata['architecture'].append({'layer': 'output',
+                                                  'size': output_size,
+                                                  'activation': activation})
+        self.arch_desc_complete = True
+
+    def _build_network(self):
+        '''
+        Builds the Lasagne network for this Model from the description in
+        metadata['architecture'].
+        '''
+        assert 'architecture' in self.metadata
+        assert len(self.metadata['architecture']) > 1
+        assert self.metadata['architecture'][0]['layer'] == 'input'
+        assert self.metadata['architecture'][-1]['layer'] == 'output'
+        if self._network is None:
+            for layer in self.metadata['architecture']:
+                if layer['layer'] == 'input':
+                    assert self._network is None
+                    self._network = lasagne.layers.InputLayer(shape=(None, layer['size']))
+                else:
+                    assert self._network is not None
+                    nonlinearity = NONLINEARITY_NAMES[layer['activation']]
+                    self._network = lasagne.layers.DenseLayer(
+                        self._network, num_units=layer['size'],
+                        nonlinearity=nonlinearity)
+                if 'dropout' in layer and layer['dropout'] is not None:
+                    self._network = lasagne.layers.DropoutLayer(self._network, p=layer['dropout'])
+
+    @property
+    def network(self):
+        '''Returns this Model's neural network object.'''
+        if not self._network:
+            self._build_network()
+        return self._network
 
     def set_weights(self, param_name, param_set):
         pass # TODO
