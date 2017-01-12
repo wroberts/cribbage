@@ -541,6 +541,7 @@ def build(model):
     # fix dropout)
     validation_predictions = lasagne.layers.get_output(model.network, inputs, deterministic=True)
 
+    # TODO: validation stat can be computed differently
     # validation loss is the same as training loss
     validation_loss = lasagne.objectives.squared_error(validation_predictions, outputs)
     validation_loss = lasagne.objectives.aggregate(validation_loss, mode='mean')
@@ -578,6 +579,7 @@ def build(model):
 
         if (num_minibatches + 1) % model.validation_interval == 0:
             # compute validation
+            # TODO: validation may be computed differently or not at all
             validation_err = 0
             for input_minibatch, output_minibatch in itertools.izip(*map(minibatcher_fn, model.validation_set)):
                 validation_err += validation_fn(input_minibatch, output_minibatch)
@@ -585,6 +587,7 @@ def build(model):
             train_err /= model.validation_interval
 
             # model snapshot
+            # TODO: save elapsed time
             model.save_snapshot(train_err=train_err, validation_err=validation_err)
 
             # Then we print the results for this epoch:
