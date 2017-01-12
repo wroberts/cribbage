@@ -83,6 +83,7 @@ dautoenc.training(stream)
 # configure training loop
 dautoenc.minibatch_size(500)
 dautoenc.num_minibatches(10000)
+dautoenc.validation_interval = 250 # about five minutes on samarkand
 # build the model
 build(dautoenc)
 
