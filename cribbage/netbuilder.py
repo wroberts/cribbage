@@ -87,7 +87,7 @@ class NetworkWrapper(object):
     def _build_network(self, network_arch):
         '''
         Builds the Lasagne network for this Model from the description in
-        metadata['architecture'].
+        `network_arch`.
         '''
         assert len(network_arch) > 1
         assert network_arch[0]['layer'] == 'input'
