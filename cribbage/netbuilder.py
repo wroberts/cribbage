@@ -639,11 +639,11 @@ def build(model):
 
     # for validation, we use the network in deterministic mode (e.g.,
     # fix dropout)
-    validation_predictions = lasagne.layers.get_output(model.network, inputs, deterministic=True)
+    deterministic_predictions = lasagne.layers.get_output(model.network, inputs, deterministic=True)
 
     # TODO: validation stat can be computed differently
     # validation loss is the same as training loss
-    validation_loss = lasagne.objectives.squared_error(validation_predictions, outputs)
+    validation_loss = lasagne.objectives.squared_error(deterministic_predictions, outputs)
     validation_loss = lasagne.objectives.aggregate(validation_loss, mode='mean')
 
     # handle minibatching if specified by the model
