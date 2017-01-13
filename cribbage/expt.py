@@ -73,7 +73,7 @@ dautoenc.hidden(150, 'rectify', dropout=0.2) # Dense
 dautoenc.output(295, 'rectify') # Dense
 dautoenc.objective('squared_error')
 dautoenc.update('adadelta')
-dautoenc.update_params({}) # 'learning_rate': 1.0, 'rho': 0.95, 'epsilon': 1e-6
+dautoenc.update_args({}) # 'learning_rate': 1.0, 'rho': 0.95, 'epsilon': 1e-6
 # build a validation set with fixed random state
 val_set = list(itertools.islice(doubled(random_skip(random_discard_state_gen(42))), 500))
 dautoenc.validation(val_set)

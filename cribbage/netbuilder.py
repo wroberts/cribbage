@@ -210,7 +210,7 @@ class Model(NetworkWrapper):
         self.training_inputs = None
         self.training_outputs = None
         # update parameters, e.g., learning rate, for training
-        self.update_params_value = {}
+        self.update_args_value = {}
         # minibatch size; if this is not None, training (input,
         # output) pairs are grouped into blocks of this size during
         # training
@@ -475,14 +475,14 @@ class Model(NetworkWrapper):
             self.training_inputs = (i for (i,o) in inputs)
             self.training_outputs = (o for (i,o) in outputs)
 
-    def update_params(self, params):
+    def update_args(self, params):
         '''
         Sets update params (e.g., the learning rate) to use for training.
 
         Arguments:
         - `params`: a dictionary with keywords and values
         '''
-        self.update_params_value = params
+        self.update_args_value = params
 
     def minibatch_size(self, minibatch_size):
         '''
@@ -566,7 +566,7 @@ def build(model):
 
     # define the update function
     update_fn = UPDATE_NAMES[model.update_name]
-    updates = update_fn(loss, params, **model.update_params_value)
+    updates = update_fn(loss, params, **model.update_args_value)
 
     # compile the training and validation functions in theano
     train_fn = theano.function([inputs, outputs], loss, updates=updates)
