@@ -100,10 +100,10 @@ dautoenc2.output(295, 'rectify') # Dense
 dautoenc2.objective('squared_error')
 dautoenc2.update('adadelta')
 # initialise weights on first layer
-dautoenc = Model(store, 'dautoenc').best_validation_error
+dautoenc = Model(store, 'dautoenc').load_snapshot(10000)
 dautoenc2.set_weights('hidden1', dautoenc.get_weights('hidden1'))
 # build a validation set with fixed random state
-val_set = list(itertools.islice(doubled(random_skip(random_discard_state_gen(42)), 500)))
+val_set = list(itertools.islice(doubled(random_skip(random_discard_state_gen(42))), 500))
 dautoenc2.validation(val_set)
 # training stream with non-fixed random state
 stream = doubled(random_skip(random_discard_state_gen()))
@@ -111,6 +111,7 @@ dautoenc2.training(stream)
 # configure training loop
 dautoenc2.minibatch_size(500)
 dautoenc2.num_minibatches(10000)
+dautoenc2.validation_interval = 250 # about five minutes on samarkand
 # build the model
 build(dautoenc2)
 
