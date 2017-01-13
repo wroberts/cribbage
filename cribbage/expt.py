@@ -22,7 +22,7 @@ import numpy as np
 import theano
 import theano.tensor as T
 
-def random_discard_sars_gen(random_seed = None):
+def random_discard_sars_gen(random_seed=None):
     '''
     Infinite generator over discard (state, action, reward,
     next_state) tuples, using a random player.  Produces about 2700
@@ -40,7 +40,7 @@ def random_discard_sars_gen(random_seed = None):
         for state in discard_states2:
             yield state
 
-def random_discard_state_gen(random_seed = None):
+def random_discard_state_gen(random_seed=None):
     '''
     Infinite generator over discard states, using a random player.
     Produces about 2700 states per second on samarkand.

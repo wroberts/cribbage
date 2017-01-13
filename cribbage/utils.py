@@ -26,7 +26,7 @@ def doubled(iterable):
         yield (val, val)
 
 # http://stackoverflow.com/a/8991553/1062499
-def grouped(n, iterable):
+def grouped(num, iterable):
     '''
     >>> list(grouped(3, 'ABCDEFG'))
     [('A', 'B', 'C'), ('D', 'E', 'F'), ('G',)]
@@ -35,12 +35,12 @@ def grouped(n, iterable):
     - `n`:
     - `iterable`:
     '''
-    it = iter(iterable)
+    iterator = iter(iterable)
     while True:
-       chunk = tuple(itertools.islice(it, n))
-       if not chunk:
-           return
-       yield chunk
+        chunk = tuple(itertools.islice(iterator, num))
+        if not chunk:
+            return
+        yield chunk
 
 def mkdir_p(path):
     '''

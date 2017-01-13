@@ -34,7 +34,7 @@ def score_hand(hand, draw=None, crib=False, verbose=False):
         draw_split = split_card(draw)
         _draw_face, draw_suit = draw_split
         split_values.append(draw_split)
-    face_values = [f for (f,s) in split_values]
+    face_values = [f for (f, s) in split_values]
     # score runs
     #sorted_faces = sorted(face_values)
     face_counts = Counter(face_values)
@@ -73,14 +73,14 @@ def score_hand(hand, draw=None, crib=False, verbose=False):
             score += pair_score
     # score 15s
     card_values = [CARD_VALUES[x] for x in face_values]
-    for comb_len in [2,3,4,5]:
+    for comb_len in [2, 3, 4, 5]:
         for vlist in itertools.combinations(card_values, comb_len):
             if sum(vlist) == 15:
                 if verbose:
                     print('fifteen')
                 score += 2
     # score flush
-    suit_values = set([s for (f,s) in split_values_hand])
+    suit_values = set([s for (f, s) in split_values_hand])
     if len(suit_values) == 1:
         if draw is not None and list(suit_values)[0] == draw_suit:
             # draw 5
@@ -93,7 +93,7 @@ def score_hand(hand, draw=None, crib=False, verbose=False):
                     print('flush 4')
                 score += len(hand)
     # score special jack
-    if draw is not None and [f for (f,s) in split_values_hand if s == draw_suit and f == 10]:
+    if draw is not None and [f for (f, s) in split_values_hand if s == draw_suit and f == 10]:
         if verbose:
             print('special jack')
         score += 1
@@ -132,13 +132,13 @@ def score_play(linear_play, verbose=False):
     if cards_worth(linear_play) == 15:
         if verbose:
             print('fifteen')
-        play_score +=2
+        play_score += 2
     # look for pairs and tuples
     for backwards in range(len(linear_play), 1, -1):
         back_list = sorted(face_values[-backwards:])
         if len(set(back_list)) == 1:
             # pairlike
-            pair_score = [2,6,12][len(back_list)-2]
+            pair_score = [2, 6, 12][len(back_list)-2]
             if verbose:
                 print('pair {} points'.format(pair_score))
             play_score += pair_score

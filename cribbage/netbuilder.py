@@ -486,8 +486,8 @@ class Model(NetworkWrapper):
             # truncate validation set to maximum allowed size
             validation_set = list(itertools.islice(
                 validation_set, self.MAX_VALIDATION_SET_SIZE))
-            inputs = np.array([i for (i,o) in validation_set])
-            outputs = np.array([o for (i,o) in validation_set])
+            inputs = np.array([i for (i, o) in validation_set])
+            outputs = np.array([o for (i, o) in validation_set])
             self.validation_set = (inputs, outputs)
 
     def validation_fn(self, validation_fn):
@@ -517,8 +517,8 @@ class Model(NetworkWrapper):
             # the iterable is taken to consist of tuples of (input,
             # output) pairs
             inputs, outputs = itertools.tee(training_set)
-            self.training_inputs = (i for (i,o) in inputs)
-            self.training_outputs = (o for (i,o) in outputs)
+            self.training_inputs = (i for (i, o) in inputs)
+            self.training_outputs = (o for (i, o) in outputs)
 
     def update_args(self, params):
         '''
