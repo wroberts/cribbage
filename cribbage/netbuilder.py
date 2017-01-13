@@ -634,6 +634,7 @@ def build(model):
 
     # define the loss function between the network output and the
     # training output
+    # TODO: parameterise for different objective functions
     loss = lasagne.objectives.squared_error(predictions, outputs)
     loss = lasagne.objectives.aggregate(loss, mode='mean')
 
