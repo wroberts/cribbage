@@ -290,7 +290,10 @@ class Model(NetworkWrapper):
 
     @property
     def best_validation_error(self):
-        pass # TODO
+        '''
+        Property accessor: shortcut for Model.load_snapshot('best_validation')
+        '''
+        return self.load_snapshot('best_validation')
 
     def input(self, input_size, dropout=None):
         '''
