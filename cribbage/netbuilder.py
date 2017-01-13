@@ -92,6 +92,10 @@ class NetworkWrapper(object):
         self.update_args_value = {}
         # this variable holds the actual neural network
         self._network = None
+        # pointers to compiled theano functions
+        self.train_fn = None
+        self.validation_fn = None
+        self.output_fn = None
 
     def _build_network(self, network_arch):
         '''
@@ -208,6 +212,50 @@ class NetworkWrapper(object):
         - `params`: a dictionary with keywords and values
         '''
         self.update_args_value = params
+
+    def get_theano_functions(self):
+        '''
+        Returns pointers to compiled theano functions using this Model's
+        network.
+
+        Returns a tuple (train_fn, validation_fn, output_fn).
+        '''
+        if self.train_fn is None:
+            # theano variables for inputs and outputs
+            inputs = T.matrix('inputs')
+            outputs = T.matrix('outputs')
+
+            # the raw output of the network
+            predictions = lasagne.layers.get_output(self._network, inputs)
+
+            # define the loss function between the network output and the
+            # training output
+            # TODO: parameterise for different objective functions
+            loss = lasagne.objectives.squared_error(predictions, outputs)
+            loss = lasagne.objectives.aggregate(loss, mode='mean')
+
+            # for validation, we use the network in deterministic mode (e.g.,
+            # fix dropout)
+            deterministic_predictions = lasagne.layers.get_output(
+                self._network, inputs, deterministic=True)
+
+            # TODO: validation stat can be computed differently
+            # validation loss is the same as training loss
+            validation_loss = lasagne.objectives.squared_error(deterministic_predictions, outputs)
+            validation_loss = lasagne.objectives.aggregate(validation_loss, mode='mean')
+
+            # retrieve all trainable parameters from the model's neural network
+            params = lasagne.layers.get_all_params(self._network, trainable=True)
+
+            # define the update function
+            update_fn = UPDATE_NAMES[self.update_name]
+            updates = update_fn(loss, params, **self.update_args_value)
+
+            # compile the training and validation functions in theano
+            self.train_fn = theano.function([inputs, outputs], loss, updates=updates)
+            self.validation_fn = theano.function([inputs, outputs], validation_loss)
+            self.output_fn = theano.function([inputs], deterministic_predictions)
+        return self.train_fn, self.validation_fn, self.output_fn
 
 
 class Model(NetworkWrapper):
@@ -627,45 +675,13 @@ def build(model):
     Arguments:
     - `model`:
     '''
-
-    # theano variables for inputs and outputs
-    inputs = T.matrix('inputs')
-    outputs = T.matrix('outputs')
-
-    # the raw output of the network
-    predictions = lasagne.layers.get_output(model.network, inputs)
-
-    # define the loss function between the network output and the
-    # training output
-    # TODO: parameterise for different objective functions
-    loss = lasagne.objectives.squared_error(predictions, outputs)
-    loss = lasagne.objectives.aggregate(loss, mode='mean')
-
-    # for validation, we use the network in deterministic mode (e.g.,
-    # fix dropout)
-    deterministic_predictions = lasagne.layers.get_output(model.network, inputs, deterministic=True)
-
-    # TODO: validation stat can be computed differently
-    # validation loss is the same as training loss
-    validation_loss = lasagne.objectives.squared_error(deterministic_predictions, outputs)
-    validation_loss = lasagne.objectives.aggregate(validation_loss, mode='mean')
+    train_fn, validation_fn, _of = model.get_theano_functions()
 
     # handle minibatching if specified by the model
     if model.minibatch_size_value is not None:
         minibatcher_fn = lambda xs: minibatcher(model.minibatch_size_value, xs)
     else:
         minibatcher_fn = lambda xs: xs
-
-    # retrieve all trainable parameters from the model's neural network
-    params = lasagne.layers.get_all_params(model.network, trainable=True)
-
-    # define the update function
-    update_fn = UPDATE_NAMES[model.update_name]
-    updates = update_fn(loss, params, **model.update_args_value)
-
-    # compile the training and validation functions in theano
-    train_fn = theano.function([inputs, outputs], loss, updates=updates)
-    validation_fn = theano.function([inputs, outputs], validation_loss)
 
     # training loop
     start_time = time.time()
