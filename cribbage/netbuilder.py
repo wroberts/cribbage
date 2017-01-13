@@ -379,7 +379,7 @@ class Model(NetworkWrapper):
                     lasagne.layers.get_all_layers(self.network)
                     if layer.name is not None)
 
-    def save_snapshot(self, train_err, validation_err):
+    def save_snapshot(self, train_err, validation_err, elapsed_time):
         '''
         Saves a snapshot of this Model's network to disk.  Also records
         metadata about the snapshot, such as training and validation
@@ -388,13 +388,20 @@ class Model(NetworkWrapper):
         Arguments:
         - `train_err`:
         - `validation_err`:
+        - `elapsed_time`: the amount of time since the last snapshot,
+          in seconds
         '''
         snapshot_filename = os.path.join(self.model_path, '{:010d}.npz'.format(self.metadata['num_minibatches']))
         np.savez(snapshot_filename, *lasagne.layers.get_all_param_values(self.network))
+        total_time = 0.
+        if 'snapshots' in self.metadata and len(self.metadata['snapshots']) > 0:
+            total_time = self.metadata['snapshots'][-1]['total_time']
         self.metadata['snapshots'].append({
             'num_minibatches': self.metadata['num_minibatches'],
             'train_err': train_err,
             'validation_err': validation_err,
+            'total_time': total_time + elapsed_time,
+            'filename': os.path.basename(snapshot_filename),
         })
         self.save_metadata()
 
@@ -587,12 +594,12 @@ def build(model):
             train_err /= model.validation_interval
 
             # model snapshot
-            # TODO: save elapsed time
-            model.save_snapshot(train_err=train_err, validation_err=validation_err)
+            elapsed_time = time.time() - start_time
+            model.save_snapshot(train_err=train_err, validation_err=validation_err, elapsed_time=elapsed_time)
 
             # Then we print the results for this epoch:
             print('Training round {:.1f} secs; training loss {:.6f}; validation loss {:.6f}'.format(
-                time.time() - start_time,
+                elapsed_time,
                 train_err,
                 validation_err))
             start_time = time.time()
