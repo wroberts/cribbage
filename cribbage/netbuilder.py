@@ -86,7 +86,7 @@ class NetworkWrapper(object):
 
     def _build_network(self, network_arch):
         '''
-        Builds the Lasagne network for this Model from the description in
+        Builds the Lasagne network for this object from the description in
         `network_arch`.
         '''
         assert len(network_arch) > 1
@@ -125,7 +125,7 @@ class NetworkWrapper(object):
 
     def get_layer(self, layer_name):
         '''
-        Returns the lasagne Layer from this Model's neural network with
+        Returns the lasagne Layer from this objects's neural network with
         the given name.
 
         Arguments:
@@ -391,7 +391,9 @@ class Model(NetworkWrapper):
         - `elapsed_time`: the amount of time since the last snapshot,
           in seconds
         '''
-        snapshot_filename = os.path.join(self.model_path, '{:010d}.npz'.format(self.metadata['num_minibatches']))
+        snapshot_filename = os.path.join(
+            self.model_path,
+            '{:010d}.npz'.format(self.metadata['num_minibatches']))
         np.savez(snapshot_filename, *lasagne.layers.get_all_param_values(self.network))
         total_time = 0.
         if 'snapshots' in self.metadata and len(self.metadata['snapshots']) > 0:
@@ -511,16 +513,16 @@ class Model(NetworkWrapper):
         '''
         self.use_num_epochs = num_epochs
 
-def minibatcher(n, iterable):
+def minibatcher(num, iterable):
     '''
     Wraps a `grouped` generator around `iterable` and then returns the
     result inside a numpy array.
 
     Arguments:
-    - `n`:
+    - `num`:
     - `iterable`:
     '''
-    for item in grouped(n, iterable):
+    for item in grouped(num, iterable):
         yield np.array(item)
 
 def build(model):
@@ -588,14 +590,17 @@ def build(model):
             # compute validation
             # TODO: validation may be computed differently or not at all
             validation_err = 0
-            for input_minibatch, output_minibatch in itertools.izip(*map(minibatcher_fn, model.validation_set)):
+            for input_minibatch, output_minibatch in itertools.izip(
+                    *map(minibatcher_fn, model.validation_set)):
                 validation_err += validation_fn(input_minibatch, output_minibatch)
 
             train_err /= model.validation_interval
 
             # model snapshot
             elapsed_time = time.time() - start_time
-            model.save_snapshot(train_err=train_err, validation_err=validation_err, elapsed_time=elapsed_time)
+            model.save_snapshot(train_err=train_err,
+                                validation_err=validation_err,
+                                elapsed_time=elapsed_time)
 
             # Then we print the results for this epoch:
             print('Training round {:.1f} secs; training loss {:.6f}; validation loss {:.6f}'.format(
