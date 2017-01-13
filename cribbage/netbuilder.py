@@ -620,13 +620,11 @@ def build(model):
     # training loop
     start_time = time.time()
     train_err = 0
-    train_minibatches = 0
     for num_minibatches, (input_minibatch, output_minibatch) in enumerate(
             itertools.izip(minibatcher_fn(model.training_inputs),
                            minibatcher_fn(model.training_outputs))):
 
         train_err += train_fn(input_minibatch, output_minibatch)
-        train_minibatches += 1
         model.metadata['num_minibatches'] += 1
 
         if (num_minibatches + 1) % model.validation_interval == 0:
