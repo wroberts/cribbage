@@ -560,6 +560,10 @@ class Model(NetworkWrapper):
         assert 'architecture' in self.metadata
         snapshot = NetworkWrapper()
         snapshot._build_network(self.metadata['architecture'])
+        # copy over this Model's inherited attributes
+        snapshot.objective_name = self.objective_name
+        snapshot.update_name = self.update_name
+        snapshot.update_args_value = self.update_args_value
         snapshot.load_params(os.path.join(self.model_path, snapshot_filename))
         return snapshot
 
