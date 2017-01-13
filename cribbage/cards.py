@@ -32,8 +32,8 @@ def split_card(vint):
 
 def card_tostring(vint):
     '''Returns a string representation of the given card value.'''
-    v, s = split_card(vint)
-    return '{}{}'.format(CARD_FACES[v], CARD_SUITS[s])
+    value, suit = split_card(vint)
+    return '{}{}'.format(CARD_FACES[value], CARD_SUITS[suit])
 
 def string_tocard(sval):
     '''Converts a string representation into a card value.'''
@@ -52,8 +52,8 @@ def make_random_hand():
 
 def make_random_hand_and_draw():
     '''Create a random 4-card cribbage hand, and a random card as the starter.'''
-    hd = random.sample(make_deck(), 5)
-    return hd[:4], hd[4]
+    hand_draw = random.sample(make_deck(), 5)
+    return hand_draw[:4], hand_draw[4]
 
 # ------------------------------------------------------------
 # Determining cards' worth (for making 15s and 31s)
