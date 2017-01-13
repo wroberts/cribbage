@@ -125,6 +125,13 @@ plt.legend()
 plt.show()
 
 def compare_dqlearner_to_random_player(qlearner_model):
+    '''
+    Plays a set of games between the Q-Learner player and a
+    RandomPlayer, returns the fraction that the Q-Learner player wins.
+
+    Arguments:
+    - `qlearner_model`: a Model object
+    '''
     pass # TODO
 
 # Q-learning model for discard()
