@@ -88,6 +88,8 @@ class NetworkWrapper(object):
         '''Constructor.'''
         self.objective_name = 'squared_error'
         self.update_name = 'adadelta'
+        # update parameters, e.g., learning rate, for training
+        self.update_args_value = {}
         # this variable holds the actual neural network
         self._network = None
 
@@ -198,6 +200,15 @@ class NetworkWrapper(object):
         '''
         self.update_name = update_fn
 
+    def update_args(self, params):
+        '''
+        Sets update params (e.g., the learning rate) to use for training.
+
+        Arguments:
+        - `params`: a dictionary with keywords and values
+        '''
+        self.update_args_value = params
+
 
 class Model(NetworkWrapper):
     '''An object wrapping a Lasagne feedforward neural network.'''
@@ -236,8 +247,6 @@ class Model(NetworkWrapper):
         # set) if the training set for this Model is of finite size;
         # it is set to False otherwise
         self.finite_training_set = False
-        # update parameters, e.g., learning rate, for training
-        self.update_args_value = {}
         # minibatch size; if this is not None, training (input,
         # output) pairs are grouped into blocks of this size during
         # training
@@ -568,15 +577,6 @@ class Model(NetworkWrapper):
             inputs, outputs = itertools.tee(training_set)
             self.training_inputs = (i for (i, o) in inputs)
             self.training_outputs = (o for (i, o) in outputs)
-
-    def update_args(self, params):
-        '''
-        Sets update params (e.g., the learning rate) to use for training.
-
-        Arguments:
-        - `params`: a dictionary with keywords and values
-        '''
-        self.update_args_value = params
 
     def minibatch_size(self, minibatch_size):
         '''
