@@ -15,12 +15,7 @@ from cribbage.game import Game
 from cribbage.netbuilder import ModelStore, Model, build
 from cribbage.neural import record_both_player_states, record_player1_states
 from cribbage.randomplayer import RandomCribbagePlayer
-from cribbage.simpleplayer import SimpleCribbagePlayer
-from cribbage.utils import doubled, mkdir_p, open_atomic
-import lasagne
-import numpy as np
-import theano
-import theano.tensor as T
+from cribbage.utils import doubled
 
 def random_discard_sars_gen(random_seed=None):
     '''
