@@ -123,6 +123,19 @@ class NetworkWrapper(object):
                     lasagne.layers.get_all_layers(self._network)
                     if layer.name is not None)
 
+    def load_params(self, filename):
+        '''
+        Loads network parameters (weight matrices) from the given numpy
+        .npz file into this object's neural network.
+
+        Arguments:
+        - `filename`:
+        '''
+        with np.load(filename) as input_file:
+            param_values = [input_file['arr_%d' % i] for i in
+                            range(len(input_file.files))]
+        lasagne.layers.set_all_param_values(self._network, param_values)
+
     def get_layer(self, layer_name):
         '''
         Returns the lasagne Layer from this objects's neural network with
