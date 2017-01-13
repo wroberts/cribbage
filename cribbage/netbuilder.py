@@ -420,11 +420,40 @@ class Model(NetworkWrapper):
         })
         self.save_metadata()
 
-    def load_snapshot(self, snapshot_filename):
-        # with np.load('model.npz') as f:
-        #     param_values = [f['arr_%d' % i] for i in range(len(f.files))]
-        # lasagne.layers.set_all_param_values(self.network, param_values)
-        pass # TODO
+    def load_snapshot(self, snapshot_id):
+        '''
+        Loads a previously saved snapshot of this Model and returns it.
+
+        Arguments:
+        - `snapshot_id`: snapshot to load; this can be specified as an
+          integer (i.e., the value of 'num_minibatches'), or as a
+          special string value (one of 'first', 'last',
+          'best_validation', 'best_train')
+        '''
+        # locate the snapshot filename to load
+        assert 'snapshots' in self.metadata and len(self.metadata['snapshots']) > 0
+        snapshots = self.metadata['snapshots']
+        if isinstance(snapshot_id, int):
+            candidates = [ss['filename'] for ss in snapshots
+                          if ss['num_minibatches'] == snapshot_id]
+            if candidates:
+                snapshot_filename = candidates[0]
+            else:
+                raise Exception('Could not find snapshot with snapshot ID {}'.format(snapshot_id))
+        elif snapshot_id == 'first':
+            snapshot_filename = snapshots[0]['filename']
+        elif snapshot_id == 'last':
+            snapshot_filename = snapshots[-1]['filename']
+        elif snapshot_id == 'best_validation':
+            snapshot_filename = min([(ss['validation_err'], ss['filename']) for ss in snapshots])[1]
+        elif snapshot_id == 'best_train':
+            snapshot_filename = min([(ss['train_err'], ss['filename']) for ss in snapshots])[1]
+
+        assert 'architecture' in self.metadata
+        snapshot = NetworkWrapper()
+        snapshot._build_network(self.metadata['architecture'])
+        snapshot.load_params(snapshot_filename)
+        return snapshot
 
     def validation(self, validation_set):
         '''
@@ -622,3 +651,16 @@ def build(model):
                 validation_err))
             start_time = time.time()
             train_err = 0
+
+
+
+# import matplotlib.pyplot as plt
+
+# a = [[ss['num_minibatches'], ss['train_err'], ss['validation_err']] for ss in
+#      model.metadata['snapshots']]
+# a = np.array(a)
+# plt.plot(a.T[0], a.T[1], label='Training Error')
+# plt.plot(a.T[0], a.T[2], label='Validation Error')
+# plt.xlabel('Number of minibatches')
+# plt.ylabel('Mean squared error per minibatch')
+# plt.show()
