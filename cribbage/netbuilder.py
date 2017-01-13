@@ -706,14 +706,3 @@ def build(model):
             break
 
         # TODO: use_num_epochs
-
-# import matplotlib.pyplot as plt
-
-# a = [[ss['num_minibatches'], ss['train_err'], ss['validation_err']] for ss in
-#      model.metadata['snapshots']]
-# a = np.array(a)
-# plt.plot(a.T[0], a.T[1], label='Training Error')
-# plt.plot(a.T[0], a.T[2], label='Validation Error')
-# plt.xlabel('Number of minibatches')
-# plt.ylabel('Mean squared error per minibatch')
-# plt.show()

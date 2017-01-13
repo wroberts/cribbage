@@ -16,6 +16,7 @@ from cribbage.netbuilder import ModelStore, Model, build
 from cribbage.neural import record_both_player_states, record_player1_states
 from cribbage.randomplayer import RandomCribbagePlayer
 from cribbage.utils import doubled
+import numpy as np
 
 def random_discard_sars_gen(random_seed=None):
     '''
@@ -109,6 +110,19 @@ dautoenc2.num_minibatches(10000)
 dautoenc2.validation_interval = 250 # about five minutes on samarkand
 # build the model
 build(dautoenc2)
+
+import matplotlib.pyplot as plt
+model = dautoenc2
+
+a = [[ss['num_minibatches'], ss['train_err'], ss['validation_err']] for ss in
+     model.metadata['snapshots']]
+a = np.array(a)
+plt.plot(a.T[0], a.T[1], label='Training Error')
+plt.plot(a.T[0], a.T[2], label='Validation Error')
+plt.xlabel('Number of minibatches')
+plt.ylabel('Mean squared error per minibatch')
+plt.legend()
+plt.show()
 
 def compare_dqlearner_to_random_player(qlearner_model):
     pass # TODO
