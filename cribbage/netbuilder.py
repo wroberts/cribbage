@@ -372,9 +372,15 @@ class Model(NetworkWrapper):
         '''Loads metadata for this Model from disk.'''
         with open(self.metadata_filename, 'rb') as input_file:
             self.metadata = json.loads(input_file.read().decode('utf-8'))
+        self.objective_name = self.metadata['objective_name']
+        self.update_name = self.metadata['update_name']
+        self.update_args_value = self.metadata['update_args_value']
 
     def save_metadata(self):
         '''Saves metadata for this Model to disk.'''
+        self.metadata['objective_name'] = self.objective_name
+        self.metadata['update_name'] = self.update_name
+        self.metadata['update_args_value'] = self.update_args_value
         with open_atomic(self.metadata_filename, 'wb') as output_file:
             output_file.write(json.dumps(self.metadata, indent=4))
 
