@@ -12,13 +12,20 @@ network models.
 from __future__ import absolute_import
 import itertools
 import json
+import logging
 import os
+import sys
 import time
 from cribbage.utils import grouped, mkdir_p, open_atomic
 import lasagne
 import numpy as np
 import theano
 import theano.tensor as T
+
+# logging
+logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s',
+                    stream=sys.stderr, level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 class ModelStore(object):
     '''
