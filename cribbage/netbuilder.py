@@ -677,7 +677,7 @@ def build(model):
 
         # stop when training criterion is reached
         if (model.use_num_minibatches is not None and
-            model.use_num_minibatches <= model.metadata['num_minibatches']):
+                model.use_num_minibatches <= model.metadata['num_minibatches']):
             break
 
         # TODO: use_num_epochs
