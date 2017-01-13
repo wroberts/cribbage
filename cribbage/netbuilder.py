@@ -222,6 +222,10 @@ class Model(NetworkWrapper):
         # and outputs; if not None, they are used for training
         self.training_inputs = None
         self.training_outputs = None
+        # this value is set to a positive integer (length of training
+        # set) if the training set for this Model is of finite size;
+        # it is set to False otherwise
+        self.finite_training_set = False
         # update parameters, e.g., learning rate, for training
         self.update_args_value = {}
         # minibatch size; if this is not None, training (input,
@@ -511,11 +515,22 @@ class Model(NetworkWrapper):
         # training set might be a tuple: (inputs, outputs)
         if isinstance(training_set, tuple) and len(training_set) == 2:
             self.training_inputs, self.training_outputs = training_set
+            # try to detect if the training set is finite or not
+            try:
+                self.finite_training_set = len(self.training_inputs)
+            except TypeError:
+                self.finite_training_set = False
         else:
             # otherwise, it might be an iterable
             #
             # the iterable is taken to consist of tuples of (input,
             # output) pairs
+            #
+            # try to detect if the training set is finite or not
+            try:
+                self.finite_training_set = len(training_set)
+            except TypeError:
+                self.finite_training_set = False
             inputs, outputs = itertools.tee(training_set)
             self.training_inputs = (i for (i, o) in inputs)
             self.training_outputs = (o for (i, o) in outputs)
