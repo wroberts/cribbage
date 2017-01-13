@@ -209,10 +209,13 @@ class Model(NetworkWrapper):
         Constructor
 
         Arguments:
-        - `store`:
+        - `store`: a ModelStore or a string to initialise a ModelStore
+          with
         - `model_name`:
         '''
         super(Model, self).__init__()
+        if not isinstance(store, ModelStore):
+            store = ModelStore(store)
         self.store = store
         self.model_name = model_name
         # validation is computed after this many minibatches have been
