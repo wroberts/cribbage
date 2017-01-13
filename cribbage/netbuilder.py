@@ -629,8 +629,6 @@ def build(model):
         train_minibatches += 1
         model.metadata['num_minibatches'] += 1
 
-        # TODO: stop when training criterion is reached
-
         if (num_minibatches + 1) % model.validation_interval == 0:
             # compute validation
             # TODO: validation may be computed differently or not at all
@@ -655,7 +653,12 @@ def build(model):
             start_time = time.time()
             train_err = 0
 
+        # stop when training criterion is reached
+        if (model.use_num_minibatches is not None and
+            model.use_num_minibatches <= model.metadata['num_minibatches']):
+            break
 
+        # TODO: use_num_epochs
 
 # import matplotlib.pyplot as plt
 
