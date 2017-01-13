@@ -624,6 +624,8 @@ def build(model):
             itertools.izip(minibatcher_fn(model.training_inputs),
                            minibatcher_fn(model.training_outputs))):
 
+        # TODO: count epochs for finite training sets
+
         train_err += train_fn(input_minibatch, output_minibatch)
         model.metadata['num_minibatches'] += 1
 
