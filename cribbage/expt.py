@@ -137,7 +137,7 @@ def make_dqlearner(store, name):
     model.objective('squared_error')
     model.update('adadelta')
     # initialise weights from dautoenc2
-    dautoenc2 = Model(store, 'dautoenc2').best_validation_error
+    dautoenc2 = Model(store, 'dautoenc2').load_snapshot(12000)
     model.set_weights('hidden1', dautoenc2.get_weights('hidden1'))
     model.set_weights('hidden2', dautoenc2.get_weights('hidden2'))
     # validation will be performed by playing cribbage against a random
