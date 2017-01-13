@@ -455,7 +455,7 @@ class Model(NetworkWrapper):
         assert 'architecture' in self.metadata
         snapshot = NetworkWrapper()
         snapshot._build_network(self.metadata['architecture'])
-        snapshot.load_params(snapshot_filename)
+        snapshot.load_params(os.path.join(self.model_path, snapshot_filename))
         return snapshot
 
     def validation(self, validation_set):
