@@ -227,7 +227,7 @@ class Model(NetworkWrapper):
         self.validation_set = None
         # if not None, this function is passed this object to compute
         # a validation statistic
-        self.use_validation_fn = None
+        self.use_validation_routine = None
         # these are iterables of np.array values representing inputs
         # and outputs; if not None, they are used for training
         self.training_inputs = None
@@ -528,16 +528,16 @@ class Model(NetworkWrapper):
             outputs = np.array([o for (i, o) in validation_set])
             self.validation_set = (inputs, outputs)
 
-    def validation_fn(self, validation_fn):
+    def validation_routine(self, validation_routine):
         '''
         Sets the validation function used for validation during training.
         The argument should be a function which, when passed this
         object, returns a validation statistic.
 
         Arguments:
-        - `validation_fn`:
+        - `validation_routine`:
         '''
-        self.use_validation_fn = validation_fn
+        self.use_validation_routine = validation_routine
 
     def training(self, training_set):
         '''
