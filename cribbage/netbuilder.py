@@ -251,6 +251,8 @@ class Model(NetworkWrapper):
         self.metadata = None
         # is the network architecture specified by the metadata file?
         self.arch_frozen = False
+        # are the network's weights loaded from a snapshot?
+        self.weights_loaded = False
         # if the architecture is loaded from metadata, the input(),
         # hidden() and output() methods are used to check; this
         # variable stores which layer we're currently checking
@@ -265,6 +267,13 @@ class Model(NetworkWrapper):
             self.load_metadata()
             if 'architecture' in self.metadata:
                 self.arch_frozen = True
+            if 'snapshots' in self.metadata and len(self.metadata['snapshots']) > 0:
+                # load the last snapshot into the network
+                last_snapshot_fn = self.metadata['snapshots'][-1]['filename']
+                self.network # build network
+                self.load_params(os.path.join(self.model_path, last_snapshot_fn))
+                logger.info('weights loaded from snapshot %s', last_snapshot_fn)
+                self.weights_loaded = True
         except IOError:
             # no metadata file present, initialise metadata
             self.metadata = {
@@ -405,6 +414,21 @@ class Model(NetworkWrapper):
         return dict((layer.name, layer) for layer in
                     lasagne.layers.get_all_layers(self.network)
                     if layer.name is not None)
+
+    def set_weights(self, layer_name, values):
+        '''
+        Sets the weight parameters (weight matrix and bias) on the given
+        layer of this network to the values given.
+
+        Arguments:
+        - `layer_name`:
+        - `values`: a list of weight parameter matrices
+        '''
+        if self.weights_loaded:
+            logger.info('weights loaded from snapshot; will not '
+                        'overwrite weights for layer %s', layer_name)
+        else:
+            super(Model, self).set_weights(layer_name, values)
 
     def save_snapshot(self, train_err, validation_err, elapsed_time):
         '''
