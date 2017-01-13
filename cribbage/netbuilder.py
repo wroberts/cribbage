@@ -257,6 +257,16 @@ class NetworkWrapper(object):
             self.output_fn = theano.function([inputs], deterministic_predictions)
         return self.train_fn, self.validation_fn, self.output_fn
 
+    def compute(self, inputs):
+        '''
+        Runs the given inputs through the neural network and returns the
+        output.
+
+        Arguments:
+        - `inputs`:
+        '''
+        _tf, _vf, output_fn = self.get_theano_functions()
+        return output_fn(inputs)
 
 class Model(NetworkWrapper):
     '''An object wrapping a Lasagne feedforward neural network.'''
