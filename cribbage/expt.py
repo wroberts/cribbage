@@ -164,6 +164,7 @@ def get_best_actions(qlearner_model, states_matrix):
     - `qlearner_model`:
     - `states_matrix`:
     '''
+    action_values = qlearner_model.compute(states_matrix)
     return None # TODO
 
 def get_scores(qlearner_model, states_matrix, actions_vector):
