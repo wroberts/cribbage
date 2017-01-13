@@ -74,16 +74,15 @@ def discard_state_repr(is_dealer,
     one_hot(retval, 174, opponent_score)
     return retval
 
-def discard_action_repr(discards):
+def discard_action_repr(discard_card):
     '''
     Constructs a vector representation of a discard action.
 
     Arguments:
-    - `discards`: an iterable of length 2 containing two card values
-      (0-51 incl.)
+    - `discard_card`: a single card values (0-51 incl.)
     '''
     retval = np.zeros(52, dtype=int)
-    encode_categories(retval, 0, discards)
+    one_hot(retval, 0, discard_card)
     return retval
 
 # ------------------------------------------------------------
@@ -207,19 +206,31 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
         - `player_score`: the score of the current player
         - `opponent_score`: the score of the current player's opponent
         '''
-        state = discard_state_repr(is_dealer,
-                                   hand,
-                                   player_score,
-                                   opponent_score)
+        hand = hand[:]
         discard_idxs = self.player.discard(is_dealer, hand, player_score, opponent_score)
         # sanity checking
         assert len(set(discard_idxs)) == 2
         assert all(0 <= i < 6 for i in discard_idxs)
-        discard_idxs = set(discard_idxs)
-        discards = [c for i, c in enumerate(hand) if i in discard_idxs]
-        # construct a vector representation of discards
-        action = discard_action_repr(discards)
+        # order the discards
+        if random.random() < 0.5:
+            discard_idx_1, discard_idx_2 = discard_idxs
+        else:
+            discard_idx_2, discard_idx_1 = discard_idxs
+        state = discard_state_repr(is_dealer,
+                                   hand,
+                                   player_score,
+                                   opponent_score)
+        # construct a vector representation of the first discard
+        action = discard_action_repr(hand[discard_idx_1])
         # reward is zero since game is not over
+        self.record_discard_state(0, state, action)
+        # remove the first discard from the hand and re-encode
+        del hand[discard_idx_1]
+        state = discard_state_repr(is_dealer,
+                                   hand,
+                                   player_score,
+                                   opponent_score)
+        action = discard_action_repr(hand[discard_idx_2])
         self.record_discard_state(0, state, action)
         return discard_idxs
 
