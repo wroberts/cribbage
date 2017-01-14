@@ -78,7 +78,7 @@ stream = doubled(random_skip(random_discard_state_gen()))
 dautoenc.training(stream)
 # configure training loop
 dautoenc.minibatch_size(500)
-dautoenc.num_minibatches(10000)
+dautoenc.num_minibatches(65000)
 dautoenc.validation_interval = 250 # about five minutes on samarkand
 # build the model
 build(dautoenc)
@@ -106,13 +106,13 @@ stream = doubled(random_skip(random_discard_state_gen()))
 dautoenc2.training(stream)
 # configure training loop
 dautoenc2.minibatch_size(500)
-dautoenc2.num_minibatches(10000)
+dautoenc2.num_minibatches(30000)
 dautoenc2.validation_interval = 250 # about five minutes on samarkand
 # build the model
 build(dautoenc2)
 
 import matplotlib.pyplot as plt
-model = dautoenc2
+model = Model(store, 'dautoenc2')
 
 a = [[ss['num_minibatches'], ss['train_err'], ss['validation_err']] for ss in
      model.metadata['snapshots']]
@@ -144,13 +144,13 @@ def make_dqlearner(store, name):
     model.objective('squared_error')
     model.update('adadelta')
     # initialise weights from dautoenc2
-    dautoenc2 = Model(store, 'dautoenc2').load_snapshot(12000)
+    dautoenc2 = Model(store, 'dautoenc2').load_snapshot(20000)
     model.set_weights('hidden1', dautoenc2.get_weights('hidden1'))
     model.set_weights('hidden2', dautoenc2.get_weights('hidden2'))
     # validation will be performed by playing cribbage against a random
     # player
     model.validation_routine(compare_dqlearner_to_random_player)
-    model.num_epochs(5)
+    model.num_epochs(1)
     return model
 
 def get_best_actions(qlearner_model, states_matrix):
