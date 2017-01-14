@@ -181,7 +181,8 @@ def get_scores(qlearner_model, states_matrix, actions_vector):
     - `states_matrix`:
     - `actions_vector`:
     '''
-    return None # TODO
+    return qlearner_model.compute(states_matrix)[np.arange(len(actions_vector)),
+                                                 actions_vector]
 
 dqlearner_a = make_dqlearner(store, 'dqlearner_a')
 dqlearner_b = make_dqlearner(store, 'dqlearner_b')
