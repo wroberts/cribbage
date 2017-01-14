@@ -164,8 +164,10 @@ def get_best_actions(qlearner_model, states_matrix):
     - `qlearner_model`:
     - `states_matrix`:
     '''
-    action_values = qlearner_model.compute(states_matrix)
-    return None # TODO
+    output = qlearner_model.compute(states_matrix)
+    # only consider those actions which are possible in the given hands
+    masked_output = np.ma.masked_array(output, mask=~states_matrix[:,1:53].astype(bool))
+    return masked_output.argmax(axis=1)
 
 def get_scores(qlearner_model, states_matrix, actions_vector):
     '''
