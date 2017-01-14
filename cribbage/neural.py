@@ -12,6 +12,7 @@ http://r6.ca/cs486/
 for inspiration.
 '''
 
+import random
 from cribbage.cards import split_card
 from cribbage.cribbage_score import is_legal_play
 from cribbage.game import Game
@@ -220,8 +221,10 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
                                    hand,
                                    player_score,
                                    opponent_score)
+        discard_card_1 = hand[discard_idx_1]
+        discard_card_2 = hand[discard_idx_2]
         # construct a vector representation of the first discard
-        action = discard_action_repr(hand[discard_idx_1])
+        action = discard_action_repr(discard_card_1)
         # reward is zero since game is not over
         self.record_discard_state(0, state, action)
         # remove the first discard from the hand and re-encode
@@ -230,7 +233,7 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
                                    hand,
                                    player_score,
                                    opponent_score)
-        action = discard_action_repr(hand[discard_idx_2])
+        action = discard_action_repr(discard_card_2)
         self.record_discard_state(0, state, action)
         return discard_idxs
 
