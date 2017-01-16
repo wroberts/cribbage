@@ -248,13 +248,19 @@ else:
     dqlearner_update = dqlearner_b
     dqlearner_scorer = dqlearner_a
 # play games against the random player and record (s,a,r,s) discard
-# states until 10,000 discard states have been generated
+# states until 10,000 discard states have been generated; add these to
+# the replay memory
 #
 # e-greedy with epsilon annealed linearly from 1.0 to 0.1 over first
 # 1,000,000 "frames", and 0.1 thereafter
-record_player1_states(QLearningPlayer(dqlearner_update), RandomCribbagePlayer())
-# add these to the replay memory
-pass # TODO
+epsilon = max(1. + (0.1 - 1.) * dqlearner_update.metadata['num_minibatches'] / 1000000., 0.1)
+num_discard_states = 0
+while num_discard_states < 10000:
+    discard_states, play_card_states = record_player1_states(
+        QLearningPlayer(dqlearner_update, None, epsilon=epsilon),
+        RandomCribbagePlayer())
+    num_discard_states += len(discard_states)
+    replay_memory.extend(discard_states)
 # truncate replay memory if needed (replay memory was 1,000,000 states in Mnih)
 if len(replay_memory) > 500000:
     replay_memory = replay_memory[-500000:]
