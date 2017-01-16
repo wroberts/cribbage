@@ -14,6 +14,7 @@ import random
 from cribbage.game import Game
 from cribbage.netbuilder import ModelStore, Model, build
 from cribbage.neural import record_both_player_states, record_player1_states
+from cribbage.player import CribbagePlayer
 from cribbage.randomplayer import RandomCribbagePlayer
 from cribbage.utils import doubled
 import numpy as np
