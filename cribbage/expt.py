@@ -185,7 +185,13 @@ def get_scores(qlearner_model, states_matrix, actions_vector):
                                                  actions_vector]
 
 # initialise replay memory with 50,000 (s,a,r,s) tuples from random play
-pass # TODO
+replay_memory = []
+replay_memory.extend(itertools.islice(random_discard_sars_gen(), 50000))
+# 50k: 252M
+# 100k: 360M
+# 150k: 353M
+# 200k: 414M
+# 500k: 750M
 # build the two q-learning networks
 dqlearner_a = make_dqlearner(store, 'dqlearner_a')
 dqlearner_b = make_dqlearner(store, 'dqlearner_b')
