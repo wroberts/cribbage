@@ -703,45 +703,56 @@ def build(model):
     else:
         minibatcher_fn = lambda xs: xs
 
-    # training loop
-    start_time = time.time()
-    train_err = 0
-    for num_minibatches, (input_minibatch, output_minibatch) in enumerate(
-            itertools.izip(minibatcher_fn(model.training_inputs),
-                           minibatcher_fn(model.training_outputs))):
+    # if training set is finite and num_epochs is specified, we loop
+    # that many times; otherwise, we loop once
+    num_epochs = 1
+    counting_epochs = False
 
-        # TODO: count epochs for finite training sets
+    if model.finite_training_set and model.use_num_epochs is not None:
+        num_epochs = model.use_num_epochs
+        counting_epochs = True
 
-        train_err += train_fn(input_minibatch, output_minibatch)
-        model.metadata['num_minibatches'] += 1
+    for epoch in range(num_epochs):
+        # training loop
+        start_time = time.time()
+        train_err = 0
+        for num_minibatches, (input_minibatch, output_minibatch) in enumerate(
+                itertools.izip(minibatcher_fn(model.training_inputs),
+                               minibatcher_fn(model.training_outputs))):
 
-        if (num_minibatches + 1) % model.validation_interval == 0:
-            # compute validation
-            # TODO: validation may be computed differently or not at all
-            validation_err = 0
-            for input_minibatch, output_minibatch in itertools.izip(
-                    *map(minibatcher_fn, model.validation_set)):
-                validation_err += validation_fn(input_minibatch, output_minibatch)
+            train_err += train_fn(input_minibatch, output_minibatch)
+            model.metadata['num_minibatches'] += 1
 
-            train_err /= model.validation_interval
+            if (num_minibatches + 1) % model.validation_interval == 0:
+                # compute validation
+                # TODO: validation may be computed differently or not at all
+                validation_err = 0
+                for input_minibatch, output_minibatch in itertools.izip(
+                        *map(minibatcher_fn, model.validation_set)):
+                    validation_err += validation_fn(input_minibatch, output_minibatch)
 
-            # model snapshot
-            elapsed_time = time.time() - start_time
-            model.save_snapshot(train_err=train_err,
-                                validation_err=validation_err,
-                                elapsed_time=elapsed_time)
+                train_err /= model.validation_interval
 
-            # Then we print the results for this epoch:
-            print('Training round {:.1f} secs; training loss {:.6f}; validation loss {:.6f}'.format(
-                elapsed_time,
-                train_err,
-                validation_err))
-            start_time = time.time()
-            train_err = 0
+                # model snapshot
+                elapsed_time = time.time() - start_time
+                model.save_snapshot(train_err=train_err,
+                                    validation_err=validation_err,
+                                    elapsed_time=elapsed_time)
 
-        # stop when training criterion is reached
-        if (model.use_num_minibatches is not None and
-                model.use_num_minibatches <= model.metadata['num_minibatches']):
-            break
+                # Then we print the results for this epoch:
+                report = 'Training round {:.1f} secs; '.format(elapsed_time)
+                report += 'training {:.6f}; '.format(train_err)
+                report += 'validation {:.6f}'.format(validation_err)
+                if counting_epochs:
+                    report += ' epochs {} / {}'.format(epoch, num_epochs)
+                start_time = time.time()
+                train_err = 0
 
-        # TODO: use_num_epochs
+            # stop when training criterion is reached
+            if (model.use_num_minibatches is not None and
+                    model.use_num_minibatches <= model.metadata['num_minibatches']):
+                break
+
+        # update num_epochs
+        if counting_epochs:
+            model.metadata['num_epochs'] += 1
