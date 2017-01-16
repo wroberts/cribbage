@@ -11,7 +11,7 @@ Training an AI to play cribbage.
 from __future__ import absolute_import, print_function
 import itertools
 import random
-from cribbage.game import Game
+from cribbage.game import Game, compare_players
 from cribbage.netbuilder import ModelStore, Model, build
 from cribbage.neural import discard_state_repr, record_both_player_states, record_player1_states
 from cribbage.player import CribbagePlayer
