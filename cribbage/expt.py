@@ -13,7 +13,7 @@ import itertools
 import random
 from cribbage.game import Game
 from cribbage.netbuilder import ModelStore, Model, build
-from cribbage.neural import record_both_player_states, record_player1_states
+from cribbage.neural import discard_state_repr, record_both_player_states, record_player1_states
 from cribbage.player import CribbagePlayer
 from cribbage.randomplayer import RandomCribbagePlayer
 from cribbage.utils import doubled
@@ -147,8 +147,25 @@ class QLearningPlayer(CribbagePlayer):
                 player_score,
                 opponent_score):
         if self.discard_model is not None:
-            # TODO
-            pass
+            hand = hand[:]
+            # choose the first card to discard
+            state = discard_state_repr(is_dealer,
+                                       hand,
+                                       player_score,
+                                       opponent_score)
+            output = self.discard_model.compute(state[None, :])[0]
+            output = np.ma.masked_array(output, mask=~state[1:53].astype(bool))
+            discard_idx_1 = output.argmax()
+            # remove the first discard from the hand and re-encode
+            del hand[discard_idx_1]
+            state = discard_state_repr(is_dealer,
+                                       hand,
+                                       player_score,
+                                       opponent_score)
+            output = self.discard_model.compute(state[None, :])[0]
+            output = np.ma.masked_array(output, mask=~state[1:53].astype(bool))
+            discard_idx_2 = output.argmax()
+            return [discard_idx_1, discard_idx_2]
         return random.sample(range(6), 2)
 
     def play_card(self,
