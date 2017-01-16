@@ -11,7 +11,7 @@ Training an AI to play cribbage.
 from __future__ import absolute_import, print_function
 import itertools
 import random
-from cribbage.game import Game, compare_players
+from cribbage.game import compare_players
 from cribbage.netbuilder import ModelStore, Model, build
 from cribbage.neural import discard_state_repr, record_both_player_states, record_player1_states
 from cribbage.player import CribbagePlayer
@@ -137,6 +137,7 @@ class QLearningPlayer(CribbagePlayer):
         - `play_card_model`:
         - `epsilon`:
         '''
+        super(QLearningPlayer, self).__init__()
         self.discard_model = discard_model
         self.play_card_model = play_card_model
         self.epsilon = epsilon
@@ -196,6 +197,13 @@ def compare_dqlearner_to_random_player(qlearner_model):
 
 # Q-learning model for discard()
 def make_dqlearner(store, name):
+    '''
+    Builds a Q-learning model to learn how to discard.
+
+    Arguments:
+    - `store`: the ModelStore to store the Model in
+    - `name`: the name of the Q-learning model to create
+    '''
     model = Model(store, name)
     model.input(295)
     model.hidden(150, 'rectify', dropout=0.2) # Dense
@@ -292,7 +300,9 @@ rewards = np.array([r for s,a,r,s2 in selected_sars])
 # handle cases where post_state is None: keep track of indices into
 # our matrices (e.g., pre_states, actions) where the post_state is not
 # None
-nonnull_post_state_idxs = np.array([i for i,(s,a,r,s2) in enumerate(selected_sars) if s2 is not None])
+nonnull_post_state_idxs = np.array([i for i,(s,a,r,s2) in
+                                    enumerate(selected_sars)
+                                    if s2 is not None])
 post_states = np.array([s2 for s,a,r,s2 in selected_sars if s2 is not None])
 # the online q-learner is used to figure out what the optimal future
 # actions will be
