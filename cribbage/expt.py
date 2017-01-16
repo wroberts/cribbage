@@ -211,8 +211,9 @@ else:
 record_player1_states(QLearningPlayer(dqlearner_update), RandomCribbagePlayer())
 # add these to the replay memory
 pass # TODO
-# truncate replay memory if needed (replay memory 1,000,000 states)
-pass # TODO
+# truncate replay memory if needed (replay memory was 1,000,000 states in Mnih)
+if len(replay_memory) > 500000:
+    replay_memory = replay_memory[-500000:]
 # make the training set 312 random minibatches (sampling with
 # replacement) of 32 s,a,r,s tuples (this is roughly in line with
 # Mnih's "Qhat estimator updated every 10,000 updates")
