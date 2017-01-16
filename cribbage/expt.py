@@ -172,7 +172,9 @@ def compare_dqlearner_to_random_player(qlearner_model):
     Arguments:
     - `qlearner_model`: a Model object
     '''
-    pass # TODO
+    qplayer = QLearningPlayer(qlearner_model, None, epsilon=0.05)
+    stats = compare_players([qplayer, RandomCribbagePlayer()], 100)
+    return stats[0] / 100.
 
 # Q-learning model for discard()
 def make_dqlearner(store, name):
