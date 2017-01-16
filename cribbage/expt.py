@@ -242,6 +242,9 @@ previous_values = dqlearner_update.compute(pre_states)
 # values (i.e., we do not use the "alpha" from van Hasselt's poster.
 gamma = 0.99
 updated_values = np.array(previous_values)
-updated_values[np.arange(len(actions)), actions] = rewards + gamma * value_estimates
+updated_values[np.arange(len(actions)), actions] = rewards
+# in cases where the post_state is None, the value_estimate for that
+# post_state is defined to be 0
+updated_values[nonnull_post_state_idxs, actions[nonnull_post_state_idxs]] += gamma * value_estimates
 # train updated values for one epoch
 dqlearner_update.training((pre_states, updated_values))
