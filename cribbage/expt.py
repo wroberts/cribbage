@@ -150,6 +150,7 @@ def make_dqlearner(store, name):
     # validation will be performed by playing cribbage against a random
     # player
     model.validation_routine(compare_dqlearner_to_random_player)
+    model.minibatch_size(32)
     model.num_epochs(1)
     return model
 
