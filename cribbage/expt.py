@@ -124,6 +124,46 @@ plt.ylabel('Mean squared error per minibatch')
 plt.legend()
 plt.show()
 
+class QLearningPlayer(CribbagePlayer):
+    '''A CribbagePlayer that plays using a Q-learned model.'''
+
+    def __init__(self, discard_model, play_card_model, epsilon):
+        '''
+        Constructor.
+
+        Arguments:
+        - `discard_model`:
+        - `play_card_model`:
+        - `epsilon`:
+        '''
+        self.discard_model = discard_model
+        self.play_card_model = play_card_model
+        self.epsilon = epsilon
+
+    def discard(self,
+                is_dealer,
+                hand,
+                player_score,
+                opponent_score):
+        if self.discard_model is not None:
+            # TODO
+            pass
+        return random.sample(range(6), 2)
+
+    def play_card(self,
+                  is_dealer,
+                  hand,
+                  played_cards,
+                  is_go,
+                  linear_play,
+                  player_score,
+                  opponent_score,
+                  legal_moves):
+        if self.play_card_model is not None:
+            # TODO
+            pass
+        return random.choice(legal_moves)
+
 def compare_dqlearner_to_random_player(qlearner_model):
     '''
     Plays a set of games between the Q-Learner player and a
