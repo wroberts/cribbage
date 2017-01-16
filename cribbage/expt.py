@@ -217,8 +217,16 @@ if len(replay_memory) > 500000:
 # make the training set 312 random minibatches (sampling with
 # replacement) of 32 s,a,r,s tuples (this is roughly in line with
 # Mnih's "Qhat estimator updated every 10,000 updates")
-selected_sars = BLAH # TODO
-pre_states, actions, rewards, post_states = selected_sars
+selected_idxs = np.random.randint(0, len(replay_memory), size=312*32)
+selected_sars = [replay_memory[idx] for idx in selected_idxs]
+pre_states = np.array([s for s,a,r,s2 in selected_sars])
+actions = np.array([a for s,a,r,s2 in selected_sars]).argmax(axis=1)
+rewards = np.array([r for s,a,r,s2 in selected_sars])
+# handle cases where post_state is None: keep track of indices into
+# our matrices (e.g., pre_states, actions) where the post_state is not
+# None
+nonnull_post_state_idxs = np.array([i for i,(s,a,r,s2) in enumerate(selected_sars) if s2 is not None])
+post_states = np.array([s2 for s,a,r,s2 in selected_sars if s2 is not None])
 # the online q-learner is used to figure out what the optimal future
 # actions will be
 best_actions = get_best_actions(dqlearner_update, post_states)
