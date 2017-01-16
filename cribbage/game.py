@@ -112,3 +112,22 @@ class Game(object):
             self.winner = player_idx
             return False
         return True
+
+def compare_players(players, num_games=1000):
+    '''
+    Utility function to compare two player objects.
+
+    This function plays the two players against each other for the
+    specified number of games, and returns a two-item list indicating
+    how many time each player won.
+
+    Arguments:
+    - `players`: a list of two CribbagePlayer objects
+    - `num_games`: the number of games to play
+    '''
+    stats = [0, 0]
+    for _idx in range(num_games):
+        game = Game(players)
+        game.play()
+        stats[game.winner] += 1
+    return stats

@@ -2,17 +2,9 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import, print_function
-from cribbage.game import Game
+from cribbage.game import compare_players
 from cribbage.randomplayer import RandomCribbagePlayer
 from cribbage.simpleplayer import SimpleCribbagePlayer
-
-def compare_players(players, num_games=1000):
-    stats = [0, 0]
-    for i in range(num_games):
-        g = Game(players)
-        g.play()
-        stats[g.winner] += 1
-    return stats
 
 # ------------------------------------------------------------
 # Cribbage Game
