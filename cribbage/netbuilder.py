@@ -67,8 +67,11 @@ NONLINEARITY_NAMES = {
 }
 
 OBJECTIVE_NAMES = {
+    'binary_crossentropy': lasagne.objectives.binary_crossentropy,
     'categorical_crossentropy': lasagne.objectives.categorical_crossentropy,
     'squared_error': lasagne.objectives.squared_error,
+    'binary_hinge_loss': lasagne.objectives.binary_hinge_loss,
+    'multiclass_hinge_loss': lasagne.objectives.multiclass_hinge_loss,
     }
 
 UPDATE_NAMES = {
@@ -230,8 +233,11 @@ class NetworkWrapper(object):
 
             # define the loss function between the network output and the
             # training output
-            # TODO: parameterise for different objective functions
-            loss = lasagne.objectives.squared_error(predictions, outputs)
+            objective_fn = OBJECTIVE_NAMES[self.objective_name]
+            # TODO: some objective functions can take optional
+            # parameters (e.g., delta for binary_hinge_loss, etc.)
+            # TODO: parameterise the aggregation method too?
+            loss = objective_fn(predictions, outputs)
             loss = lasagne.objectives.aggregate(loss, mode='mean')
 
             # for validation, we use the network in deterministic mode (e.g.,
@@ -240,8 +246,8 @@ class NetworkWrapper(object):
                 self._network, inputs, deterministic=True)
 
             # TODO: validation stat can be computed differently
-            # validation loss is the same as training loss
-            validation_loss = lasagne.objectives.squared_error(deterministic_predictions, outputs)
+            # validation loss uses the same objective as training loss
+            validation_loss = objective_fn(deterministic_predictions, outputs)
             validation_loss = lasagne.objectives.aggregate(validation_loss, mode='mean')
 
             # retrieve all trainable parameters from the model's neural network
