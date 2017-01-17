@@ -725,11 +725,14 @@ def build(model):
 
             if (num_minibatches + 1) % model.validation_interval == 0:
                 # compute validation
-                # TODO: validation may be computed differently or not at all
-                validation_err = 0
-                for input_minibatch, output_minibatch in itertools.izip(
-                        *map(minibatcher_fn, model.validation_set)):
-                    validation_err += validation_fn(input_minibatch, output_minibatch)
+                validation_err = None
+                if model.use_validation_routine is not None:
+                    validation_err = model.use_validation_routine(model)
+                elif model.validation_set is not None:
+                    validation_err = 0
+                    for input_minibatch, output_minibatch in itertools.izip(
+                            *map(minibatcher_fn, model.validation_set)):
+                        validation_err += validation_fn(input_minibatch, output_minibatch)
 
                 train_err /= model.validation_interval
 
@@ -741,8 +744,9 @@ def build(model):
 
                 # Then we print the results for this epoch:
                 report = 'Training round {:.1f} secs; '.format(elapsed_time)
-                report += 'training {:.6f}; '.format(train_err)
-                report += 'validation {:.6f}'.format(validation_err)
+                report += 'training {:.6f};'.format(train_err)
+                if validation_err is not None:
+                    report += ' validation {:.6f}'self.format(validation_err)
                 if counting_epochs:
                     report += ' epochs {} / {}'.format(epoch, num_epochs)
                 start_time = time.time()
