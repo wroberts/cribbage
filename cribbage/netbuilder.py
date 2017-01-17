@@ -245,7 +245,6 @@ class NetworkWrapper(object):
             deterministic_predictions = lasagne.layers.get_output(
                 self._network, inputs, deterministic=True)
 
-            # TODO: validation stat can be computed differently
             # validation loss uses the same objective as training loss
             validation_loss = objective_fn(deterministic_predictions, outputs)
             validation_loss = lasagne.objectives.aggregate(validation_loss, mode='mean')
