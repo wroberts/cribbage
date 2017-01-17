@@ -220,7 +220,7 @@ def make_dqlearner(store, name):
     # player
     model.minibatch_size(32)
     model.num_epochs(1)
-    model.validation_interval(312)
+    model.validation_interval = 312
     return model
 
 def get_best_actions(qlearner_model, states_matrix):
@@ -267,64 +267,67 @@ dqlearner_a = make_dqlearner(store, 'dqlearner_a')
 dqlearner_a.validation_routine(functools.partial(compare_dqlearner_to_random_player, dqlearner_a))
 dqlearner_b = make_dqlearner(store, 'dqlearner_b')
 dqlearner_b.validation_routine(functools.partial(compare_dqlearner_to_random_player, dqlearner_a))
-# randomly select which q-learning network will be updated, and which
-# will estimate action values
-if random.random() < 0.5:
-    dqlearner_update = dqlearner_a
-    dqlearner_scorer = dqlearner_b
-else:
-    dqlearner_update = dqlearner_b
-    dqlearner_scorer = dqlearner_a
-# play games against the random player and record (s,a,r,s) discard
-# states until 10,000 discard states have been generated; add these to
-# the replay memory
-#
-# e-greedy with epsilon annealed linearly from 1.0 to 0.1 over first
-# 1,000,000 "frames", and 0.1 thereafter
-epsilon = max(1. + (0.1 - 1.) * dqlearner_update.metadata['num_minibatches'] / 1000000., 0.1)
-num_discard_states = 0
-while num_discard_states < 10000:
-    discard_states, play_card_states = record_player1_states(
-        QLearningPlayer(dqlearner_update, None, epsilon=epsilon),
-        RandomCribbagePlayer())
-    num_discard_states += len(discard_states)
-    replay_memory.extend(discard_states)
-# truncate replay memory if needed (replay memory was 1,000,000 states in Mnih)
-if len(replay_memory) > 500000:
-    replay_memory = replay_memory[-500000:]
-# make the training set 312 random minibatches (sampling with
-# replacement) of 32 s,a,r,s tuples (this is roughly in line with
-# Mnih's "Qhat estimator updated every 10,000 updates")
-selected_idxs = np.random.randint(0, len(replay_memory), size=312*32)
-selected_sars = [replay_memory[idx] for idx in selected_idxs]
-pre_states = np.array([s for s,a,r,s2 in selected_sars])
-actions = np.array([a for s,a,r,s2 in selected_sars]).argmax(axis=1)
-rewards = np.array([r for s,a,r,s2 in selected_sars])
-# handle cases where post_state is None: keep track of indices into
-# our matrices (e.g., pre_states, actions) where the post_state is not
-# None
-nonnull_post_state_idxs = np.array([i for i,(s,a,r,s2) in
-                                    enumerate(selected_sars)
-                                    if s2 is not None])
-post_states = np.array([s2 for s,a,r,s2 in selected_sars if s2 is not None])
-# the online q-learner is used to figure out what the optimal future
-# actions will be
-best_actions = get_best_actions(dqlearner_update, post_states)
-# and the other q-learner is used to score the values of these future actions
-value_estimates = get_scores(dqlearner_scorer, post_states, best_actions)
-# we compute the action-value matrix for the pre-states from
-# dqlearner_update
-previous_values = dqlearner_update.compute(pre_states)
-# the updated values for training is identical to previous_values,
-# except for at the locations of the selected actions, which are set
-# to the new estimates of those action values.  the SGD of the neural
-# network will take care of nudging the weights towards these new
-# values (i.e., we do not use the "alpha" from van Hasselt's poster.
-gamma = 0.99
-updated_values = np.array(previous_values)
-updated_values[np.arange(len(actions)), actions] = rewards
-# in cases where the post_state is None, the value_estimate for that
-# post_state is defined to be 0
-updated_values[nonnull_post_state_idxs, actions[nonnull_post_state_idxs]] += gamma * value_estimates
-# train updated values for one epoch
-dqlearner_update.training((pre_states, updated_values))
+# training loop
+while True:
+    # randomly select which q-learning network will be updated, and which
+    # will estimate action values
+    if random.random() < 0.5:
+        dqlearner_update = dqlearner_a
+        dqlearner_scorer = dqlearner_b
+    else:
+        dqlearner_update = dqlearner_b
+        dqlearner_scorer = dqlearner_a
+    # play games against the random player and record (s,a,r,s) discard
+    # states until 10,000 discard states have been generated; add these to
+    # the replay memory
+    #
+    # e-greedy with epsilon annealed linearly from 1.0 to 0.1 over first
+    # 1,000,000 "frames", and 0.1 thereafter
+    epsilon = max(1. + (0.1 - 1.) * dqlearner_update.metadata['num_minibatches'] / 1000000., 0.1)
+    num_discard_states = 0
+    while num_discard_states < 10000:
+        discard_states, play_card_states = record_player1_states(
+            QLearningPlayer(dqlearner_update, None, epsilon=epsilon),
+            RandomCribbagePlayer())
+        num_discard_states += len(discard_states)
+        replay_memory.extend(discard_states)
+    # truncate replay memory if needed (replay memory was 1,000,000 states in Mnih)
+    if len(replay_memory) > 500000:
+        replay_memory = replay_memory[-500000:]
+    # make the training set 312 random minibatches (sampling with
+    # replacement) of 32 s,a,r,s tuples (this is roughly in line with
+    # Mnih's "Qhat estimator updated every 10,000 updates")
+    selected_idxs = np.random.randint(0, len(replay_memory), size=312*32)
+    selected_sars = [replay_memory[idx] for idx in selected_idxs]
+    pre_states = np.array([s for s,a,r,s2 in selected_sars])
+    actions = np.array([a for s,a,r,s2 in selected_sars]).argmax(axis=1)
+    rewards = np.array([r for s,a,r,s2 in selected_sars])
+    # handle cases where post_state is None: keep track of indices into
+    # our matrices (e.g., pre_states, actions) where the post_state is not
+    # None
+    nonnull_post_state_idxs = np.array([i for i,(s,a,r,s2) in
+                                        enumerate(selected_sars)
+                                        if s2 is not None])
+    post_states = np.array([s2 for s,a,r,s2 in selected_sars if s2 is not None])
+    # the online q-learner is used to figure out what the optimal future
+    # actions will be
+    best_actions = get_best_actions(dqlearner_update, post_states)
+    # and the other q-learner is used to score the values of these future actions
+    value_estimates = get_scores(dqlearner_scorer, post_states, best_actions)
+    # we compute the action-value matrix for the pre-states from
+    # dqlearner_update
+    previous_values = dqlearner_update.compute(pre_states)
+    # the updated values for training is identical to previous_values,
+    # except for at the locations of the selected actions, which are set
+    # to the new estimates of those action values.  the SGD of the neural
+    # network will take care of nudging the weights towards these new
+    # values (i.e., we do not use the "alpha" from van Hasselt's poster.
+    gamma = 0.99
+    updated_values = np.array(previous_values)
+    updated_values[np.arange(len(actions)), actions] = rewards
+    # in cases where the post_state is None, the value_estimate for that
+    # post_state is defined to be 0
+    updated_values[nonnull_post_state_idxs, actions[nonnull_post_state_idxs]] += gamma * value_estimates
+    # train updated values for one epoch
+    dqlearner_update.training((pre_states, updated_values))
+    build(dqlearner_update)
