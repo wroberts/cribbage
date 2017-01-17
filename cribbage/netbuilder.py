@@ -751,7 +751,7 @@ def build(model):
                 report = 'Training round {:.1f} secs; '.format(elapsed_time)
                 report += 'training {:.6f};'.format(train_err)
                 if validation_err is not None:
-                    report += ' validation {:.6f}'self.format(validation_err)
+                    report += ' validation {:.6f}'.format(validation_err)
                 if counting_epochs:
                     report += ' epochs {} / {}'.format(epoch, num_epochs)
                 start_time = time.time()
