@@ -220,6 +220,7 @@ def make_dqlearner(store, name):
     model.validation_routine(compare_dqlearner_to_random_player)
     model.minibatch_size(32)
     model.num_epochs(1)
+    model.validation_interval(312)
     return model
 
 def get_best_actions(qlearner_model, states_matrix):
