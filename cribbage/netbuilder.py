@@ -728,7 +728,7 @@ def build(model):
             train_err += train_fn(input_minibatch, output_minibatch)
             model.metadata['num_minibatches'] += 1
 
-            if (num_minibatches + 1) % model.validation_interval == 0:
+            if (model.metadata['num_minibatches'] + 1) % model.validation_interval == 0:
                 # compute validation
                 validation_err = None
                 if model.use_validation_routine is not None:
