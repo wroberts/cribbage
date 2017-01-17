@@ -12,7 +12,11 @@ two CribbagePlayers.
 from __future__ import absolute_import, print_function
 import random
 from cribbage.cards import card_tostring, cards_worth, make_deck, split_card
-from cribbage.cribbage_score import is_legal_play, score_hand, score_play
+from cribbage.cribbage_score import is_legal_play, score_play
+try:
+    from cribbage._cribbage_score import score_hand
+except ImportError:
+    from cribbage.cribbage_score import score_hand
 
 class Round(object):
     '''
