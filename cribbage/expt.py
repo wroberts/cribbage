@@ -223,7 +223,7 @@ def make_dqlearner(store, name):
     # player
     model.minibatch_size(32)
     model.num_epochs(1)
-    model.validation_interval = 312
+    model.validation_interval = 6000
     return model
 
 def get_best_actions(qlearner_model, states_matrix):
@@ -288,7 +288,7 @@ while True:
     # 1,000,000 "frames", and 0.1 thereafter
     epsilon = max(1. + (0.1 - 1.) * dqlearner_update.metadata['num_minibatches'] / 1000000., 0.1)
     num_discard_states = 0
-    while num_discard_states < 10000:
+    while num_discard_states < 5000:
         discard_states, play_card_states = record_player1_states(
             QLearningPlayer(dqlearner_update, None, epsilon=epsilon),
             RandomCribbagePlayer())
