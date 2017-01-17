@@ -150,6 +150,7 @@ class QLearningPlayer(CribbagePlayer):
                 opponent_score):
         if self.discard_model is not None and random.random() > self.epsilon:
             hand = hand[:]
+            hand2 = hand[:]
             # choose the first card to discard
             state = discard_state_repr(is_dealer,
                                        hand,
@@ -157,7 +158,8 @@ class QLearningPlayer(CribbagePlayer):
                                        opponent_score)
             output = self.discard_model.compute(state[None, :])[0]
             output = np.ma.masked_array(output, mask=~state[1:53].astype(bool))
-            discard_idx_1 = output.argmax()
+            discard_value_1 = output.argmax()
+            discard_idx_1 = hand.index(discard_value_1)
             # remove the first discard from the hand and re-encode
             del hand[discard_idx_1]
             state = discard_state_repr(is_dealer,
@@ -166,7 +168,8 @@ class QLearningPlayer(CribbagePlayer):
                                        opponent_score)
             output = self.discard_model.compute(state[None, :])[0]
             output = np.ma.masked_array(output, mask=~state[1:53].astype(bool))
-            discard_idx_2 = output.argmax()
+            discard_value_2 = output.argmax()
+            discard_idx_2 = hand2.index(discard_value_2)
             return [discard_idx_1, discard_idx_2]
         return random.sample(range(6), 2)
 
