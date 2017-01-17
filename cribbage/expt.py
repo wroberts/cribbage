@@ -183,7 +183,7 @@ class QLearningPlayer(CribbagePlayer):
             pass
         return random.choice(legal_moves)
 
-def compare_dqlearner_to_random_player(qlearner_model):
+def compare_dqlearner_to_random_player(qlearner_model, _dummy_model):
     '''
     Plays a set of games between the Q-Learner player and a
     RandomPlayer, returns the fraction that the Q-Learner player wins.
@@ -217,7 +217,6 @@ def make_dqlearner(store, name):
     model.set_weights('hidden2', dautoenc2.get_weights('hidden2'))
     # validation will be performed by playing cribbage against a random
     # player
-    model.validation_routine(compare_dqlearner_to_random_player)
     model.minibatch_size(32)
     model.num_epochs(1)
     model.validation_interval(312)
@@ -264,7 +263,9 @@ replay_memory.extend(itertools.islice(random_discard_sars_gen(), 50000))
 # 500k: 750M
 # build the two q-learning networks
 dqlearner_a = make_dqlearner(store, 'dqlearner_a')
+dqlearner_a.validation_routine(functools.partial(compare_dqlearner_to_random_player, dqlearner_a))
 dqlearner_b = make_dqlearner(store, 'dqlearner_b')
+dqlearner_b.validation_routine(functools.partial(compare_dqlearner_to_random_player, dqlearner_a))
 # randomly select which q-learning network will be updated, and which
 # will estimate action values
 if random.random() < 0.5:
