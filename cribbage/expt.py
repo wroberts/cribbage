@@ -147,7 +147,7 @@ class QLearningPlayer(CribbagePlayer):
                 hand,
                 player_score,
                 opponent_score):
-        if self.discard_model is not None:
+        if self.discard_model is not None and random.random() > self.epsilon:
             hand = hand[:]
             # choose the first card to discard
             state = discard_state_repr(is_dealer,
@@ -178,7 +178,7 @@ class QLearningPlayer(CribbagePlayer):
                   player_score,
                   opponent_score,
                   legal_moves):
-        if self.play_card_model is not None:
+        if self.play_card_model is not None and random.random() > self.epsilon:
             # TODO
             pass
         return random.choice(legal_moves)
