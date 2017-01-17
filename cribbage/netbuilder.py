@@ -754,6 +754,7 @@ def build(model):
                     report += ' validation {:.6f}'.format(validation_err)
                 if counting_epochs:
                     report += ' epochs {} / {}'.format(epoch, num_epochs)
+                print(report)
                 start_time = time.time()
                 train_err = 0
 
