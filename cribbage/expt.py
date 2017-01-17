@@ -9,6 +9,7 @@ Training an AI to play cribbage.
 '''
 
 from __future__ import absolute_import, print_function
+import functools
 import itertools
 import random
 from cribbage.game import compare_players
