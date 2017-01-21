@@ -212,15 +212,15 @@ def make_dqlearner(store, name):
     '''
     model = Model(store, name)
     model.input(295)
-    model.hidden(150, 'rectify', dropout=0.2) # Dense
-    model.hidden(150, 'rectify', dropout=0.2) # Dense
-    model.output(52, 'rectify') # Dense: top two activations indicate cards to play
+    model.hidden(150, 'tanh', dropout=0.2) # Dense
+    model.hidden(150, 'tanh', dropout=0.2) # Dense
+    model.output(52, 'tanh') # Dense: top two activations indicate cards to play
     model.objective('squared_error')
     model.update('adadelta')
     # initialise weights from dautoenc2
-    dautoenc2 = Model(store, 'dautoenc2').load_snapshot(20000)
-    model.set_weights('hidden1', dautoenc2.get_weights('hidden1'))
-    model.set_weights('hidden2', dautoenc2.get_weights('hidden2'))
+    #dautoenc2 = Model(store, 'dautoenc2').load_snapshot(20000)
+    #model.set_weights('hidden1', dautoenc2.get_weights('hidden1'))
+    #model.set_weights('hidden2', dautoenc2.get_weights('hidden2'))
     # validation will be performed by playing cribbage against a random
     # player
     model.minibatch_size(32)
@@ -272,9 +272,9 @@ replay_memory.extend(itertools.islice(random_discard_sars_gen(), 50000))
 # 200k: 414M
 # 500k: 750M
 # build the two q-learning networks
-dqlearner_a = make_dqlearner('models', 'dqlearner_a')
+dqlearner_a = make_dqlearner('models', 'dqlearner_a2')
 dqlearner_a.validation_routine(functools.partial(compare_dqlearner_to_random_player, dqlearner_a))
-dqlearner_b = make_dqlearner('models', 'dqlearner_b')
+dqlearner_b = make_dqlearner('models', 'dqlearner_b2')
 dqlearner_b.validation_routine(functools.partial(compare_dqlearner_to_random_player, dqlearner_a))
 # training loop
 while True:

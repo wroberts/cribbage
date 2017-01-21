@@ -321,8 +321,8 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
         Arguments:
         - `has_won`:
         '''
-        self.record_discard_state(int(has_won), None, None)
-        self.record_play_card_state(int(has_won), None, None)
+        self.record_discard_state(1 if has_won else -1, None, None)
+        self.record_play_card_state(1 if has_won else -1, None, None)
         self.player.game_over(has_won)
 
 
