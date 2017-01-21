@@ -239,6 +239,8 @@ def get_best_actions(qlearner_model, states_matrix):
     - `qlearner_model`:
     - `states_matrix`:
     '''
+    if len(states_matrix) == 0:
+        return np.array([], dtype=int)
     output = qlearner_model.compute(states_matrix)
     # only consider those actions which are possible in the given hands
     masked_output = np.ma.masked_array(output, mask=~states_matrix[:,1:53].astype(bool))
@@ -256,6 +258,8 @@ def get_scores(qlearner_model, states_matrix, actions_vector):
     - `states_matrix`:
     - `actions_vector`:
     '''
+    if len(states_matrix) == 0:
+        return np.array([])
     return qlearner_model.compute(states_matrix)[np.arange(len(actions_vector)),
                                                  actions_vector]
 
@@ -312,7 +316,7 @@ while True:
     # None
     nonnull_post_state_idxs = np.array([i for i,(s,a,r,s2) in
                                         enumerate(selected_sars)
-                                        if s2 is not None])
+                                        if s2 is not None], dtype=int)
     post_states = np.array([s2 for s,a,r,s2 in selected_sars if s2 is not None])
     # the online q-learner is used to figure out what the optimal future
     # actions will be
