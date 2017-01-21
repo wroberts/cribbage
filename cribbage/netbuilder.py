@@ -511,6 +511,16 @@ class Model(NetworkWrapper):
         else:
             super(Model, self).set_weights(layer_name, values)
 
+    def get_theano_functions(self):
+        '''
+        Returns pointers to compiled theano functions using this Model's
+        network.
+
+        Returns a tuple (train_fn, validation_fn, output_fn).
+        '''
+        _nw = self.network # force build network
+        return super(Model, self).get_theano_functions()
+
     def save_snapshot(self, train_err, validation_err, elapsed_time):
         '''
         Saves a snapshot of this Model's network to disk.  Also records
