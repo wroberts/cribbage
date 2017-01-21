@@ -61,60 +61,62 @@ def random_skip(seq, p=0.2):
         if random.random() < p:
             yield item
 
-# models will be stored in the models/ directory
-store = ModelStore('models')
-# create and configure a new model
-dautoenc = Model(store, 'dautoenc')
-# network architecture
-dautoenc.input(295)
-dautoenc.hidden(150, 'rectify', dropout=0.2) # Dense
-dautoenc.output(295, 'rectify') # Dense
-dautoenc.objective('squared_error')
-dautoenc.update('adadelta')
-dautoenc.update_args({}) # 'learning_rate': 1.0, 'rho': 0.95, 'epsilon': 1e-6
-# build a validation set with fixed random state
-val_set = list(itertools.islice(doubled(random_skip(random_discard_state_gen(42))), 500))
-dautoenc.validation(val_set)
-# training stream with non-fixed random state
-stream = doubled(random_skip(random_discard_state_gen()))
-dautoenc.training(stream)
-# configure training loop
-dautoenc.minibatch_size(500)
-dautoenc.num_minibatches(65000)
-dautoenc.validation_interval = 250 # about five minutes on samarkand
-# build the model
-build(dautoenc)
+def build_dautoenc():
+    # models will be stored in the models/ directory
+    #store = ModelStore('models')
+    # create and configure a new model
+    dautoenc = Model('models', 'dautoenc')
+    # network architecture
+    dautoenc.input(295)
+    dautoenc.hidden(150, 'rectify', dropout=0.2) # Dense
+    dautoenc.output(295, 'rectify') # Dense
+    dautoenc.objective('squared_error')
+    dautoenc.update('adadelta')
+    dautoenc.update_args({}) # 'learning_rate': 1.0, 'rho': 0.95, 'epsilon': 1e-6
+    # build a validation set with fixed random state
+    val_set = list(itertools.islice(doubled(random_skip(random_discard_state_gen(42))), 500))
+    dautoenc.validation(val_set)
+    # training stream with non-fixed random state
+    stream = doubled(random_skip(random_discard_state_gen()))
+    dautoenc.training(stream)
+    # configure training loop
+    dautoenc.minibatch_size(500)
+    dautoenc.num_minibatches(65000)
+    dautoenc.validation_interval = 250 # about five minutes on samarkand
+    # build the model
+    build(dautoenc)
 
 # ------------------------------------------------------------
 # Notes
 
-# create and configure a new model
-dautoenc2 = Model(store, 'dautoenc2')
-# network architecture
-dautoenc2.input(295)
-dautoenc2.hidden(150, 'rectify', dropout=0.2) # Dense
-dautoenc2.hidden(150, 'rectify', dropout=0.2) # Dense
-dautoenc2.output(295, 'rectify') # Dense
-dautoenc2.objective('squared_error')
-dautoenc2.update('adadelta')
-# initialise weights on first layer
-dautoenc = Model(store, 'dautoenc').load_snapshot(10000)
-dautoenc2.set_weights('hidden1', dautoenc.get_weights('hidden1'))
-# build a validation set with fixed random state
-val_set = list(itertools.islice(doubled(random_skip(random_discard_state_gen(42))), 500))
-dautoenc2.validation(val_set)
-# training stream with non-fixed random state
-stream = doubled(random_skip(random_discard_state_gen()))
-dautoenc2.training(stream)
-# configure training loop
-dautoenc2.minibatch_size(500)
-dautoenc2.num_minibatches(30000)
-dautoenc2.validation_interval = 250 # about five minutes on samarkand
-# build the model
-build(dautoenc2)
+def build_dautoenc2():
+    # create and configure a new model
+    dautoenc2 = Model('models', 'dautoenc2')
+    # network architecture
+    dautoenc2.input(295)
+    dautoenc2.hidden(150, 'rectify', dropout=0.2) # Dense
+    dautoenc2.hidden(150, 'rectify', dropout=0.2) # Dense
+    dautoenc2.output(295, 'rectify') # Dense
+    dautoenc2.objective('squared_error')
+    dautoenc2.update('adadelta')
+    # initialise weights on first layer
+    dautoenc = Model(store, 'dautoenc').load_snapshot(10000)
+    dautoenc2.set_weights('hidden1', dautoenc.get_weights('hidden1'))
+    # build a validation set with fixed random state
+    val_set = list(itertools.islice(doubled(random_skip(random_discard_state_gen(42))), 500))
+    dautoenc2.validation(val_set)
+    # training stream with non-fixed random state
+    stream = doubled(random_skip(random_discard_state_gen()))
+    dautoenc2.training(stream)
+    # configure training loop
+    dautoenc2.minibatch_size(500)
+    dautoenc2.num_minibatches(30000)
+    dautoenc2.validation_interval = 250 # about five minutes on samarkand
+    # build the model
+    build(dautoenc2)
 
 import matplotlib.pyplot as plt
-model = Model(store, 'dautoenc2')
+model = Model('models', 'dautoenc2')
 
 a = [[ss['num_minibatches'], ss['train_err'], ss['validation_err']] for ss in
      model.metadata['snapshots']]
