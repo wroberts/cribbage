@@ -14,6 +14,7 @@ Spades to 3 representing Clubs).
 '''
 
 import random
+import numpy as np
 
 # ------------------------------------------------------------
 # Cards
@@ -67,14 +68,19 @@ def card_worth(card):
     '''
     return CARD_VALUES[split_card(card)[0]]
 
-def cards_worth(cards):
-    '''
-    Calls `card_worth` on every value in `cards` and returns the sum.
+# def cards_worth(cards):
+#     '''
+#     Calls `card_worth` on every value in `cards` and returns the sum.
 
-    Arguments:
-    - `cards`:
-    '''
-    return sum(card_worth(card) for card in cards)
+#     Arguments:
+#     - `cards`:
+#     '''
+#     return sum(card_worth(card) for card in cards)
+
+CARDS_WORTH_LOOKUP = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10] * 4)
+def cards_worth(cards):
+    '''Faster version of cards_worth.'''
+    return CARDS_WORTH_LOOKUP[cards].sum()
 
 # ------------------------------------------------------------
 # Notes
