@@ -115,6 +115,18 @@ def is_legal_play(card, linear_play):
     c_score = card_worth(card)
     return lp_score + c_score <= 31
 
+def get_legal_play_idxs(hand, linear_play):
+    '''
+    Faster version of is_legal_play for finding legal plays in a hand.
+
+    Arguments:
+    - `hand`:
+    - `linear_play`:
+    '''
+    lp_score = cards_worth(linear_play)
+    return [idx for idx, card in enumerate(hand)
+            if card_worth(card) + lp_score <= 31]
+
 def score_play(linear_play, verbose=False):
     '''
     Scores the last play in a game.
