@@ -95,6 +95,9 @@ class NetworkWrapper(object):
         self.update_args_value = {}
         # this variable holds the actual neural network
         self._network = None
+        # functions which can scale the input and output of the network
+        self.input_scaler_fn = None
+        self.output_scaler_fn = None
         # pointers to compiled theano functions
         self.train_fn = None
         self.validation_fn = None
@@ -216,6 +219,14 @@ class NetworkWrapper(object):
         '''
         self.update_args_value = params
 
+    def input_scaler(self, scaler_fn):
+        '''Sets a function which scales the network inputs.'''
+        self.input_scaler_fn = scaler_fn
+
+    def output_scaler(self, scaler_fn):
+        '''Sets a function which scales the network outputs.'''
+        self.output_scaler_fn = scaler_fn
+
     def get_theano_functions(self):
         '''
         Returns pointers to compiled theano functions using this Model's
@@ -271,7 +282,12 @@ class NetworkWrapper(object):
         - `inputs`:
         '''
         _tf, _vf, output_fn = self.get_theano_functions()
-        return output_fn(inputs)
+        if self.input_scaler_fn:
+            inputs = self.input_scaler_fn(inputs)
+        output = output_fn(inputs)
+        if self.output_scaler_fn:
+            output = self.output_scaler_fn(output)
+        return output
 
 class Model(NetworkWrapper):
     '''An object wrapping a Lasagne feedforward neural network.'''
@@ -718,6 +734,14 @@ def build(model):
     else:
         minibatcher_fn = lambda xs: xs
 
+    # handle input scaling
+    if model.input_scaler_fn is not None:
+        input_scaler_fn = model.input_scaler_fn
+    else:
+        input_scaler_fn = lambda xs: xs
+
+    # TODO handle output scaling
+
     # if training set is finite and num_epochs is specified, we loop
     # that many times; otherwise, we loop once
     num_epochs = 1
@@ -735,7 +759,7 @@ def build(model):
                 itertools.izip(minibatcher_fn(model.training_inputs),
                                minibatcher_fn(model.training_outputs))):
 
-            train_err += train_fn(input_minibatch, output_minibatch)
+            train_err += train_fn(input_scaler_fn(input_minibatch), output_minibatch)
             model.metadata['num_minibatches'] += 1
 
             if (model.metadata['num_minibatches'] + 1) % model.validation_interval == 0:
@@ -747,7 +771,8 @@ def build(model):
                     validation_err = 0
                     for input_minibatch, output_minibatch in itertools.izip(
                             *map(minibatcher_fn, model.validation_set)):
-                        validation_err += validation_fn(input_minibatch, output_minibatch)
+                        validation_err += validation_fn(input_scaler_fn(input_minibatch),
+                                                        output_minibatch)
 
                 train_err /= model.validation_interval
 
