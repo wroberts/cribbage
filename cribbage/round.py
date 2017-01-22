@@ -12,7 +12,7 @@ two CribbagePlayers.
 from __future__ import absolute_import, print_function
 import random
 from cribbage.cards import card_tostring, cards_worth, make_deck, split_card
-from cribbage.cribbage_score import is_legal_play, score_play
+from cribbage.cribbage_score import get_legal_play_idxs, is_legal_play, score_play
 try:
     from cribbage._cribbage_score import score_hand
 except ImportError:
@@ -211,9 +211,7 @@ class Round(object):
         # loop forever
         while True:
             # determine which plays the player can legally make
-            legal_moves = [idx for idx, card in
-                           enumerate(self.hands[self.turn_idx]) if
-                           is_legal_play(card, self.linear_play)]
+            legal_moves = get_legal_play_idxs(self.hands[self.turn_idx], self.linear_play)
 
             # a sequence is over if the game is in "Go" and the player
             # has no legal moves, or if the player has previously hit
@@ -285,8 +283,7 @@ class Round(object):
             self.last_player = self.turn_idx
 
             # make the move
-            self.hands[self.turn_idx] = [c for i, c in enumerate(self.hands[self.turn_idx])
-                                         if i != play_idx]
+            del self.hands[self.turn_idx][play_idx]
             self.linear_play.append(play_card)
             if verbose:
                 print('Player {} plays:'.format(self.turn_idx+1),
