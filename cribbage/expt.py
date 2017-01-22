@@ -400,3 +400,13 @@ while True:
     # train updated values for one epoch
     dqlearner_update.training((pre_states, updated_values))
     build(dqlearner_update)
+
+# Top 7 time-consuming functions inside the above loop()
+#    315    1.213    0.004    1.954    0.006 function_module.py:754(__call__)
+#   2505    0.684    0.000    0.684    0.000 {numpy.core.multiarray.dot}
+#   2502    0.311    0.000    1.793    0.001 round.py:148(play)
+# 126542    0.226    0.000    0.655    0.000 cards.py:70(cards_worth)
+#  19926    0.167    0.000    0.383    0.000 cribbage_score.py:118(score_play)
+#    315    0.165    0.001    0.165    0.001 expt.py:258(discard_input_scaler)
+# 348666    0.163    0.000    0.275    0.000 cards.py:61(card_worth)
+
