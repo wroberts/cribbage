@@ -269,7 +269,7 @@ def make_dqlearner(store, name):
     - `name`: the name of the Q-learning model to create
     '''
     model = Model(store, name)
-    model.input(295)
+    model.input(347)
     model.hidden(150, 'tanh', dropout=0.2) # Dense
     model.hidden(150, 'tanh', dropout=0.2) # Dense
     model.output(52, 'tanh') # Dense: top two activations indicate cards to play
@@ -332,9 +332,9 @@ replay_memory.extend(itertools.islice(random_discard_sars_gen(), 50000))
 # 200k: 414M
 # 500k: 750M
 # build the two q-learning networks
-dqlearner_a = make_dqlearner('models', 'dqlearner_a2')
+dqlearner_a = make_dqlearner('models', 'dqlearner_a3')
 dqlearner_a.validation_routine(functools.partial(compare_dqlearner_to_random_player, dqlearner_a))
-dqlearner_b = make_dqlearner('models', 'dqlearner_b2')
+dqlearner_b = make_dqlearner('models', 'dqlearner_b3')
 dqlearner_b.validation_routine(functools.partial(compare_dqlearner_to_random_player, dqlearner_a))
 # training loop
 while True:
