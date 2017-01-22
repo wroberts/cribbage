@@ -24,7 +24,7 @@ Testing
 
 In the base directory of the project, do::
 
-    pytest
+    py.test
 
 References
 ==========
