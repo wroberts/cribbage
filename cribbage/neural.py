@@ -14,7 +14,10 @@ for inspiration.
 
 import random
 from cribbage.cards import split_card
-from cribbage.cribbage_score import is_legal_play
+try:
+    from cribbage._cribbage_score import is_legal_play
+except ImportError:
+    from cribbage.cribbage_score import is_legal_play
 from cribbage.game import Game
 from cribbage.player import CribbagePlayer
 import numpy as np
