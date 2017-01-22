@@ -61,6 +61,9 @@ def random_skip(seq, p=0.2):
         if random.random() < p:
             yield item
 
+# ------------------------------------------------------------
+#  Autoencode discard() states
+
 def build_dautoenc():
     # models will be stored in the models/ directory
     #store = ModelStore('models')
@@ -87,7 +90,7 @@ def build_dautoenc():
     build(dautoenc)
 
 # ------------------------------------------------------------
-# Notes
+# Two-layer discard() autoencoder
 
 def build_dautoenc2():
     # create and configure a new model
@@ -100,7 +103,7 @@ def build_dautoenc2():
     dautoenc2.objective('squared_error')
     dautoenc2.update('adadelta')
     # initialise weights on first layer
-    dautoenc = Model(store, 'dautoenc').load_snapshot(10000)
+    dautoenc = Model('models', 'dautoenc').load_snapshot(10000)
     dautoenc2.set_weights('hidden1', dautoenc.get_weights('hidden1'))
     # build a validation set with fixed random state
     val_set = list(itertools.islice(doubled(random_skip(random_discard_state_gen(42))), 500))
