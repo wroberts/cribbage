@@ -11,6 +11,7 @@ Training an AI to play cribbage.
 from __future__ import absolute_import, print_function
 import functools
 import itertools
+import os
 import random
 from cribbage.game import compare_players
 from cribbage.netbuilder import ModelStore, Model, build
@@ -216,6 +217,46 @@ def compare_dqlearner_to_random_player(qlearner_model, _dummy_model):
     stats = compare_players([qplayer, RandomCribbagePlayer()], 100)
     return stats[0] / 100.
 
+def get_discard_scaling():
+    '''
+    Estimates the mean and standard deviation of input vectors to the
+    discard() neural network.
+    '''
+    # scale discard() inputs
+    store = ModelStore('models')
+    store.ensure_exists()
+    filename = os.path.join(store.abs_path, 'discard_scaling.npz')
+    try:
+        with np.load(filename) as input_file:
+            mean, std = [input_file['arr_%d' % i] for i in
+                         range(len(input_file.files))]
+    except IOError:
+        # recompute scaling
+        inputs = []
+        for (s,a,r,s2) in itertools.islice(random_discard_sars_gen(), 100000):
+            inputs.append(s)
+            if s2 is not None:
+                inputs.append(s2)
+        inputs = np.array(inputs)
+        mean = inputs.mean(axis=0)
+        std = inputs.std(axis=0)
+        np.savez(filename, mean, std)
+    return mean, std
+
+def make_discard_input_scaler(mean, std):
+    '''
+    Return a function which can scale an input vector (or array of
+    input vectors) to a normal distribution, given the population mean
+    and standard deviation.
+
+    Arguments:
+    - `mean`:
+    - `std`:
+    '''
+    def discard_input_scaler(X):
+        return ((X - mean) / std)
+    return discard_input_scaler
+
 # Q-learning model for discard()
 def make_dqlearner(store, name):
     '''
@@ -232,6 +273,8 @@ def make_dqlearner(store, name):
     model.output(52, 'tanh') # Dense: top two activations indicate cards to play
     model.objective('squared_error')
     model.update('adadelta')
+    # normalise inputs to network
+    model.input_scaler(make_discard_input_scaler(*get_discard_scaling()))
     # initialise weights from dautoenc2
     #dautoenc2 = Model(store, 'dautoenc2').load_snapshot(20000)
     #model.set_weights('hidden1', dautoenc2.get_weights('hidden1'))
