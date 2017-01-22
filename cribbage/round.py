@@ -50,15 +50,11 @@ class Round(object):
         # the player whose turn it currently is to play a card
         self.turn_idx = None
         # the array of cards that have been played already during the
-        # current game round by the two players
-        self.faceups = None
-        # the same cards recorded in self.faceups, but linearised into
+        # current game round by the two players, linearised into
         # a single list, based on the time that the cards were played
         self.linear_play = None
         # during a round, we keep track of the last_player
         self.last_player = None
-        # the cards played by both players during a round
-        self.round_played = []
         # the set of all cards that have been "seen" by both players
         # during this round, used for counting cards
         self.played_cards = set()
@@ -197,16 +193,12 @@ class Round(object):
         '''
         # start with non-dealer player
         self.turn_idx = int(not self.dealer_idx)
-        # we keep track of all the cards that each player has played
-        # during a hand
-        self.round_played = []
         # a game is composed of sequences
         # ------
         # set up a new sequence
         # ------
         # players take turns laying one card face up on the table
         # without the count going over 31
-        self.faceups = [[], []]
         self.linear_play = []
         # a flag that indicates whether this sequence has gone to "Go" or
         # not
@@ -237,8 +229,6 @@ class Round(object):
                 # restart the sequence
                 if verbose:
                     print('Sequence is over')
-                self.round_played.extend(self.faceups)
-                self.faceups = [[], []]
                 self.linear_play = []
                 self.is_go = False
                 self.flag_31 = False
@@ -297,7 +287,6 @@ class Round(object):
             # make the move
             self.hands[self.turn_idx] = [c for i, c in enumerate(self.hands[self.turn_idx])
                                          if i != play_idx]
-            self.faceups[self.turn_idx].append(play_card)
             self.linear_play.append(play_card)
             if verbose:
                 print('Player {} plays:'.format(self.turn_idx+1),
