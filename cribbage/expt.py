@@ -115,25 +115,30 @@ def build_dautoenc2():
     # build the model
     build(dautoenc2)
 
-import matplotlib.pyplot as plt
-model = Model('models', 'dqlearner_a2')
 
-plt.clf()
-a = [[ss['num_minibatches'], ss['train_err'], ss['validation_err']] for ss in
-     model.metadata['snapshots']]
-a = np.array(a)
-fig, ax1 = plt.subplots()
-ax1.plot(a.T[0], a.T[1], label='Training Error', color='C0')
-ax2 = plt.twinx()
-ax2.plot(a.T[0], a.T[2], label='Validation Error', color='C1')
-ax1.set_xlabel('Number of minibatches')
-ax1.set_ylabel('Mean squared training error per minibatch')
-ax1.tick_params('y', colors='C0')
-ax2.set_ylabel('Validation error per minibatch')
-ax2.tick_params('y', colors='C1')
-#fig.legend()
-fig.tight_layout()
-plt.show()
+# ------------------------------------------------------------
+#  Q-learning on discard()
+
+def plot_training(model_name = 'dqlearner_a2'):
+    import matplotlib.pyplot as plt
+    model = Model('models', model_name)
+
+    plt.clf()
+    a = [[ss['num_minibatches'], ss['train_err'], ss['validation_err']] for ss in
+         model.metadata['snapshots']]
+    a = np.array(a)
+    fig, ax1 = plt.subplots()
+    ax1.plot(a.T[0], a.T[1], label='Training Error', color='C0')
+    ax2 = plt.twinx()
+    ax2.plot(a.T[0], a.T[2], label='Validation Error', color='C1')
+    ax1.set_xlabel('Number of minibatches')
+    ax1.set_ylabel('Mean squared training error per minibatch')
+    ax1.tick_params('y', colors='C0')
+    ax2.set_ylabel('Validation error per minibatch')
+    ax2.tick_params('y', colors='C1')
+    #fig.legend()
+    fig.tight_layout()
+    fig.show()
 
 class QLearningPlayer(CribbagePlayer):
     '''A CribbagePlayer that plays using a Q-learned model.'''
