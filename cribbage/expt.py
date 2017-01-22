@@ -401,12 +401,17 @@ while True:
     dqlearner_update.training((pre_states, updated_values))
     build(dqlearner_update)
 
-# Top 7 time-consuming functions inside the above loop()
-#    315    1.213    0.004    1.954    0.006 function_module.py:754(__call__)
-#   2505    0.684    0.000    0.684    0.000 {numpy.core.multiarray.dot}
-#   2502    0.311    0.000    1.793    0.001 round.py:148(play)
-# 126542    0.226    0.000    0.655    0.000 cards.py:70(cards_worth)
-#  19926    0.167    0.000    0.383    0.000 cribbage_score.py:118(score_play)
-#    315    0.165    0.001    0.165    0.001 expt.py:258(discard_input_scaler)
-# 348666    0.163    0.000    0.275    0.000 cards.py:61(card_worth)
-
+# In [10]: cProfile.run('loop(replay_memory, dqlearner_a, dqlearner_b)', sort='time')
+#          1298799 function calls in 3.594 seconds
+#    ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+#       317    1.169    0.004    1.913    0.006 function_module.py:754(__call__)
+#      2511    0.691    0.000    0.691    0.000 {numpy.core.multiarray.dot}
+#      2500    0.198    0.000    0.985    0.000 round.py:145(play)
+#       317    0.172    0.001    0.172    0.001 expt.py:258(discard_input_scaler)
+#     19886    0.165    0.000    0.392    0.000 cribbage_score.py:130(score_play)
+#     29892    0.102    0.000    0.102    0.000 {numpy.core.multiarray.zeros}
+#      2500    0.075    0.000    0.439    0.000 round.py:69(deal)
+#      9945    0.073    0.000    0.163    0.000 neural.py:111(play_state_repr)
+#      2500    0.072    0.000    0.084    0.000 random.py:277(shuffle)
+#      3153    0.061    0.000    0.061    0.000 {numpy.core.multiarray.array}
+#     59249    0.043    0.000    0.043    0.000 {range}
