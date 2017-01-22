@@ -172,6 +172,7 @@ class QLearningPlayer(CribbagePlayer):
             # choose the first card to discard
             state = discard_state_repr(is_dealer,
                                        hand,
+                                       None,
                                        player_score,
                                        opponent_score)
             output = self.discard_model.compute(state[None, :])[0]
@@ -182,6 +183,7 @@ class QLearningPlayer(CribbagePlayer):
             del hand[discard_idx_1]
             state = discard_state_repr(is_dealer,
                                        hand,
+                                       discard_value_1,
                                        player_score,
                                        opponent_score)
             output = self.discard_model.compute(state[None, :])[0]

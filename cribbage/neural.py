@@ -57,6 +57,7 @@ def encode_categories(vec, start_offset, values):
 
 def discard_state_repr(is_dealer,
                        hand,
+                       crib,
                        player_score,
                        opponent_score):
     '''
@@ -65,14 +66,18 @@ def discard_state_repr(is_dealer,
     Arguments:
     - `is_dealer`:
     - `hand`:
+    - `crib`: a card value, if a card has already been thrown to the
+      crib, or None otherwise
     - `player_score`:
     - `opponent_score`:
     '''
-    retval = np.zeros(1+52+121+121, dtype=int)
+    retval = np.zeros(1+52+52+121+121, dtype=int)
     retval[0] = int(is_dealer)
     encode_categories(retval, 1, hand)
-    one_hot(retval, 53, player_score)
-    one_hot(retval, 174, opponent_score)
+    if crib is not None:
+        one_hot(retval, 53, crib)
+    one_hot(retval, 105, player_score)
+    one_hot(retval, 226, opponent_score)
     return retval
 
 def discard_action_repr(discard_card):
@@ -219,6 +224,7 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
             discard_idx_2, discard_idx_1 = discard_idxs
         state = discard_state_repr(is_dealer,
                                    hand,
+                                   None,
                                    player_score,
                                    opponent_score)
         discard_card_1 = hand[discard_idx_1]
@@ -231,6 +237,7 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
         del hand[discard_idx_1]
         state = discard_state_repr(is_dealer,
                                    hand,
+                                   discard_card_1,
                                    player_score,
                                    opponent_score)
         action = discard_action_repr(discard_card_2)
