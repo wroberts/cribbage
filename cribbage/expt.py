@@ -272,7 +272,7 @@ def make_dqlearner(store, name):
     model.input(347)
     model.hidden(150, 'tanh', dropout=0.2) # Dense
     model.hidden(150, 'tanh', dropout=0.2) # Dense
-    model.output(52, 'tanh') # Dense: top two activations indicate cards to play
+    model.output(52, 'linear') # Dense: top two activations indicate cards to play
     model.objective('squared_error')
     model.update('adadelta')
     # normalise inputs to network
