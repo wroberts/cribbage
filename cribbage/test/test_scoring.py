@@ -9,9 +9,12 @@ Test the cribbage_scoring module.
 '''
 
 from __future__ import absolute_import, print_function
-from cribbage.cards import card_tostring, make_random_hand_and_draw
+import random
+from cribbage.cards import card_tostring, make_random_hand_and_draw, card_worth, cards_worth
 from cribbage.cribbage_score import score_hand
 from cribbage._cribbage_score import score_hand as c_score_hand
+from cribbage._cribbage_score import card_worth as c_card_worth
+from cribbage._cribbage_score import cards_worth as c_cards_worth
 
 def explore_score_hand():
     '''Utility function to test the score_hand method.'''
@@ -266,3 +269,12 @@ def test_score_hand_2():
 
 def test_c_score_hand_2():
     score_hand_tester_2(c_score_hand)
+
+def test_card_worth():
+    for card in range(52):
+        assert c_card_worth(card) == card_worth(card)
+
+def test_cards_worth():
+    for i in range(1000):
+        cards = random.sample(range(52), 5)
+        assert c_cards_worth(cards) == cards_worth(cards)
