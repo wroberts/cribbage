@@ -718,13 +718,17 @@ def minibatcher(num, iterable):
     for item in grouped(num, iterable):
         yield np.array(item)
 
-def build(model):
+def build(model, max_num_epochs = None, max_num_minibatches = None):
     '''
     Builds a model and trains it up until its training criterion is
     satisfied.
 
     Arguments:
     - `model`:
+    - `max_num_epochs`: optional, the maximum number of epochs to
+      train
+    - `max_num_minibatches`: optional, the maximum number of
+      minibatches to train
     '''
     train_fn, validation_fn, _of = model.get_theano_functions()
 
@@ -742,16 +746,24 @@ def build(model):
 
     # TODO handle output scaling
 
-    # if training set is finite and num_epochs is specified, we loop
-    # that many times; otherwise, we loop once
-    num_epochs = 1
+    if max_num_minibatches is None and model.use_num_minibatches is not None:
+        max_num_minibatches = model.use_num_minibatches
+
+    # if training set is finite and max_num_epochs or num_epochs is
+    # specified, we loop that many times; otherwise, we loop once
     counting_epochs = False
+    if model.finite_training_set:
+        if max_num_epochs is not None:
+            counting_epochs = True
+        elif model.use_num_epochs is not None:
+            max_num_epochs = model.use_num_epochs
+            counting_epochs = True
+        else:
+            max_num_epochs = 1
+    else:
+        max_num_epochs = 1
 
-    if model.finite_training_set and model.use_num_epochs is not None:
-        num_epochs = model.use_num_epochs
-        counting_epochs = True
-
-    for epoch in range(num_epochs):
+    for epoch in range(max_num_epochs):
         # training loop
         start_time = time.time()
         train_err = 0
@@ -788,14 +800,14 @@ def build(model):
                 if validation_err is not None:
                     report += ' validation {:.6f}'.format(validation_err)
                 if counting_epochs:
-                    report += ' epochs {} / {}'.format(epoch, num_epochs)
+                    report += ' epochs {} / {}'.format(epoch, max_num_epochs)
                 print(report)
                 start_time = time.time()
                 train_err = 0
 
             # stop when training criterion is reached
-            if (model.use_num_minibatches is not None and
-                    model.use_num_minibatches <= model.metadata['num_minibatches']):
+            if (max_num_minibatches is not None and
+                    max_num_minibatches <= model.metadata['num_minibatches']):
                 break
 
         # update num_epochs
