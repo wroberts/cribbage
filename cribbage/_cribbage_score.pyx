@@ -9,14 +9,14 @@ cdef extern from "cribbage_score.h":
 def score_hand(hand, draw, crib=False, verbose=False):
     return c_score_hand(hand[0], hand[1], hand[2], hand[3], draw, crib)
 
-def card_worth(card):
+cpdef card_worth(card):
     cdef int face = card % 13 + 1
     if face > 10:
         return 10
     else:
         return face
 
-def cards_worth(cards):
+cpdef cards_worth(cards):
     cdef int idx
     cdef int n = len(cards)
     cdef int rv = 0
@@ -30,3 +30,20 @@ def cards_worth(cards):
         else:
             rv += face
     return rv
+
+def is_legal_play(card, linear_play):
+    cdef int lp_score = cards_worth(linear_play)
+    cdef int c_score = card_worth(card)
+    return lp_score + c_score <= 31
+
+def get_legal_play_idxs(hand, linear_play):
+    '''
+    Faster version of is_legal_play for finding legal plays in a hand.
+
+    Arguments:
+    - `hand`:
+    - `linear_play`:
+    '''
+    cdef int lp_score = cards_worth(linear_play)
+    return [idx for idx, card in enumerate(hand)
+            if card_worth(card) + lp_score <= 31]
