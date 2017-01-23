@@ -546,7 +546,7 @@ class Model(NetworkWrapper):
         _nw = self.network # force build network
         return super(Model, self).get_theano_functions()
 
-    def save_snapshot(self, train_err, validation_err, elapsed_time):
+    def save_snapshot(self, train_err, validation_err, elapsed_time, update_mags, param_mags):
         '''
         Saves a snapshot of this Model's network to disk.  Also records
         metadata about the snapshot, such as training and validation
@@ -571,6 +571,9 @@ class Model(NetworkWrapper):
             'validation_err': validation_err,
             'total_time': total_time + elapsed_time,
             'filename': os.path.basename(snapshot_filename),
+            'update_mags': list(update_mags),
+            'param_mags': list(param_mags),
+            'update_mags_by_param_mags': list(update_mags / param_mags),
         })
         self.save_metadata()
 
@@ -780,6 +783,10 @@ def build(model, max_num_epochs = None, max_num_minibatches = None):
                 itertools.izip(minibatcher_fn(model.training_inputs),
                                minibatcher_fn(model.training_outputs))):
 
+            if (model.metadata['num_minibatches'] + 1) % model.validation_interval == 0:
+                update_mags = update_mag_fn(input_scaler_fn(input_minibatch), output_minibatch))
+                param_mags = param_mag_fn()
+
             train_err += train_fn(input_scaler_fn(input_minibatch), output_minibatch)
             model.metadata['num_minibatches'] += 1
 
@@ -801,7 +808,9 @@ def build(model, max_num_epochs = None, max_num_minibatches = None):
                 elapsed_time = time.time() - start_time
                 model.save_snapshot(train_err=train_err,
                                     validation_err=validation_err,
-                                    elapsed_time=elapsed_time)
+                                    elapsed_time=elapsed_time,
+                                    update_mags=update_mags,
+                                    param_mags=param_mags)
 
                 # Then we print the results for this epoch:
                 report = 'Training round {:.1f} secs; '.format(elapsed_time)
