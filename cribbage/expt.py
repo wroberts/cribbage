@@ -323,19 +323,29 @@ def get_scores(qlearner_model, states_matrix, actions_vector):
     return qlearner_model.compute(states_matrix)[np.arange(len(actions_vector)),
                                                  actions_vector]
 
-# initialise replay memory with 50,000 (s,a,r,s) tuples from random play
-replay_memory = []
-replay_memory.extend(itertools.islice(random_discard_sars_gen(), 50000))
-# 50k: 252M
-# 100k: 360M
-# 150k: 353M
-# 200k: 414M
-# 500k: 750M
 # build the two q-learning networks
 dqlearner_a = make_dqlearner('models', 'dqlearner_a3')
 dqlearner_a.validation_routine(functools.partial(compare_dqlearner_to_random_player, dqlearner_a))
 dqlearner_b = make_dqlearner('models', 'dqlearner_b3')
 dqlearner_b.validation_routine(functools.partial(compare_dqlearner_to_random_player, dqlearner_a))
+# initialise replay memory with 50,000 (s,a,r,s) tuples from random play
+replay_memory = []
+if dqlearner_a.weights_loaded:
+    # generate states from dqlearner_a
+    num_discard_states = 0
+    while num_discard_states < 50000:
+        discard_states, play_card_states = record_player1_states(
+            QLearningPlayer(dqlearner_a, None, epsilon=0.1),
+            RandomCribbagePlayer())
+        num_discard_states += len(discard_states)
+        replay_memory.extend(discard_states)
+else:
+    replay_memory.extend(itertools.islice(random_discard_sars_gen(), 50000))
+# 50k: 252M
+# 100k: 360M
+# 150k: 353M
+# 200k: 414M
+# 500k: 750M
 # training loop
 while True:
     # randomly select which q-learning network will be updated, and which
