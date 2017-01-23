@@ -268,17 +268,17 @@ class NetworkWrapper(object):
             updates = update_fn(loss, params, **self.update_args_value)
 
             # calculate magnitudes of updates
-            # update_mags = [((param - updates[param]) ** 2).mean() for param in params]
-            # self.update_mags_fn = theano.function([inputs, outputs], update_mags)
+            update_mags = [((param - updates[param]) ** 2).mean() for param in params]
+            self.update_mags_fn = theano.function([inputs, outputs], update_mags)
             # calculate magnitudes of params
-            # param_mags = [(param ** 2).mean() for param in params]
-            # self.param_mags_fn = theano.function([], param_mags)
+            param_mags = [(param ** 2).mean() for param in params]
+            self.param_mags_fn = theano.function([], param_mags)
 
             # compile the training and validation functions in theano
             self.train_fn = theano.function([inputs, outputs], loss, updates=updates)
             self.validation_fn = theano.function([inputs, outputs], validation_loss)
             self.output_fn = theano.function([inputs], deterministic_predictions)
-        return self.train_fn, self.validation_fn, self.output_fn
+        return self.train_fn, self.validation_fn, self.output_fn, self.update_mags_fn, self.param_mags_fn
 
     def compute(self, inputs):
         '''
@@ -288,7 +288,7 @@ class NetworkWrapper(object):
         Arguments:
         - `inputs`:
         '''
-        _tf, _vf, output_fn = self.get_theano_functions()
+        _tf, _vf, output_fn, _umf, _pmf = self.get_theano_functions()
         if self.input_scaler_fn:
             inputs = self.input_scaler_fn(inputs)
         output = output_fn(inputs)
@@ -737,7 +737,7 @@ def build(model, max_num_epochs = None, max_num_minibatches = None):
     - `max_num_minibatches`: optional, the maximum number of
       minibatches to train
     '''
-    train_fn, validation_fn, _of = model.get_theano_functions()
+    train_fn, validation_fn, _of, _umf, _pmf = model.get_theano_functions()
 
     # handle minibatching if specified by the model
     if model.minibatch_size_value is not None:
