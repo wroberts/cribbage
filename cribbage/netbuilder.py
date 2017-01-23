@@ -737,7 +737,7 @@ def build(model, max_num_epochs = None, max_num_minibatches = None):
     - `max_num_minibatches`: optional, the maximum number of
       minibatches to train
     '''
-    train_fn, validation_fn, _of, _umf, _pmf = model.get_theano_functions()
+    train_fn, validation_fn, _of, update_mag_fn, param_mag_fn = model.get_theano_functions()
 
     # handle minibatching if specified by the model
     if model.minibatch_size_value is not None:
