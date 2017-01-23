@@ -270,11 +270,12 @@ def make_dqlearner(store, name):
     '''
     model = Model(store, name)
     model.input(347)
-    model.hidden(150, 'tanh', dropout=0.2) # Dense
-    model.hidden(150, 'tanh', dropout=0.2) # Dense
+    model.hidden(150, 'rectify') # Dense
+    model.hidden(150, 'rectify') # Dense
     model.output(52, 'linear') # Dense: top two activations indicate cards to play
     model.objective('squared_error')
-    model.update('adadelta')
+    model.update('rmsprop')
+    model.update_args({'learning_rate': 0.005})
     # normalise inputs to network
     model.input_scaler(make_discard_input_scaler(*get_discard_scaling()))
     # initialise weights from dautoenc2
@@ -324,9 +325,9 @@ def get_scores(qlearner_model, states_matrix, actions_vector):
                                                  actions_vector]
 
 # build the two q-learning networks
-dqlearner_a = make_dqlearner('models', 'dqlearner_a3')
+dqlearner_a = make_dqlearner('models', 'dqlearner_a4')
 dqlearner_a.validation_routine(functools.partial(compare_dqlearner_to_random_player, dqlearner_a))
-dqlearner_b = make_dqlearner('models', 'dqlearner_b3')
+dqlearner_b = make_dqlearner('models', 'dqlearner_b4')
 dqlearner_b.validation_routine(functools.partial(compare_dqlearner_to_random_player, dqlearner_a))
 # initialise replay memory with 50,000 (s,a,r,s) tuples from random play
 replay_memory = []
