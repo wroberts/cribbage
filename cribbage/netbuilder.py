@@ -783,12 +783,12 @@ def build(model, max_num_epochs = None, max_num_minibatches = None):
                 itertools.izip(minibatcher_fn(model.training_inputs),
                                minibatcher_fn(model.training_outputs))):
 
+            model.metadata['num_minibatches'] += 1
             if (model.metadata['num_minibatches'] + 1) % model.validation_interval == 0:
                 update_mags = update_mag_fn(input_scaler_fn(input_minibatch), output_minibatch)
                 param_mags = param_mag_fn()
 
             train_err += train_fn(input_scaler_fn(input_minibatch), output_minibatch)
-            model.metadata['num_minibatches'] += 1
 
             if (model.metadata['num_minibatches'] + 1) % model.validation_interval == 0:
                 # compute validation
