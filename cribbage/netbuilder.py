@@ -269,10 +269,12 @@ class NetworkWrapper(object):
 
             # calculate magnitudes of updates
             update_mags = [((param - updates[param]) ** 2).mean() for param in params]
-            self.update_mags_fn = theano.function([inputs, outputs], update_mags)
+            self.update_mags_fn = (lambda f: (lambda i, o: np.array(f(i,o))))(
+                theano.function([inputs, outputs], update_mags))
             # calculate magnitudes of params
             param_mags = [(param ** 2).mean() for param in params]
-            self.param_mags_fn = theano.function([], param_mags)
+            self.param_mags_fn = (lambda f: (lambda: np.array(f())))(
+                theano.function([], param_mags))
 
             # compile the training and validation functions in theano
             self.train_fn = theano.function([inputs, outputs], loss, updates=updates)
