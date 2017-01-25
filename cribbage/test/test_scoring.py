@@ -300,6 +300,13 @@ def test_score_play():
         ('8H', 0),
         ('8H 0S', 0),
         ('8H 0S 0H', 2),
+
+        ('AS 2S 3S', 3),
+        ('AS 2S 3S 4S', 4),
+        ('AS 2S 3S 4S 5S', 7), # fifteen
+        ('2S 3S 4S 5S 6S', 5),
+        ('AS 2S 3S 4S 5S 6S', 6),
+        ('AS 2S 3S 4S 5S 6S 7S', 7),
     ]
     for (cards, score) in EXAMPLE_PLAYS:
         cards = [string_tocard(card) for card in cards.split()]
