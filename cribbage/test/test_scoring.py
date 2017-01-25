@@ -12,6 +12,7 @@ from __future__ import absolute_import, print_function
 import random
 from cribbage.cards import card_tostring, make_random_hand_and_draw, card_worth, cards_worth, string_tocard
 from cribbage.cribbage_score import score_hand, score_play
+from cribbage._cribbage_score import score_play as c_score_play
 from cribbage._cribbage_score import score_hand as c_score_hand
 from cribbage._cribbage_score import card_worth as c_card_worth
 from cribbage._cribbage_score import cards_worth as c_cards_worth
@@ -311,3 +312,16 @@ def test_score_play():
     for (cards, score) in EXAMPLE_PLAYS:
         cards = [string_tocard(card) for card in cards.split()]
         assert score_play(cards) == score
+        assert c_score_play(cards) == score
+
+def test_score_play_2():
+    '''
+    Tess score_play against the C implementation of score_play.
+    '''
+    num_tests = 0
+    while num_tests < 1000:
+        num_cards = random.randint(1,6)
+        cards = random.sample(range(52), num_cards)
+        if cards_worth(cards) <= 31:
+            assert score_play(cards) == c_score_play(cards)
+            num_tests += 1
