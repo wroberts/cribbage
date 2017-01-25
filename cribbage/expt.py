@@ -411,17 +411,19 @@ while True:
     dqlearner_update.training((pre_states, updated_values))
     build(dqlearner_update)
 
-# In [10]: cProfile.run('loop(replay_memory, dqlearner_a, dqlearner_b)', sort='time')
-#          1298799 function calls in 3.594 seconds
+# In [8]: cProfile.run('loop(replay_memory, dqlearner_a, dqlearner_b)', sort='time')
+#          822065 function calls in 2.806 seconds
 #    ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-#       317    1.169    0.004    1.913    0.006 function_module.py:754(__call__)
-#      2511    0.691    0.000    0.691    0.000 {numpy.core.multiarray.dot}
-#      2500    0.198    0.000    0.985    0.000 round.py:145(play)
-#       317    0.172    0.001    0.172    0.001 expt.py:258(discard_input_scaler)
-#     19886    0.165    0.000    0.392    0.000 cribbage_score.py:130(score_play)
-#     29892    0.102    0.000    0.102    0.000 {numpy.core.multiarray.zeros}
-#      2500    0.075    0.000    0.439    0.000 round.py:69(deal)
-#      9945    0.073    0.000    0.163    0.000 neural.py:111(play_state_repr)
-#      2500    0.072    0.000    0.084    0.000 random.py:277(shuffle)
-#      3153    0.061    0.000    0.061    0.000 {numpy.core.multiarray.array}
-#     59249    0.043    0.000    0.043    0.000 {range}
+#       315    0.921    0.003    1.523    0.005 function_module.py:754(__call__)
+#      2193    0.553    0.000    0.553    0.000 {numpy.core.multiarray.dot}
+#      2505    0.187    0.000    0.593    0.000 round.py:144(play)
+#       315    0.152    0.000    0.152    0.000 expt.py:258(discard_input_scaler)
+#     29986    0.100    0.000    0.100    0.000 {numpy.core.multiarray.zeros}
+#      2506    0.079    0.000    0.347    0.000 round.py:68(deal)
+#      2506    0.076    0.000    0.089    0.000 random.py:277(shuffle)
+#      9981    0.073    0.000    0.164    0.000 neural.py:111(play_state_repr)
+#      2827    0.060    0.000    0.060    0.000 {numpy.core.multiarray.array}
+#      9981    0.036    0.000    0.293    0.000 neural.py:268(play_card)
+#     24974    0.035    0.000    0.035    0.000 neural.py:41(encode_categories)
+#     22469    0.031    0.000    0.039    0.000 random.py:273(choice)
+#     64234    0.031    0.000    0.031    0.000 neural.py:28(one_hot)
