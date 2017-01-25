@@ -272,15 +272,25 @@ def test_c_score_hand_2():
     score_hand_tester_2(c_score_hand)
 
 def test_card_worth():
+    '''
+    Test card_worth against its C implementation.
+    '''
     for card in range(52):
         assert c_card_worth(card) == card_worth(card)
 
 def test_cards_worth():
+    '''
+    Test cards_worth against its C implementation.
+    '''
     for i in range(1000):
         cards = random.sample(range(52), 5)
         assert c_cards_worth(cards) == cards_worth(cards)
 
 def test_score_play():
+    '''
+    Test score_play and its C implementation on a set of fixed card
+    play patterns.
+    '''
     # https://en.wikipedia.org/wiki/Rules_of_cribbage#Example_plays
     EXAMPLE_PLAYS = [
         ('0H', 0),
