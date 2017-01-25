@@ -10,8 +10,8 @@ Test the cribbage_scoring module.
 
 from __future__ import absolute_import, print_function
 import random
-from cribbage.cards import card_tostring, make_random_hand_and_draw, card_worth, cards_worth
-from cribbage.cribbage_score import score_hand
+from cribbage.cards import card_tostring, make_random_hand_and_draw, card_worth, cards_worth, string_tocard
+from cribbage.cribbage_score import score_hand, score_play
 from cribbage._cribbage_score import score_hand as c_score_hand
 from cribbage._cribbage_score import card_worth as c_card_worth
 from cribbage._cribbage_score import cards_worth as c_cards_worth
@@ -278,3 +278,29 @@ def test_cards_worth():
     for i in range(1000):
         cards = random.sample(range(52), 5)
         assert c_cards_worth(cards) == cards_worth(cards)
+
+def test_score_play():
+    # https://en.wikipedia.org/wiki/Rules_of_cribbage#Example_plays
+    EXAMPLE_PLAYS = [
+        ('0H', 0),
+        ('0H 5S', 2),
+        ('0H 5S 7C', 0),
+        ('0H 5S 7C 6H', 3),
+
+        ('6D', 0),
+        ('6D 4S', 0),
+        ('6D 4S 4H', 2),
+
+        ('7C', 0),
+        ('7C 7D', 2),
+        ('7C 7D 7S', 6),
+        ('7C 7D 7S 5S', 0),
+        ('7C 7D 7S 5S 5C', 2),
+
+        ('8H', 0),
+        ('8H 0S', 0),
+        ('8H 0S 0H', 2),
+    ]
+    for (cards, score) in EXAMPLE_PLAYS:
+        cards = [string_tocard(card) for card in cards.split()]
+        assert score_play(cards) == score
