@@ -5,9 +5,20 @@ cdef extern from "cribbage_score.h":
                                    unsigned char card4,
                                    unsigned char draw_card,
                                    unsigned char is_crib)
+    int c_score_play "score_play" (unsigned char cards[13])
 
 def score_hand(hand, draw, crib=False, verbose=False):
     return c_score_hand(hand[0], hand[1], hand[2], hand[3], draw, crib)
+
+def score_play(linear_play, verbose=False):
+    cdef unsigned char cards[13]
+    cdef int num_cards = len(linear_play)
+    cdef int idx
+    for idx in range(num_cards):
+        cards[idx] = linear_play[idx]
+    if num_cards < 13:
+        cards[num_cards] = 0xFF
+    return c_score_play(cards)
 
 cpdef card_worth(card):
     cdef int face = card % 13 + 1
