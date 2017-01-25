@@ -15,10 +15,9 @@ import numpy as np
 from cribbage.cards import make_deck
 from cribbage.player import CribbagePlayer
 try:
-    from cribbage._cribbage_score import score_hand
+    from cribbage._cribbage_score import score_hand, score_play
 except ImportError:
-    from cribbage.cribbage_score import score_hand
-from cribbage.cribbage_score import score_play
+    from cribbage.cribbage_score import score_hand, score_play
 
 KEEP_COMBINATIONS = [(0, 1, 2, 3),
                      (0, 1, 2, 4),
