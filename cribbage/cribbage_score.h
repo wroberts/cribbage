@@ -19,4 +19,12 @@ score_t score_hand(card_t card1,
                    card_t draw_card,
                    flag_t is_crib);
 
+// a cribbage game play can only last a maximum of 13 cards before a
+// score of 31 must be achieved
+#define MAX_PLAY_LENGTH 13
+
+typedef card_t play_list_t[MAX_PLAY_LENGTH];
+
+score_t score_play(play_list_t linear_play);
+
 #endif /* _CRIBBAGE_SCORE_H_ */

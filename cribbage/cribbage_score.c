@@ -6,6 +6,9 @@
 #define COMP_SWAP(a,b) if ((b) < (a)) { count_t t = a; a = b; b = t; }
 //#define DEBUG 1
 
+#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+#define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
+
 /*
  * The values of having a set of card face_values of the given size:
  * 0 of a kind - 0 points
@@ -248,5 +251,124 @@ score_t score_hand(card_t card1, card_t card2, card_t card3, card_t card4, card_
     }
 
     // return the score
+    return score;
+}
+
+/**
+ * Scores a cribbage play.
+ *
+ * Play is specified with card values stored in an array with maximum
+ * length MAX_PLAY_LENGTH.  Card values after the last valid value are
+ * set to 0xFF.
+ *
+ * Returns the number of points to score for playing the last card in
+ * linear_play.
+ */
+score_t score_play(play_list_t linear_play)
+{
+    // compute the face values of the cards in linear_play
+    card_t face_values[MAX_PLAY_LENGTH];
+    // we also use this opportunity to count the length of the
+    // linear_play array
+    int len_play = 0;
+    for (; len_play < MAX_PLAY_LENGTH && linear_play[len_play] <= 51; len_play++)
+    {
+        face_values[len_play] = CARD_FACE(linear_play[len_play]);
+    }
+    if (len_play == 0) return -1;
+
+    // printf("----------\n");
+    // printf("len_play is %d\n", len_play);
+    // printf("face values are: ");
+    // for (int i = 0; i < len_play; i++) printf("%d ", face_values[i]);
+    // printf("\n");
+
+    // the value we will return
+    score_t score = 0;
+
+    // check if the card values summed up are worth 15 points
+    score_t acc = 0;
+    for (int i = 0; i < len_play; i++)
+    {
+        acc += CARD_VALUES[face_values[i]];
+    }
+    if (acc == 15)
+    {
+#ifdef DEBUG
+        printf("fifteen\n");
+#endif // DEBUG
+        score += 2;
+    }
+
+    // look for pairs and triples
+    card_t last_value = face_values[len_play - 1];
+    int tuple_len = len_play - 2;
+    for (; tuple_len >= 0 && face_values[tuple_len] == last_value; tuple_len--);
+    // for a pair: last_value represents [len_play - 1] and
+    // tuple_len has the value of [len_play - 3]
+    // in general, the length of the tuple is (len_play - 1) - tuple_len
+    tuple_len = (len_play - 1) - tuple_len;
+    score_t pair_score = PAIR_SCORES[(ucount_t)tuple_len];
+#ifdef DEBUG
+    if (pair_score)
+        printf("pair %d points\n", pair_score);
+#endif // DEBUG
+    score += pair_score;
+
+    // look for runs: O(n^2)
+    //
+    // these are subsequences of the face_values array which contain
+    // consequetive values
+    //
+    // we're only interested in subsequences of at least length 3
+    //
+    // score the first (longest) one we find
+    for (int low_index = 0; low_index <= len_play - 3; low_index++)
+    {
+        // we're now considering the subsequence starting at low_index
+        // and going up to (not including) len_play
+        //
+        // keep track of the largest and smallest values we've seen
+        card_t run_lo = face_values[low_index], run_hi = face_values[low_index];
+        for (int i = low_index + 1; i < len_play; i++)
+        {
+            run_lo = MIN(face_values[i], run_lo);
+            run_hi = MAX(face_values[i], run_hi);
+        }
+        // now we check to see if run_hi - run_lo + 1 is the length of
+        // the subsequence
+        // printf("low_index is %d, run_lo is %d, run_hi is %d\n", low_index, run_lo, run_hi);
+        if ((run_hi - run_lo + 1) == (len_play - low_index))
+        {
+            // now we need to check that there are no duplicate values
+            // in the subsequence
+            //
+            // the longest possible run is of length 7
+            int value_seen[7] = {0, 0, 0, 0, 0, 0, 0};
+            int duplicate = 0;
+            for (int i = low_index; i < len_play; i++)
+            {
+                if (value_seen[face_values[i] - run_lo])
+                {
+                    // duplicate!
+                    duplicate = 1;
+                    break;
+                }
+                value_seen[face_values[i] - run_lo] = 1;
+            }
+
+            if (!duplicate)
+            {
+                // we found a run
+                score_t run_score = (len_play - low_index);
+#ifdef DEBUG
+                printf("run %d points\n", run_score);
+#endif // DEBUG
+                score += run_score;
+                break;
+            }
+        }
+    }
+
     return score;
 }

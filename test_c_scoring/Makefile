@@ -1,6 +1,6 @@
 TARGET   = cribbage
 OBJS     = cribbage.o ../cribbage/cribbage_score.o
-FLAGS    = -g -O0 -Wall
+FLAGS    = -g -O0 -Wall -DDEBUG
 INCLUDES = -I../cribbage
 LIBS     =
 CC       = gcc
