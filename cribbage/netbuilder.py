@@ -346,7 +346,7 @@ class Model(NetworkWrapper):
         # number of epochs to train; if this is not None, training
         # stops after this many loops through the training set.  only
         # use if training set is of finite size.
-        self.use_num_epochs = None
+        self.use_max_num_epochs = None
         # metadata dictionary for this Model
         self.metadata = None
         # is the network architecture specified by the metadata file?
@@ -717,15 +717,15 @@ class Model(NetworkWrapper):
         '''
         self.use_max_num_minibatches = max_num_minibatches
 
-    def num_epochs(self, num_epochs):
+    def max_num_epochs(self, max_num_epochs):
         '''
         Configures how long training should run for, if the training set
         is of finite length.
 
         Arguments:
-        - `num_epochs`:
+        - `max_num_epochs`:
         '''
-        self.use_num_epochs = num_epochs
+        self.use_max_num_epochs = max_num_epochs
 
 def minibatcher(num, iterable):
     '''
@@ -776,8 +776,8 @@ def build(model, max_num_epochs = None, max_num_minibatches = None):
     if model.finite_training_set:
         if max_num_epochs is not None:
             counting_epochs = True
-        elif model.use_num_epochs is not None:
-            max_num_epochs = model.use_num_epochs
+        elif model.use_max_num_epochs is not None:
+            max_num_epochs = model.use_max_num_epochs
             counting_epochs = True
         else:
             max_num_epochs = 1

@@ -284,7 +284,7 @@ def make_dqlearner(store, name):
     # validation will be performed by playing cribbage against a random
     # player
     model.minibatch_size(32)
-    model.num_epochs(1)
+    model.max_num_epochs(1)
     model.validation_interval = 6000
     return model
 
