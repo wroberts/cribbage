@@ -85,7 +85,7 @@ def build_dautoenc():
     dautoenc.training(stream)
     # configure training loop
     dautoenc.minibatch_size(500)
-    dautoenc.num_minibatches(65000)
+    dautoenc.max_num_minibatches(65000)
     dautoenc.validation_interval = 250 # about five minutes on samarkand
     # build the model
     build(dautoenc)
@@ -114,7 +114,7 @@ def build_dautoenc2():
     dautoenc2.training(stream)
     # configure training loop
     dautoenc2.minibatch_size(500)
-    dautoenc2.num_minibatches(30000)
+    dautoenc2.max_num_minibatches(30000)
     dautoenc2.validation_interval = 250 # about five minutes on samarkand
     # build the model
     build(dautoenc2)
@@ -362,7 +362,7 @@ while True:
     #
     # e-greedy with epsilon annealed linearly from 1.0 to 0.1 over first
     # 1,000,000 "frames", and 0.1 thereafter
-    epsilon = max(1. + (0.1 - 1.) * dqlearner_update.metadata['num_minibatches'] / 1000000., 0.1)
+    epsilon = max(1. + (0.1 - 1.) * dqlearner_update.num_minibatches / 1000000., 0.1)
     num_discard_states = 0
     while num_discard_states < 5000:
         discard_states, play_card_states = record_player1_states(

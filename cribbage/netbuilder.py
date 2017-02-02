@@ -342,7 +342,7 @@ class Model(NetworkWrapper):
         # training length
         # number of minibatches to train; if this is not None,
         # training stops after this many minibatches have been seen
-        self.use_num_minibatches = None
+        self.use_max_num_minibatches = None
         # number of epochs to train; if this is not None, training
         # stops after this many loops through the training set.  only
         # use if training set is of finite size.
@@ -420,6 +420,15 @@ class Model(NetworkWrapper):
         Property accessor: shortcut for Model.load_snapshot('best_validation')
         '''
         return self.load_snapshot('best_validation')
+
+    @property
+    def num_minibatches(self):
+        '''
+        Property accessor: shortcut for Model.metadata['num_minibatches'].
+        '''
+        if self.metadata and 'num_minibatches' in self.metadata:
+            return self.metadata['num_minibatches']
+        return 0
 
     def input(self, input_size, dropout=None):
         '''
@@ -560,13 +569,13 @@ class Model(NetworkWrapper):
         '''
         snapshot_filename = os.path.join(
             self.model_path,
-            '{:010d}.npz'.format(self.metadata['num_minibatches']))
+            '{:010d}.npz'.format(self.num_minibatches))
         np.savez(snapshot_filename, *lasagne.layers.get_all_param_values(self.network))
         total_time = 0.
         if 'snapshots' in self.metadata and len(self.metadata['snapshots']) > 0:
             total_time = self.metadata['snapshots'][-1]['total_time']
         self.metadata['snapshots'].append({
-            'num_minibatches': self.metadata['num_minibatches'],
+            'num_minibatches': self.num_minibatches,
             'train_err': train_err,
             'validation_err': validation_err,
             'total_time': total_time + elapsed_time,
@@ -698,15 +707,15 @@ class Model(NetworkWrapper):
         '''
         self.minibatch_size_value = minibatch_size
 
-    def num_minibatches(self, num_minibatches):
+    def max_num_minibatches(self, max_num_minibatches):
         '''
         Configures how long training should run for.  Useful if the
         training set is infinitely long.
 
         Arguments:
-        - `num_minibatches`:
+        - `max_num_minibatches`:
         '''
-        self.use_num_minibatches = num_minibatches
+        self.use_max_num_minibatches = max_num_minibatches
 
     def num_epochs(self, num_epochs):
         '''
@@ -758,8 +767,8 @@ def build(model, max_num_epochs = None, max_num_minibatches = None):
 
     # TODO handle output scaling
 
-    if max_num_minibatches is None and model.use_num_minibatches is not None:
-        max_num_minibatches = model.use_num_minibatches
+    if max_num_minibatches is None and model.use_max_num_minibatches is not None:
+        max_num_minibatches = model.use_max_num_minibatches
 
     # if training set is finite and max_num_epochs or num_epochs is
     # specified, we loop that many times; otherwise, we loop once
@@ -784,13 +793,13 @@ def build(model, max_num_epochs = None, max_num_minibatches = None):
                                minibatcher_fn(model.training_outputs))):
 
             model.metadata['num_minibatches'] += 1
-            if (model.metadata['num_minibatches'] + 1) % model.validation_interval == 0:
+            if (model.num_minibatches + 1) % model.validation_interval == 0:
                 update_mags = update_mag_fn(input_scaler_fn(input_minibatch), output_minibatch)
                 param_mags = param_mag_fn()
 
             train_err += train_fn(input_scaler_fn(input_minibatch), output_minibatch)
 
-            if (model.metadata['num_minibatches'] + 1) % model.validation_interval == 0:
+            if (model.num_minibatches + 1) % model.validation_interval == 0:
                 # compute validation
                 validation_err = None
                 if model.use_validation_routine is not None:
@@ -825,7 +834,7 @@ def build(model, max_num_epochs = None, max_num_minibatches = None):
 
             # stop when training criterion is reached
             if (max_num_minibatches is not None and
-                    max_num_minibatches <= model.metadata['num_minibatches']):
+                    max_num_minibatches <= model.num_minibatches):
                 break
 
         # update num_epochs
