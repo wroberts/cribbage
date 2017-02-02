@@ -47,8 +47,10 @@ def random_discard_state_gen(random_seed=None):
     Arguments:
     - `random_seed`:
     '''
-    for (state, _a, _r, _s) in random_discard_sars_gen(random_seed):
+    for (state, _a, _r, state2) in random_discard_sars_gen(random_seed):
         yield state
+        if state2 is not None:
+            yield state2
 
 def random_skip(seq, p=0.2):
     '''
