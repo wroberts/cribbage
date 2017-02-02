@@ -382,7 +382,7 @@ while True:
     selected_idxs = np.random.randint(0, len(replay_memory), size=312*32)
     selected_sars = [replay_memory[idx] for idx in selected_idxs]
     pre_states = np.array([s for s,a,r,s2 in selected_sars])
-    actions = np.array([a for s,a,r,s2 in selected_sars]).argmax(axis=1)
+    actions = np.array([a for s,a,r,s2 in selected_sars])
     rewards = np.array([r for s,a,r,s2 in selected_sars])
     # handle cases where post_state is None: keep track of indices into
     # our matrices (e.g., pre_states, actions) where the post_state is not
