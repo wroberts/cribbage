@@ -291,7 +291,8 @@ def make_dqlearner(store, name):
     model.hidden(150, 'rectify') # Dense
     model.output(52, 'linear') # Dense: top two activations indicate cards to play
     model.objective('squared_error')
-    model.update('adadelta')
+    model.update('rmsprop')
+    model.update_args({'learning_rate': 0.01})
     # normalise inputs to network
     model.input_scaler(make_discard_input_scaler(*get_discard_scaling()))
     # initialise weights from dautoenc2
@@ -343,9 +344,9 @@ def record_player1_discard_sars_gen(model, epsilon):
 #  Double Q-Learning
 
 # build the two q-learning networks
-dqlearner_a = make_dqlearner('models', 'dqlearner_a5')
+dqlearner_a = make_dqlearner('models', 'dqlearner_a6')
 dqlearner_a.validation_routine(functools.partial(compare_dqlearner_to_random_player, dqlearner_a))
-dqlearner_b = make_dqlearner('models', 'dqlearner_b5')
+dqlearner_b = make_dqlearner('models', 'dqlearner_b6')
 dqlearner_b.validation_routine(functools.partial(compare_dqlearner_to_random_player, dqlearner_a))
 
 learner = DQLearner(dqlearner_a, dqlearner_b,
