@@ -251,7 +251,7 @@ def get_discard_scaling():
     except IOError:
         # recompute scaling
         inputs = []
-        for (s,a,r,s2) in itertools.islice(random_discard_sars_gen(), 100000):
+        for (s, _a, _r, s2) in itertools.islice(random_discard_sars_gen(), 100000):
             inputs.append(s)
             if s2 is not None:
                 inputs.append(s2)
@@ -272,7 +272,7 @@ def make_discard_input_scaler(mean, std):
     - `std`:
     '''
     def discard_input_scaler(X):
-        return ((X - mean) / std)
+        return (X - mean) / std
     return discard_input_scaler
 
 # Q-learning model for discard()
