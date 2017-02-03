@@ -48,7 +48,7 @@ def random_discard_state_gen(random_seed=None):
     Arguments:
     - `random_seed`:
     '''
-    for (state, _a, _r, state2) in random_discard_sars_gen(random_seed):
+    for (state, _action, _reward, state2) in random_discard_sars_gen(random_seed):
         yield state
         if state2 is not None:
             yield state2
@@ -57,6 +57,7 @@ def random_discard_state_gen(random_seed=None):
 #  Autoencode discard() states
 
 def build_dautoenc():
+    '''Construct a single-layer discard() state autoencoder.'''
     # models will be stored in the models/ directory
     #store = ModelStore('models')
     # create and configure a new model
@@ -85,6 +86,7 @@ def build_dautoenc():
 # Two-layer discard() autoencoder
 
 def build_dautoenc2():
+    '''Construct a two-layer discard() state autoencoder.'''
     # create and configure a new model
     dautoenc2 = Model('models', 'dautoenc2')
     # network architecture
@@ -115,17 +117,18 @@ def build_dautoenc2():
 #  Q-learning on discard()
 
 def plot_training(model_name = 'dqlearner_a2'):
+    '''Wrap code to plot the training and validation error of a given model.'''
     import matplotlib.pyplot as plt
     model = Model('models', model_name)
 
     plt.clf()
-    a = [[ss['num_minibatches'], ss['train_err'], ss['validation_err']] for ss in
-         model.metadata['snapshots']]
-    a = np.array(a)
+    data = [[ss['num_minibatches'], ss['train_err'], ss['validation_err']] for ss in
+            model.metadata['snapshots']]
+    data = np.array(data).T
     fig, ax1 = plt.subplots()
-    ax1.plot(a.T[0], a.T[1], label='Training Error', color='C0')
+    ax1.plot(data[0], data[1], label='Training Error', color='C0')
     ax2 = plt.twinx()
-    ax2.plot(a.T[0], a.T[2], label='Validation Error', color='C1')
+    ax2.plot(data[0], data[2], label='Validation Error', color='C1')
     ax1.set_xlabel('Number of minibatches')
     ax1.set_ylabel('Mean squared training error per minibatch')
     ax1.tick_params('y', colors='C0')
@@ -175,6 +178,7 @@ class QLearningPlayer(CribbagePlayer):
                 hand,
                 player_score,
                 opponent_score):
+        '''Discard two cards from dealt hand into crib.'''
         if self.discard_model is not None and random.random() > self.epsilon:
             hand = hand[:]
             hand2 = hand[:]
@@ -207,12 +211,13 @@ class QLearningPlayer(CribbagePlayer):
                   player_score,
                   opponent_score,
                   legal_moves):
+        '''Select a single card from the hand to play during cribbage play.'''
         if self.play_card_model is not None and random.random() > self.epsilon:
             # TODO
             pass
         return random.choice(legal_moves)
 
-def compare_dqlearner_to_random_player(qlearner_model, _dummy_model):
+def dqlearner_vs_random(qlearner_model, _dummy_model):
     '''
     Plays a set of games between the Q-Learner player and a
     RandomPlayer, returns the fraction that the Q-Learner player wins.
@@ -240,10 +245,11 @@ def get_discard_scaling():
     except IOError:
         # recompute scaling
         inputs = []
-        for (s, _a, _r, s2) in itertools.islice(random_discard_sars_gen(), 100000):
-            inputs.append(s)
-            if s2 is not None:
-                inputs.append(s2)
+        for (state, _action, _reward, state2) in itertools.islice(
+                random_discard_sars_gen(), 100000):
+            inputs.append(state)
+            if state2 is not None:
+                inputs.append(state2)
         inputs = np.array(inputs)
         mean = inputs.mean(axis=0)
         std = inputs.std(axis=0)
@@ -260,8 +266,9 @@ def make_discard_input_scaler(mean, std):
     - `mean`:
     - `std`:
     '''
-    def discard_input_scaler(X):
-        return (X - mean) / std
+    def discard_input_scaler(inputs):
+        '''Zero-centre and normalise a matrix of inputs.'''
+        return (inputs - mean) / std
     return discard_input_scaler
 
 # Q-learning model for discard()
@@ -305,7 +312,7 @@ def record_player1_discard_sars_gen(model, epsilon):
     - `epsilon`:
     '''
     while True:
-        discard_states, _play_card_states = record_player1_states(
+        discard_states, _ = record_player1_states(
             QLearningPlayer(model, None, epsilon=epsilon),
             RandomCribbagePlayer())
         for state in discard_states:
@@ -316,9 +323,9 @@ def record_player1_discard_sars_gen(model, epsilon):
 
 # build the two q-learning networks
 dqlearner_a = make_dqlearner('models', 'dqlearner_a7')
-dqlearner_a.validation_routine(functools.partial(compare_dqlearner_to_random_player, dqlearner_a))
+dqlearner_a.validation_routine(functools.partial(dqlearner_vs_random, dqlearner_a))
 dqlearner_b = make_dqlearner('models', 'dqlearner_b7')
-dqlearner_b.validation_routine(functools.partial(compare_dqlearner_to_random_player, dqlearner_a))
+dqlearner_b.validation_routine(functools.partial(dqlearner_vs_random, dqlearner_a))
 
 learner = DQLearner(dqlearner_a, dqlearner_b,
                     random_discard_sars_gen,
