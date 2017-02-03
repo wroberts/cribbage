@@ -237,16 +237,13 @@ def get_discard_scaling():
     inputs = np.array(list(itertools.islice(random_discard_state_gen(), 100000)))
     return inputs.mean(axis=0), inputs.std(axis=0)
 
-def make_discard_input_scaler(mean, std):
+def make_discard_input_scaler():
     '''
     Return a function which can scale an input vector (or array of
     input vectors) to a normal distribution, given the population mean
     and standard deviation.
-
-    Arguments:
-    - `mean`:
-    - `std`:
     '''
+    mean, std = get_discard_scaling()
     def discard_input_scaler(inputs):
         '''Zero-centre and normalise a matrix of inputs.'''
         return (inputs - mean) / std
@@ -270,7 +267,7 @@ def make_dqlearner(store, name):
     model.update('rmsprop')
     model.update_args({'learning_rate': 0.001})
     # normalise inputs to network
-    model.input_scaler(make_discard_input_scaler(*get_discard_scaling()))
+    model.input_scaler(make_discard_input_scaler())
     # initialise weights from dautoenc2
     #dautoenc2 = Model(store, 'dautoenc2').load_snapshot(20000)
     #model.set_weights('hidden1', dautoenc2.get_weights('hidden1'))
