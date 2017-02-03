@@ -9,7 +9,7 @@ Declarative description language for producing persistent neural
 network models.
 '''
 
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 import itertools
 import json
 import logging
@@ -110,6 +110,8 @@ class NetworkWrapper(object):
         self.train_fn = None
         self.validation_fn = None
         self.output_fn = None
+        self.update_mags_fn = None
+        self.param_mags_fn = None
 
     def _build_network(self, network_arch):
         '''
@@ -288,7 +290,8 @@ class NetworkWrapper(object):
             self.train_fn = theano.function([inputs, outputs], loss, updates=updates)
             self.validation_fn = theano.function([inputs, outputs], validation_loss)
             self.output_fn = theano.function([inputs], deterministic_predictions)
-        return self.train_fn, self.validation_fn, self.output_fn, self.update_mags_fn, self.param_mags_fn
+        return (self.train_fn, self.validation_fn, self.output_fn,
+                self.update_mags_fn, self.param_mags_fn)
 
     def compute(self, inputs):
         '''
@@ -378,7 +381,7 @@ class Model(NetworkWrapper):
             if 'snapshots' in self.metadata and len(self.metadata['snapshots']) > 0:
                 # load the last snapshot into the network
                 last_snapshot_fn = self.metadata['snapshots'][-1]['filename']
-                self.network # build network
+                _ = self.network # build network
                 self.load_params(os.path.join(self.model_path, last_snapshot_fn))
                 logger.info('weights loaded from snapshot %s', last_snapshot_fn)
                 self.weights_loaded = True
@@ -796,9 +799,9 @@ def build(model, max_num_epochs = None, max_num_minibatches = None):
         # training loop
         start_time = time.time()
         train_err = 0
-        for num_minibatches, (input_minibatch, output_minibatch) in enumerate(
-                itertools.izip(minibatcher_fn(model.training_inputs),
-                               minibatcher_fn(model.training_outputs))):
+        for (input_minibatch, output_minibatch) in itertools.izip(
+                minibatcher_fn(model.training_inputs),
+                minibatcher_fn(model.training_outputs)):
 
             model.metadata['num_minibatches'] += 1
             if (model.num_minibatches + 1) % model.validation_interval == 0:
