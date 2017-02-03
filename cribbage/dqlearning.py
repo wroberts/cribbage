@@ -331,4 +331,4 @@ class DQLearner(object):
                                                                  value_estimates)
             # train updated values for one epoch
             update_model.training((pre_states, updated_values))
-            build(update_model)
+            build(update_model, max_num_epochs=1)
