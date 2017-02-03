@@ -33,14 +33,18 @@ class ModelStore(object):
     disk.
     '''
 
-    def __init__(self, path):
+    def __init__(self, path, ensure_exists=False):
         '''
         Constructor.
 
         Arguments:
         - `path`:
+        - `ensure_exists`: if True, call ensure_exists from the
+          constructor
         '''
         self.path = path
+        if ensure_exists:
+            self.ensure_exists()
 
     def ensure_exists(self):
         '''Ensure the directory used by this ModelStore exists.'''
@@ -50,6 +54,10 @@ class ModelStore(object):
     def abs_path(self):
         '''Get this ModelStore's absolute path.'''
         return os.path.abspath(self.path)
+
+    def join(self, path):
+        '''Returns the absolute path of the location `path` inside this store.'''
+        return os.path.join(self.abs_path, path)
 
 NONLINEARITY_NAMES = {
     'LeakyRectify': lasagne.nonlinearities.LeakyRectify,

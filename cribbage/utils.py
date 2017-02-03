@@ -9,11 +9,13 @@ Utility functions.
 '''
 
 from contextlib import contextmanager
+from functools import wraps
 import errno
 import itertools
 import os
 import random
 import tempfile
+import numpy as np
 
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
@@ -67,6 +69,27 @@ def mkdir_p(path):
             pass
         else:
             raise
+
+def numpy_memoize(filename):
+    '''
+    Function decorator to cache the results of a function call in a
+    numpy archive.
+    '''
+    def numpy_memoize_decorator(func):
+        '''Inner function produced by numpy_memoize.'''
+        @wraps(func)
+        def func_wrapper(*args, **kwargs):
+            '''Function wrapper used by numpy_memoize.'''
+            try:
+                with np.load(filename) as input_file:
+                    values = [input_file['arr_%d' % i] for i in
+                              range(len(input_file.files))]
+            except IOError:
+                values = func(*args, **kwargs)
+                np.savez(filename, *values)
+            return values
+        return func_wrapper
+    return numpy_memoize_decorator
 
 # ------------------------------------------------------------
 #  Atomic file I/O

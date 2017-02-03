@@ -11,7 +11,6 @@ Training an AI to play cribbage.
 from __future__ import absolute_import, print_function
 import functools
 import itertools
-import os
 import random
 from cribbage.dqlearning import DQLearner
 from cribbage.game import compare_players
@@ -19,7 +18,7 @@ from cribbage.netbuilder import ModelStore, Model, build
 from cribbage.neural import discard_state_repr, record_both_player_states, record_player1_states
 from cribbage.player import CribbagePlayer
 from cribbage.randomplayer import RandomCribbagePlayer
-from cribbage.utils import doubled, random_skip
+from cribbage.utils import doubled, numpy_memoize, random_skip
 import numpy as np
 
 def random_discard_sars_gen(random_seed=None):
@@ -229,31 +228,22 @@ def dqlearner_vs_random(qlearner_model, _dummy_model):
     stats = compare_players([qplayer, RandomCribbagePlayer()], 100)
     return stats[0] / 100.
 
+@numpy_memoize(ModelStore('models', ensure_exists=True).join('discard_scaling.npz'))
 def get_discard_scaling():
     '''
     Estimates the mean and standard deviation of input vectors to the
     discard() neural network.
     '''
-    # scale discard() inputs
-    store = ModelStore('models')
-    store.ensure_exists()
-    filename = os.path.join(store.abs_path, 'discard_scaling.npz')
-    try:
-        with np.load(filename) as input_file:
-            mean, std = [input_file['arr_%d' % i] for i in
-                         range(len(input_file.files))]
-    except IOError:
-        # recompute scaling
-        inputs = []
-        for (state, _action, _reward, state2) in itertools.islice(
-                random_discard_sars_gen(), 100000):
-            inputs.append(state)
-            if state2 is not None:
-                inputs.append(state2)
-        inputs = np.array(inputs)
-        mean = inputs.mean(axis=0)
-        std = inputs.std(axis=0)
-        np.savez(filename, mean, std)
+    # compute scaling
+    inputs = []
+    for (state, _action, _reward, state2) in itertools.islice(
+            random_discard_sars_gen(), 100000):
+        inputs.append(state)
+        if state2 is not None:
+            inputs.append(state2)
+    inputs = np.array(inputs)
+    mean = inputs.mean(axis=0)
+    std = inputs.std(axis=0)
     return mean, std
 
 def make_discard_input_scaler(mean, std):
