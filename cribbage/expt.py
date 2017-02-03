@@ -234,17 +234,8 @@ def get_discard_scaling():
     Estimates the mean and standard deviation of input vectors to the
     discard() neural network.
     '''
-    # compute scaling
-    inputs = []
-    for (state, _action, _reward, state2) in itertools.islice(
-            random_discard_sars_gen(), 100000):
-        inputs.append(state)
-        if state2 is not None:
-            inputs.append(state2)
-    inputs = np.array(inputs)
-    mean = inputs.mean(axis=0)
-    std = inputs.std(axis=0)
-    return mean, std
+    inputs = np.array(list(itertools.islice(random_discard_state_gen(), 100000)))
+    return inputs.mean(axis=0), inputs.std(axis=0)
 
 def make_discard_input_scaler(mean, std):
     '''
