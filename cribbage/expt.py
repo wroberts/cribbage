@@ -306,23 +306,6 @@ def make_dqlearner(store, name):
     model.validation_interval = 6000
     return model
 
-def get_scores(qlearner_model, states_matrix, actions_vector):
-    '''
-    Given a Model with a Q-learning neural network in it, and a matrix
-    of N states, and a vector of N integer values (each of which can
-    be one-hot encoded to action vectors), returns a vector of length
-    N giving the network's valuation of those state-action pairs.
-
-    Arguments:
-    - `qlearner_model`:
-    - `states_matrix`:
-    - `actions_vector`:
-    '''
-    if len(states_matrix) == 0:
-        return np.array([])
-    return qlearner_model.compute(states_matrix)[np.arange(len(actions_vector)),
-                                                 actions_vector]
-
 def record_player1_discard_sars_gen(model, epsilon):
     '''
     Returns an infinite generator of (s,a,r,s2) discard tuples by
