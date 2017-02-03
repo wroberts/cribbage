@@ -19,7 +19,7 @@ from cribbage.netbuilder import ModelStore, Model, build
 from cribbage.neural import discard_state_repr, record_both_player_states, record_player1_states
 from cribbage.player import CribbagePlayer
 from cribbage.randomplayer import RandomCribbagePlayer
-from cribbage.utils import doubled
+from cribbage.utils import doubled, random_skip
 import numpy as np
 
 def random_discard_sars_gen(random_seed=None):
@@ -52,18 +52,6 @@ def random_discard_state_gen(random_seed=None):
         yield state
         if state2 is not None:
             yield state2
-
-def random_skip(seq, p=0.2):
-    '''
-    Generator yields items from a sequence, randomly skipping some of them.
-
-    Arguments:
-    - `seq`:
-    - `p`: the probability of emitting an item
-    '''
-    for item in seq:
-        if random.random() < p:
-            yield item
 
 # ------------------------------------------------------------
 #  Autoencode discard() states

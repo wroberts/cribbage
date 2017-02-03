@@ -12,6 +12,7 @@ from contextlib import contextmanager
 import errno
 import itertools
 import os
+import random
 import tempfile
 
 def pairwise(iterable):
@@ -41,6 +42,19 @@ def grouped(num, iterable):
         if not chunk:
             return
         yield chunk
+
+def random_skip(seq, prob=0.2):
+    '''
+    Generator yields items from a sequence, randomly skipping some of
+    them.
+
+    Arguments:
+    - `seq`:
+    - `prob`: the probability of emitting an item
+    '''
+    for item in seq:
+        if random.random() < prob:
+            yield item
 
 def mkdir_p(path):
     '''
