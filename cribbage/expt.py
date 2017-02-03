@@ -115,7 +115,7 @@ def build_dautoenc2():
 # ------------------------------------------------------------
 #  Q-learning on discard()
 
-def plot_training(model_name = 'dqlearner_a2'):
+def plot_training(model_name='dqlearner_a2'):
     '''Wrap code to plot the training and validation error of a given model.'''
     import matplotlib.pyplot as plt
     model = Model('models', model_name)
