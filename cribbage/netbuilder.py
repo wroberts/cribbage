@@ -92,6 +92,17 @@ UPDATE_NAMES = {
     'sgd': lasagne.updates.sgd,
 }
 
+def make_input_scaler(mean, std):
+    '''
+    Return a function which can scale an input vector (or array of
+    input vectors) to a normal distribution, given the population mean
+    and standard deviation.
+    '''
+    def input_scaler(inputs):
+        '''Zero-centre and normalise a matrix of inputs.'''
+        return (inputs - mean) / std
+    return input_scaler
+
 class NetworkWrapper(object):
     '''An object which wraps a Lasagne feedforward neural network.'''
 

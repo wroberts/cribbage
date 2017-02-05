@@ -14,7 +14,7 @@ import itertools
 import random
 from cribbage.dqlearning import DQLearner
 from cribbage.game import compare_players
-from cribbage.netbuilder import ModelStore, Model, build
+from cribbage.netbuilder import ModelStore, Model, build, make_input_scaler
 from cribbage.neural import discard_state_repr, record_both_player_states, record_player1_states
 from cribbage.player import CribbagePlayer
 from cribbage.randomplayer import RandomCribbagePlayer
@@ -236,17 +236,6 @@ def get_discard_scaling():
     '''
     inputs = np.array(list(itertools.islice(random_discard_state_gen(), 100000)))
     return inputs.mean(axis=0), inputs.std(axis=0)
-
-def make_input_scaler(mean, std):
-    '''
-    Return a function which can scale an input vector (or array of
-    input vectors) to a normal distribution, given the population mean
-    and standard deviation.
-    '''
-    def input_scaler(inputs):
-        '''Zero-centre and normalise a matrix of inputs.'''
-        return (inputs - mean) / std
-    return input_scaler
 
 # Q-learning model for discard()
 def make_dqlearner(store, name):
