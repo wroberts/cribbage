@@ -30,6 +30,7 @@
       - whether the training was resumed on a particular snapshot (to
         help with interpreting behaviour resulting from start/stop)
 ***** TODO try NAG
+***** TODO prioritised Q updates
 ***** TODO validation: average Q values for a fixed set of states
 ***** TODO validation: check both A and B models
       This gives an estimate of how reliable the A validation stat is.
