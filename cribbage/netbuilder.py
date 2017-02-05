@@ -587,6 +587,11 @@ class Model(NetworkWrapper):
             total_time = self.metadata['snapshots'][-1]['total_time']
         self.metadata['snapshots'].append({
             'num_minibatches': self.num_minibatches,
+            'minibatch_size': self.minibatch_size_value,
+            'weights_loaded': self.weights_loaded,
+            'objective_name': self.objective_name,
+            'update_name': self.update_name,
+            'update_args': self.update_args_value,
             'train_err': train_err,
             'validation_err': validation_err,
             'total_time': total_time + elapsed_time,
