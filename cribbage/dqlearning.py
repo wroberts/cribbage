@@ -282,6 +282,8 @@ class DQLearner(object):
             # e-greedy policy; using epsilon_func, the epsilon value
             # can be annealed over the training regime
             epsilon = self.epsilon_func(update_model.num_minibatches)
+            # epsilon will be logged to snapshots
+            update_model.extra_snapshot({'epsilon': epsilon})
             # sample nsamples_per_loop (s,a,r,s) tuples using an
             # e-greedy policy, and add these to the replay memory
             replay_memory.extend(
