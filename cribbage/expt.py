@@ -115,7 +115,7 @@ def build_dautoenc2():
 # ------------------------------------------------------------
 #  Q-learning on discard()
 
-def get_best_actions(qlearner_model, states_matrix):
+def choose_discard_actions(qlearner_model, states_matrix):
     '''
     Given a Model with a Q-learning neural network in it, and a matrix
     of N states, returns a vector of length N containing the argmax of
@@ -165,7 +165,7 @@ class QLearningPlayer(CribbagePlayer):
                                        None,
                                        player_score,
                                        opponent_score)
-            discard_value_1 = get_best_actions(self.discard_model, state[None, :])[0]
+            discard_value_1 = choose_discard_actions(self.discard_model, state[None, :])[0]
             discard_idx_1 = hand.index(discard_value_1)
             # remove the first discard from the hand and re-encode
             del hand[discard_idx_1]
@@ -174,7 +174,7 @@ class QLearningPlayer(CribbagePlayer):
                                        discard_value_1,
                                        player_score,
                                        opponent_score)
-            discard_value_2 = get_best_actions(self.discard_model, state[None, :])[0]
+            discard_value_2 = choose_discard_actions(self.discard_model, state[None, :])[0]
             discard_idx_2 = hand2.index(discard_value_2)
             return [discard_idx_1, discard_idx_2]
         return random.sample(range(6), 2)
@@ -294,7 +294,7 @@ def learn_discard():
     # Mnih's "Qhat estimator updated every 10,000 updates")
     learner.minibatch_size(32)
     learner.minibatches_per_loop(312)
-    learner.choose_action_fn(get_best_actions)
+    learner.choose_action_fn(choose_discard_actions)
     learner.train()
 
 if __name__ == '__main__':
