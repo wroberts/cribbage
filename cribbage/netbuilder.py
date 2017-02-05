@@ -364,6 +364,7 @@ class Model(NetworkWrapper):
         self.arch_frozen = False
         # are the network's weights loaded from a snapshot?
         self.weights_loaded = False
+        self.just_loaded = False # momentary flag, turns on for one snapshot
         # if the architecture is loaded from metadata, the input(),
         # hidden() and output() methods are used to check; this
         # variable stores which layer we're currently checking
@@ -388,6 +389,7 @@ class Model(NetworkWrapper):
                 self.load_params(os.path.join(self.model_path, last_snapshot_fn))
                 logger.info('weights loaded from snapshot %s', last_snapshot_fn)
                 self.weights_loaded = True
+                self.just_loaded = True
         except IOError:
             # no metadata file present, initialise metadata
             self.metadata = {
@@ -603,6 +605,7 @@ class Model(NetworkWrapper):
             'num_minibatches': self.num_minibatches,
             'minibatch_size': self.minibatch_size_value,
             'weights_loaded': self.weights_loaded,
+            'just_loaded': self.just_loaded,
             'objective_name': self.objective_name,
             'update_name': self.update_name,
             'update_args': self.update_args_value,
@@ -614,6 +617,7 @@ class Model(NetworkWrapper):
             'param_mags': list(param_mags),
             'update_mags_by_param_mags': list(update_mags / param_mags),
         })
+        self.just_loaded = False
         # additionally values can be logged to the snapshot by
         # external code; to do this, call extra_snapshot()
         if self.extra_snapshot_dict is not None:
