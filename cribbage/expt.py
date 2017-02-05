@@ -261,6 +261,10 @@ def record_player1_discard_sars_gen(model, epsilon):
 #  Double Q-Learning
 
 def learn_discard():
+    '''
+    Main function: learn a model to perform cribbage discards using
+    Q-learning.
+    '''
     # build the two q-learning networks
     dqlearner_a = make_dqlearner('models', 'dqlearner_a9')
     dqlearner_a.validation_routine(functools.partial(dqlearner_vs_random, dqlearner_a))
