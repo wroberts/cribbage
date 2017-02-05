@@ -298,37 +298,44 @@ def record_player1_discard_sars_gen(model, epsilon):
 # ------------------------------------------------------------
 #  Double Q-Learning
 
-# build the two q-learning networks
-dqlearner_a = make_dqlearner('models', 'dqlearner_a9')
-dqlearner_a.validation_routine(functools.partial(dqlearner_vs_random, dqlearner_a))
-dqlearner_b = make_dqlearner('models', 'dqlearner_b9')
-dqlearner_b.validation_routine(functools.partial(dqlearner_vs_random, dqlearner_a))
+def learn_discard():
+    # build the two q-learning networks
+    dqlearner_a = make_dqlearner('models', 'dqlearner_a9')
+    dqlearner_a.validation_routine(functools.partial(dqlearner_vs_random, dqlearner_a))
+    dqlearner_b = make_dqlearner('models', 'dqlearner_b9')
+    dqlearner_b.validation_routine(functools.partial(dqlearner_vs_random, dqlearner_a))
 
-learner = DQLearner(dqlearner_a, dqlearner_b,
-                    random_discard_sars_gen,
-                    record_player1_discard_sars_gen)
-# initialise replay memory with 50,000 (s,a,r,s) tuples from random play
-learner.replay_memory_init_size(50000)
-# 50k: 252M
-# 100k: 360M
-# 150k: 353M
-# 200k: 414M
-# 500k: 750M
-# truncate replay memory at 500K (replay memory was 1M states in Mnih)
-learner.replay_memory_max_size(500000)
-# e-greedy with epsilon annealed linearly from 1.0 to 0.1 over first
-# 1,000,000 minibatches, and 0.1 thereafter
-learner.epsilon_fn(lambda n: max(1. + (0.1 - 1.) * n / 1000000., 0.1))
-# on every training loop, sample 5K (s,a,r,s) discard states and store
-# in the replay memory
-learner.samples_per_loop(5000)
-# make the training set 312 random minibatches (sampling with
-# replacement) of 32 s,a,r,s tuples (this is roughly in line with
-# Mnih's "Qhat estimator updated every 10,000 updates")
-learner.minibatch_size(32)
-learner.minibatches_per_loop(312)
-learner.choose_action_fn(get_best_actions)
-learner.train()
+    learner = DQLearner(dqlearner_a, dqlearner_b,
+                        random_discard_sars_gen,
+                        record_player1_discard_sars_gen)
+    # initialise replay memory with 50,000 (s,a,r,s) tuples from random play
+    learner.replay_memory_init_size(50000)
+    # 50k: 252M
+    # 100k: 360M
+    # 150k: 353M
+    # 200k: 414M
+    # 500k: 750M
+    # truncate replay memory at 500K (replay memory was 1M states in Mnih)
+    learner.replay_memory_max_size(500000)
+    # e-greedy with epsilon annealed linearly from 1.0 to 0.1 over first
+    # 1,000,000 minibatches, and 0.1 thereafter
+    learner.epsilon_fn(lambda n: max(1. + (0.1 - 1.) * n / 1000000., 0.1))
+    # on every training loop, sample 5K (s,a,r,s) discard states and store
+    # in the replay memory
+    learner.samples_per_loop(5000)
+    # make the training set 312 random minibatches (sampling with
+    # replacement) of 32 s,a,r,s tuples (this is roughly in line with
+    # Mnih's "Qhat estimator updated every 10,000 updates")
+    learner.minibatch_size(32)
+    learner.minibatches_per_loop(312)
+    learner.choose_action_fn(get_best_actions)
+    learner.train()
+
+if __name__ == '__main__':
+    learn_discard()
+
+# ------------------------------------------------------------
+#  Profiling
 
 # In [8]: cProfile.run('loop(replay_memory, dqlearner_a, dqlearner_b)', sort='time')
 #          822065 function calls in 2.806 seconds
