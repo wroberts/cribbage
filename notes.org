@@ -1,0 +1,35 @@
+#+STARTUP: content hidestars odd
+
+* Dev Notes Cribbage
+*** Discard Models
+***** DONE Early dqlearner models
+      - what has the model learned? unclear
+      - graph the training error and validation error? looks bad
+      - test what the model says to do? seems pretty pessimistic
+      - problems?
+        - is the network objective set properly? seems so
+        - is the training set reasonable? action matches pre_state
+        - is the validation happening correctly? code review ok
+        - what happens if we validate on model B? same thing
+        - are the weights changing? i guess so
+        - are the q-learning models being swapped? code review ok
+        - is the q-learning update calculated properly? walked through and checked
+        - is the learning rate is too high? probably
+***** DONE profile one loop of q-learning: where are we spending time?
+***** DONE try normalising inputs and outputs
+***** DONE rmsprop (learning_rate=0.001 or 0.01) or NAG, no dropout, switch back to relus
+***** DONE can sample updates() function (return from get_theano_functions)
+      This returns an OrderedDict; compare magnitude of updates to
+      magnitude of weight matrix values, look for ratio to be ~1:1000s.
+***** TODO test case that post_state 5 cards correctly follows prestate 6 cards
+***** TODO fix time monitoring code in netbuilder.build
+***** DONE move RL state into DQLearner class, to allow RL to be run progressively
+***** DONE allow arbitrary logging to snapshots (e.g., epsilon)
+      - update function arguments (in case we change or slow down
+        learning rate at some point)
+      - whether the training was resumed on a particular snapshot (to
+        help with interpreting behaviour resulting from start/stop)
+***** TODO try NAG
+***** TODO validation: average Q values for a fixed set of states
+***** TODO validation: check both A and B models
+      This gives an estimate of how reliable the A validation stat is.
