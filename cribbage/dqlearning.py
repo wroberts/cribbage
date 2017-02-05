@@ -100,6 +100,7 @@ class DQLearner(object):
         self.epsilon_func = lambda n: 0.1
         self.choose_action_func = default_choose_action_func
         self.q_value_func = default_q_value_func
+        self.replay_memory = []
 
     def replay_memory_init_size(self, num):
         '''
@@ -257,8 +258,10 @@ class DQLearner(object):
         '''
         self.q_value_func = func
 
-    def train(self):
-        '''Runs the double Q-learning algorithm to train the models.'''
+    def seed_replay_memory(self):
+        '''
+        Initialises the replay memory for this Q-learning run.
+        '''
         # replay memory contains (s,a,r,s) tuples
         if self.model_a.weights_loaded:
             # generate states from self.model_a
@@ -267,71 +270,79 @@ class DQLearner(object):
         else:
             # intialise replay memory from random policy
             init_gen = self.init_sars_func()
-        replay_memory = list(itertools.islice(init_gen, self.rmem_init_size))
+        self.replay_memory = list(itertools.islice(init_gen, self.rmem_init_size))
 
-        # training loop
+    def train_step(self):
+        '''
+        Run the RL training loop once.
+        '''
+        # randomly select which q-learning network will be
+        # updated, and which will estimate action values
+        if random.random() < 0.5:
+            update_model = self.model_a
+            scoring_model = self.model_b
+        else:
+            update_model = self.model_b
+            scoring_model = self.model_a
+        # e-greedy policy; using epsilon_func, the epsilon value
+        # can be annealed over the training regime
+        epsilon = self.epsilon_func(update_model.num_minibatches)
+        # epsilon will be logged to snapshots
+        update_model.extra_snapshot({'epsilon': epsilon})
+        # sample nsamples_per_loop (s,a,r,s) tuples using an
+        # e-greedy policy, and add these to the replay memory
+        self.replay_memory.extend(
+            itertools.islice(self.sample_sars_func(update_model, epsilon),
+                             self.nsamples_per_loop))
+        # truncate replay memory if needed
+        if len(self.replay_memory) > self.rmem_max_size:
+            self.replay_memory = self.replay_memory[-self.rmem_max_size:]
+        # make the training set self.nminibatches_per_loop random
+        # minibatches (sampling with replacement) of
+        # self.nminibatch_size (s,a,r,s) tuples
+        selected_idxs = np.random.randint(
+            0, len(self.replay_memory),
+            size=self.nminibatches_per_loop * self.nminibatch_size)
+        selected_sars = [self.replay_memory[idx] for idx in selected_idxs]
+        pre_states = np.array([s for s,a,r,s2 in selected_sars])
+        actions = np.array([a for s,a,r,s2 in selected_sars])
+        rewards = np.array([r for s,a,r,s2 in selected_sars])
+        # handle cases where post_state is None: keep track of
+        # indices into our matrices (e.g., pre_states, actions)
+        # where the post_state is not None
+        nonnull_post_state_idxs = np.array([i for i,(s,a,r,s2) in
+                                            enumerate(selected_sars)
+                                            if s2 is not None], dtype=int)
+        post_states = np.array([s2 for s,a,r,s2 in selected_sars if s2 is not None])
+        # the online q-learner is used to figure out what the
+        # optimal future actions will be
+        best_actions = self.choose_action_func(update_model, post_states)
+        # and the other q-learner is used to score the values of
+        # these future actions
+        value_estimates = self.q_value_func(scoring_model, post_states, best_actions)
+        # we compute the action-value matrix for the pre-states
+        # from update_model
+        previous_values = self.q_value_func(update_model, pre_states)
+        # the updated values for training is identical to
+        # previous_values, except for at the locations of the
+        # selected actions, which are set to the new estimates of
+        # those action values.  the SGD of the neural network will
+        # take care of nudging the weights towards these new
+        # values (i.e., we do not use the "alpha" from van
+        # Hasselt's poster).
+        updated_values = np.array(previous_values)
+        updated_values[np.arange(len(actions)), actions] = rewards
+        # in cases where the post_state is None, the
+        # value_estimate for that post_state is defined to be 0
+        updated_values[nonnull_post_state_idxs,
+                       actions[nonnull_post_state_idxs]] += (self.gamma_value *
+                                                             value_estimates)
+        # train updated values for one epoch
+        update_model.training((pre_states, updated_values))
+        build(update_model, max_num_epochs=1)
+
+    def train(self):
+        '''Runs the double Q-learning algorithm to train the models.'''
+        self.seed_replay_memory()
         while True:
-            # randomly select which q-learning network will be
-            # updated, and which will estimate action values
-            if random.random() < 0.5:
-                update_model = self.model_a
-                scoring_model = self.model_b
-            else:
-                update_model = self.model_b
-                scoring_model = self.model_a
-            # e-greedy policy; using epsilon_func, the epsilon value
-            # can be annealed over the training regime
-            epsilon = self.epsilon_func(update_model.num_minibatches)
-            # epsilon will be logged to snapshots
-            update_model.extra_snapshot({'epsilon': epsilon})
-            # sample nsamples_per_loop (s,a,r,s) tuples using an
-            # e-greedy policy, and add these to the replay memory
-            replay_memory.extend(
-                itertools.islice(self.sample_sars_func(update_model, epsilon),
-                                 self.nsamples_per_loop))
-            # truncate replay memory if needed
-            if len(replay_memory) > self.rmem_max_size:
-                replay_memory = replay_memory[-self.rmem_max_size:]
-            # make the training set self.nminibatches_per_loop random
-            # minibatches (sampling with replacement) of
-            # self.nminibatch_size (s,a,r,s) tuples
-            selected_idxs = np.random.randint(
-                0, len(replay_memory),
-                size=self.nminibatches_per_loop * self.nminibatch_size)
-            selected_sars = [replay_memory[idx] for idx in selected_idxs]
-            pre_states = np.array([s for s,a,r,s2 in selected_sars])
-            actions = np.array([a for s,a,r,s2 in selected_sars])
-            rewards = np.array([r for s,a,r,s2 in selected_sars])
-            # handle cases where post_state is None: keep track of
-            # indices into our matrices (e.g., pre_states, actions)
-            # where the post_state is not None
-            nonnull_post_state_idxs = np.array([i for i,(s,a,r,s2) in
-                                                enumerate(selected_sars)
-                                                if s2 is not None], dtype=int)
-            post_states = np.array([s2 for s,a,r,s2 in selected_sars if s2 is not None])
-            # the online q-learner is used to figure out what the
-            # optimal future actions will be
-            best_actions = self.choose_action_func(update_model, post_states)
-            # and the other q-learner is used to score the values of
-            # these future actions
-            value_estimates = self.q_value_func(scoring_model, post_states, best_actions)
-            # we compute the action-value matrix for the pre-states
-            # from update_model
-            previous_values = self.q_value_func(update_model, pre_states)
-            # the updated values for training is identical to
-            # previous_values, except for at the locations of the
-            # selected actions, which are set to the new estimates of
-            # those action values.  the SGD of the neural network will
-            # take care of nudging the weights towards these new
-            # values (i.e., we do not use the "alpha" from van
-            # Hasselt's poster).
-            updated_values = np.array(previous_values)
-            updated_values[np.arange(len(actions)), actions] = rewards
-            # in cases where the post_state is None, the
-            # value_estimate for that post_state is defined to be 0
-            updated_values[nonnull_post_state_idxs,
-                           actions[nonnull_post_state_idxs]] += (self.gamma_value *
-                                                                 value_estimates)
-            # train updated values for one epoch
-            update_model.training((pre_states, updated_values))
-            build(update_model, max_num_epochs=1)
+            self.train_step()
