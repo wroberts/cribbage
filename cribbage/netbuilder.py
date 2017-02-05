@@ -605,7 +605,8 @@ class Model(NetworkWrapper):
         - `snapshot_id`: snapshot to load; this can be specified as an
           integer (i.e., the value of 'num_minibatches'), or as a
           special string value (one of 'first', 'last',
-          'best_validation', 'best_train')
+          'best_validation', 'best_train', 'min_validation',
+          'max_validation').
         '''
         # locate the snapshot filename to load
         assert 'snapshots' in self.metadata and len(self.metadata['snapshots']) > 0
@@ -621,8 +622,10 @@ class Model(NetworkWrapper):
             snapshot_filename = snapshots[0]['filename']
         elif snapshot_id == 'last':
             snapshot_filename = snapshots[-1]['filename']
-        elif snapshot_id == 'best_validation':
+        elif snapshot_id == 'best_validation' or snapshot_id == 'min_validation':
             snapshot_filename = min([(ss['validation_err'], ss['filename']) for ss in snapshots])[1]
+        elif snapshot_id == 'max_validation':
+            snapshot_filename = max([(ss['validation_err'], ss['filename']) for ss in snapshots])[1]
         elif snapshot_id == 'best_train':
             snapshot_filename = min([(ss['train_err'], ss['filename']) for ss in snapshots])[1]
 
