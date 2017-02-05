@@ -212,7 +212,7 @@ class QLearningPlayer(CribbagePlayer):
                   legal_moves):
         '''Select a single card from the hand to play during cribbage play.'''
         if self.play_card_model is not None and random.random() > self.epsilon:
-            # TODO
+            # TODO: integrate self.play_card_model
             pass
         return random.choice(legal_moves)
 
