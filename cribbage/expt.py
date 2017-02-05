@@ -256,10 +256,6 @@ def make_dqlearner(store, name):
     model.update_args({'learning_rate': 0.002})
     # normalise inputs to network
     model.input_scaler(make_input_scaler(*get_discard_scaling()))
-    # initialise weights from dautoenc2
-    #dautoenc2 = Model(store, 'dautoenc2').load_snapshot(20000)
-    #model.set_weights('hidden1', dautoenc2.get_weights('hidden1'))
-    #model.set_weights('hidden2', dautoenc2.get_weights('hidden2'))
     # validation will be performed by playing cribbage against a random
     # player
     model.minibatch_size(32)
