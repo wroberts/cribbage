@@ -115,28 +115,6 @@ def build_dautoenc2():
 # ------------------------------------------------------------
 #  Q-learning on discard()
 
-def plot_training(model_name='dqlearner_a2'):
-    '''Wrap code to plot the training and validation error of a given model.'''
-    import matplotlib.pyplot as plt
-    model = Model('models', model_name)
-
-    plt.clf()
-    data = [[ss['num_minibatches'], ss['train_err'], ss['validation_err']] for ss in
-            model.metadata['snapshots']]
-    data = np.array(data).T
-    fig, ax1 = plt.subplots()
-    ax1.plot(data[0], data[1], label='Training Error', color='C0')
-    ax2 = plt.twinx()
-    ax2.plot(data[0], data[2], label='Validation Error', color='C1')
-    ax1.set_xlabel('Number of minibatches')
-    ax1.set_ylabel('Mean squared training error per minibatch')
-    ax1.tick_params('y', colors='C0')
-    ax2.set_ylabel('Validation error per minibatch')
-    ax2.tick_params('y', colors='C1')
-    #fig.legend()
-    fig.tight_layout()
-    fig.show()
-
 def get_best_actions(qlearner_model, states_matrix):
     '''
     Given a Model with a Q-learning neural network in it, and a matrix
