@@ -90,8 +90,11 @@ class DQLearner(object):
         self.rmem_init_size = 50000
         self.rmem_max_size = 500000
         self.nsamples_per_loop = 5000
-        # TODO: minibatch size should be set by model_a and model_b
         self.nminibatch_size = 32
+        # minibatch size defaults to the value stored in model_a, if
+        # it exists
+        if self.model_a.minibatch_size_value is not None:
+            self.nminibatch_size = self.model_a.minibatch_size_value
         self.nminibatches_per_loop = 100
         self.gamma_value = 0.99
         self.init_sars_func = init_sars_fn
