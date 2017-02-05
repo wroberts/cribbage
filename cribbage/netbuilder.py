@@ -372,6 +372,9 @@ class Model(NetworkWrapper):
         # fully specified (for new Models) or has been fully checked
         # (for Models loaded from disk)
         self.arch_desc_complete = False
+        # dictionary containing arbitrary values to be saved to the
+        # snapshot
+        self.extra_snapshot_dict = None
         # load metadata if possible
         self.ensure_exists()
         try:
@@ -566,6 +569,17 @@ class Model(NetworkWrapper):
         _nw = self.network # force build network
         return super(Model, self).get_theano_functions()
 
+    def extra_snapshot(self, extra_snapshot_dict):
+        '''
+        Stores arbitrary values into this Model's snapshots during
+        training.
+
+        Arguments:
+        - `extra_snapshot_dict`: a dictionary of values to store into
+          any snapshots created after this method is called
+        '''
+        self.extra_snapshot_dict = extra_snapshot_dict
+
     def save_snapshot(self, train_err, validation_err, elapsed_time, update_mags, param_mags):
         '''
         Saves a snapshot of this Model's network to disk.  Also records
@@ -600,6 +614,13 @@ class Model(NetworkWrapper):
             'param_mags': list(param_mags),
             'update_mags_by_param_mags': list(update_mags / param_mags),
         })
+        # additionally values can be logged to the snapshot by
+        # external code; to do this, call extra_snapshot()
+        if self.extra_snapshot_dict is not None:
+            snapshot = self.metadata['snapshots'][-1]
+            for k in self.extra_snapshot_dict:
+                if k not in snapshot:
+                    snapshot[k] = self.extra_snapshot_dict[k]
         self.save_metadata()
 
     def load_snapshot(self, snapshot_id):
