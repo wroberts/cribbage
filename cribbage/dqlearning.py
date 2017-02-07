@@ -275,18 +275,14 @@ class DQLearner(object):
             init_gen = self.init_sars_func()
         self.replay_memory = list(itertools.islice(init_gen, self.rmem_init_size))
 
-    def train_step(self):
+    def sample_policy(self, update_model):
         '''
-        Run the RL training loop once.
+        Sample the given model's policy and add (s,a,r,s) tuples to the
+        replay memory.
+
+        Arguments:
+        - `update_model`:
         '''
-        # randomly select which q-learning network will be
-        # updated, and which will estimate action values
-        if random.random() < 0.5:
-            update_model = self.model_a
-            scoring_model = self.model_b
-        else:
-            update_model = self.model_b
-            scoring_model = self.model_a
         # e-greedy policy; using epsilon_func, the epsilon value
         # can be annealed over the training regime
         epsilon = self.epsilon_func(update_model.num_minibatches)
@@ -300,6 +296,16 @@ class DQLearner(object):
         # truncate replay memory if needed
         if len(self.replay_memory) > self.rmem_max_size:
             self.replay_memory = self.replay_memory[-self.rmem_max_size:]
+
+    def update_q_values(self, update_model, scoring_model):
+        '''
+        Update the Q values in `update_model`, using `scoring_model` to
+        predict the future values of actions.
+
+        Arguments:
+        - `update_model`:
+        - `scoring_model`:
+        '''
         # make the training set self.nminibatches_per_loop random
         # minibatches (sampling with replacement) of
         # self.nminibatch_size (s,a,r,s) tuples
@@ -343,6 +349,23 @@ class DQLearner(object):
         # train updated values for one epoch
         update_model.training((pre_states, updated_values))
         build(update_model, max_num_epochs=1)
+
+    def train_step(self):
+        '''
+        Run the RL training loop once.
+        '''
+        # randomly select which q-learning network will be
+        # updated, and which will estimate action values
+        if random.random() < 0.5:
+            update_model = self.model_a
+            scoring_model = self.model_b
+        else:
+            update_model = self.model_b
+            scoring_model = self.model_a
+        # sample the update model's policy
+        self.sample_policy(update_model)
+        # modify the update model's q value function
+        self.update_q_values(update_model, scoring_model)
 
     def train(self):
         '''Runs the double Q-learning algorithm to train the models.'''
