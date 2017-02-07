@@ -2,6 +2,13 @@
  Cribbage
 ==========
 
+.. image:: https://travis-ci.org/wroberts/cribbage.svg?branch=master
+    :target: https://travis-ci.org/wroberts/cribbage
+
+.. image:: https://coveralls.io/repos/wroberts/cribbage/badge.svg?branch=master
+  :target: https://coveralls.io/r/wroberts/cribbage?branch=master
+     :alt: Test code coverage
+
 Python library for experimenting with the game of cribbage.
 
 C Extension
