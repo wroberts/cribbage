@@ -23,8 +23,8 @@ To compile the Cython extension::
 
 Then::
 
-    import c_cribbage_score
-    c_cribbage_score.score_hand(hand, draw)
+    from cribbage import _cribbage_score
+    _cribbage_score.score_hand(hand, draw)
 
 Testing
 =======
