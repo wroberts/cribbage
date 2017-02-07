@@ -6,5 +6,6 @@ setup(
     name = 'C Cribbage Scorer',
     ext_modules = cythonize([Extension("cribbage._cribbage_score",
                                        ["cribbage/_cribbage_score.pyx",
-                                        "cribbage/cribbage_score.c"])])
+                                        "cribbage/cribbage_score.c"],
+                                       extra_compile_args=['-std=c99'])])
 )
