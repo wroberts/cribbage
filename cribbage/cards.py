@@ -41,7 +41,7 @@ def string_tocard(sval):
 
 def make_deck():
     '''Creates a list containing all 52 card values.'''
-    return range(52)
+    return list(range(52))
 
 # ------------------------------------------------------------
 # Utility Functions

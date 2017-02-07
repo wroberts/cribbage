@@ -21,6 +21,10 @@ import lasagne
 import numpy as np
 import theano
 import theano.tensor as T
+try:
+    import itertools.izip as zip
+except ImportError:
+    pass
 
 # logging
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s',
@@ -843,7 +847,7 @@ def build(model, max_num_epochs = None, max_num_minibatches = None):
         # training loop
         start_time = time.time()
         train_err = 0
-        for (input_minibatch, output_minibatch) in itertools.izip(
+        for (input_minibatch, output_minibatch) in zip(
                 minibatcher_fn(model.training_inputs),
                 minibatcher_fn(model.training_outputs)):
 
@@ -861,7 +865,7 @@ def build(model, max_num_epochs = None, max_num_minibatches = None):
                     validation_err = model.use_validation_routine(model)
                 elif model.validation_set is not None:
                     validation_err = 0
-                    for input_minibatch, output_minibatch in itertools.izip(
+                    for input_minibatch, output_minibatch in zip(
                             *map(minibatcher_fn, model.validation_set)):
                         validation_err += validation_fn(input_scaler_fn(input_minibatch),
                                                         output_minibatch)

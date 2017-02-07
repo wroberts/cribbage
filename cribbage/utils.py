@@ -16,12 +16,16 @@ import os
 import random
 import tempfile
 import numpy as np
+try:
+    import itertools.izip as zip
+except ImportError:
+    pass
 
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
     iter1, iter2 = itertools.tee(iterable)
     next(iter2, None)
-    return itertools.izip(iter1, iter2)
+    return zip(iter1, iter2)
 
 def doubled(iterable):
     '''(x, y, z, ...) -> ((x, x), (y, y), (z, z), ...)'''

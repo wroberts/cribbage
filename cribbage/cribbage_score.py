@@ -155,7 +155,7 @@ def score_play(linear_play, verbose=False):
                 print('pair {} points'.format(pair_score))
             play_score += pair_score
             break
-        elif back_list == range(min(back_list), max(back_list) + 1):
+        elif back_list == list(range(min(back_list), max(back_list) + 1)):
             # run
             run_score = len(back_list)
             if run_score >= 3:
