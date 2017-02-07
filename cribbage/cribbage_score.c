@@ -29,7 +29,7 @@ static const score_t CARD_VALUES[13] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 
  * specified in indices into a 5-element array.
  * 0xFF indicates a blank.
  */
-static const int NUM_COMBINATIONS = 26;
+#define NUM_COMBINATIONS 26
 static const unsigned char COMBINATIONS[NUM_COMBINATIONS][5] = {
     { 0, 1, 0xFF, 0xFF, 0xFF },
     { 0, 2, 0xFF, 0xFF, 0xFF },
