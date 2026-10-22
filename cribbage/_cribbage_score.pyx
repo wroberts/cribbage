@@ -1,3 +1,4 @@
+# cython: boundscheck=False, wraparound=False, cdivision=True
 cdef extern from "cribbage_score.h":
     int c_score_hand "score_hand" (unsigned char card1,
                                    unsigned char card2,
@@ -7,7 +8,7 @@ cdef extern from "cribbage_score.h":
                                    unsigned char is_crib)
     int c_score_play "score_play" (unsigned char cards[13])
 
-def score_hand(hand, draw, crib=False, verbose=False):
+def score_hand(hand, int draw, crib=False, verbose=False):
     '''
     Scores a hand of four cards with the given draw card.
 
@@ -16,13 +17,15 @@ def score_hand(hand, draw, crib=False, verbose=False):
     '''
     if len(hand) != 4:
         raise ValueError('hand must have four cards')
-    cdef int score = 0
-    cdef int cards[5]
-    cdef int idx
-    for idx in range(4):
-        cards[idx] = _check_card(hand[idx])
-    cards[4] = _check_card(draw)
-    score = c_score_hand(cards[0], cards[1], cards[2], cards[3], cards[4], bool(crib))
+    cdef int c1 = hand[0]
+    cdef int c2 = hand[1]
+    cdef int c3 = hand[2]
+    cdef int c4 = hand[3]
+    cdef int score
+    if not (0 <= c1 <= 51 and 0 <= c2 <= 51 and 0 <= c3 <= 51 and
+            0 <= c4 <= 51 and 0 <= draw <= 51):
+        raise ValueError('card values must be in [0, 51]: {!r} {!r}'.format(hand, draw))
+    score = c_score_hand(c1, c2, c3, c4, draw, 1 if crib else 0)
     if score < 0:
         raise ValueError('invalid hand: duplicate cards')
     return score
