@@ -4,7 +4,7 @@
 // a type for a card value [0-51 incl.], suit value [0-4 incl.], or face value [0-12 incl.]
 typedef unsigned char card_t;
 // a type for a count value
-typedef char count_t;
+typedef signed char count_t;
 // a type for an unsigned count value
 typedef unsigned char ucount_t;
 // a type for a score

@@ -16,8 +16,10 @@
  * 2 of a kind - 2 points
  * 3 of a kind - 6 points (2 x 3)
  * 4 of a kind - 12 points (2 x 6)
+ * 5 of a kind - 20 points (2 x 10); impossible with a real deck, but
+ *               init_rank_scores visits every combination of faces
  */
-static const score_t PAIR_SCORES[5] = { 0, 0, 2, 6, 12 };
+static const score_t PAIR_SCORES[6] = { 0, 0, 2, 6, 12, 20 };
 
 /*
  * The values of each face_value, for adding up to 15.
@@ -72,14 +74,15 @@ void print_face_counts(count_t face_counts[5][2])
 #endif // DEBUG
 
 /*
- * Scores a cribbage hand.
+ * Scores a cribbage hand, without lookup tables.  Used to fill in
+ * RANK_SCORES.
  *
  * Hand is specified with card values card1 through card4; the draw
  * card is given in draw_card.
  *
  * Returns the number of points to score for the given hand and draw.
  */
-score_t score_hand(card_t card1, card_t card2, card_t card3, card_t card4, card_t draw_card, flag_t is_crib)
+static score_t score_hand_slow(card_t card1, card_t card2, card_t card3, card_t card4, card_t draw_card, flag_t is_crib)
 {
     // sanity check
     if (card1 > 51 ||
@@ -254,6 +257,77 @@ score_t score_hand(card_t card1, card_t card2, card_t card3, card_t card4, card_
     return score;
 }
 
+/*
+ * The score of a hand depends on the ranks of its five cards (pairs,
+ * runs and fifteens), plus a flush and "his nobs" which depend on
+ * suits.  RANK_SCORES holds the rank-only part, indexed by the five
+ * face values in base 13, and is filled in on first use from
+ * score_hand_slow.
+ */
+#define NUM_RANK_COMBOS (13 * 13 * 13 * 13 * 13)
+static unsigned char RANK_SCORES[NUM_RANK_COMBOS];
+static int rank_scores_ready = 0;
+
+static void init_rank_scores(void)
+{
+    for (int a = 0; a < 13; a++)
+    for (int b = 0; b < 13; b++)
+    for (int c = 0; c < 13; c++)
+    for (int d = 0; d < 13; d++)
+    for (int e = 0; e < 13; e++)
+    {
+        // hand suits are all different (no flush), and the draw card
+        // has suit 0, which only the first card can share; a jack
+        // there is moved to suit 1 so that there is no nobs either
+        card_t c1 = (a == 10) ? a + 13 : a;
+        card_t c2 = b + 13, c3 = c + 26, c4 = d + 39;
+        RANK_SCORES[(((a * 13 + b) * 13 + c) * 13 + d) * 13 + e] =
+            (unsigned char) score_hand_slow(c1, c2, c3, c4, e, 0);
+    }
+    rank_scores_ready = 1;
+}
+
+/*
+ * Scores a cribbage hand.
+ *
+ * Hand is specified with card values card1 through card4; the draw
+ * card is given in draw_card.
+ *
+ * Returns the number of points to score for the given hand and draw,
+ * or -1 if a card value is out of range.
+ */
+score_t score_hand(card_t card1, card_t card2, card_t card3, card_t card4, card_t draw_card, flag_t is_crib)
+{
+    if (card1 > 51 || card2 > 51 || card3 > 51 || card4 > 51 || draw_card > 51)
+    {
+        return -1;
+    }
+    if (!rank_scores_ready) init_rank_scores();
+
+    card_t f1 = CARD_FACE(card1), s1 = CARD_SUIT(card1);
+    card_t f2 = CARD_FACE(card2), s2 = CARD_SUIT(card2);
+    card_t f3 = CARD_FACE(card3), s3 = CARD_SUIT(card3);
+    card_t f4 = CARD_FACE(card4), s4 = CARD_SUIT(card4);
+    card_t fd = CARD_FACE(draw_card), sd = CARD_SUIT(draw_card);
+
+    score_t score = RANK_SCORES[(((f1 * 13 + f2) * 13 + f3) * 13 + f4) * 13 + fd];
+
+    // flush
+    if (s1 == s2 && s1 == s3 && s1 == s4)
+    {
+        if (s1 == sd) score += 5;
+        else if (!is_crib) score += 4;
+    }
+
+    // special jack
+    score += ((s1 == sd && f1 == 10) ||
+              (s2 == sd && f2 == 10) ||
+              (s3 == sd && f3 == 10) ||
+              (s4 == sd && f4 == 10));
+
+    return score;
+}
+
 /**
  * Scores a cribbage play.
  *
@@ -343,8 +417,9 @@ score_t score_play(play_list_t linear_play)
             // now we need to check that there are no duplicate values
             // in the subsequence
             //
-            // the longest possible run is of length 7
-            int value_seen[7] = {0, 0, 0, 0, 0, 0, 0};
+            // the span check above admits duplicates, so index by
+            // any possible face value
+            int value_seen[13] = {0};
             int duplicate = 0;
             for (int i = low_index; i < len_play; i++)
             {
