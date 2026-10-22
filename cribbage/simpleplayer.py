@@ -1,59 +1,58 @@
 #!/usr/bin/env python
 
-'''
+"""
 simpleplayer.py
 (c) Will Roberts  13 January, 2017
 
 Simple AI cribbage player.  This player uses Monte Carlo simulation to
 try to pick the best cards to discard and play.
-'''
+"""
 
 import random
 import numpy as np
 from cribbage.cards import make_deck
 from cribbage.player import CribbagePlayer
+
 try:
     from cribbage._cribbage_score import score_hand, score_play
 except ImportError:
     from cribbage.cribbage_score import score_hand, score_play
 
-KEEP_COMBINATIONS = [(0, 1, 2, 3),
-                     (0, 1, 2, 4),
-                     (0, 1, 2, 5),
-                     (0, 1, 3, 4),
-                     (0, 1, 3, 5),
-                     (0, 1, 4, 5),
-                     (0, 2, 3, 4),
-                     (0, 2, 3, 5),
-                     (0, 2, 4, 5),
-                     (0, 3, 4, 5),
-                     (1, 2, 3, 4),
-                     (1, 2, 3, 5),
-                     (1, 2, 4, 5),
-                     (1, 3, 4, 5),
-                     (2, 3, 4, 5)]
+KEEP_COMBINATIONS = [
+    (0, 1, 2, 3),
+    (0, 1, 2, 4),
+    (0, 1, 2, 5),
+    (0, 1, 3, 4),
+    (0, 1, 3, 5),
+    (0, 1, 4, 5),
+    (0, 2, 3, 4),
+    (0, 2, 3, 5),
+    (0, 2, 4, 5),
+    (0, 3, 4, 5),
+    (1, 2, 3, 4),
+    (1, 2, 3, 5),
+    (1, 2, 4, 5),
+    (1, 3, 4, 5),
+    (2, 3, 4, 5),
+]
+
 
 class SimpleCribbagePlayer(CribbagePlayer):
-    '''
+    """
     Cribbage player with simple AI!!!
-    '''
+    """
 
-    def __init__(self,
-                 estimate_discard=True,
-                 num_discard_samples=20,
-                 estimate_playcard=True):
-        '''Constructor.'''
+    def __init__(
+        self, estimate_discard=True, num_discard_samples=20, estimate_playcard=True
+    ):
+        """Constructor."""
         super().__init__()
         self.estimate_discard = estimate_discard
         self.num_discard_samples = num_discard_samples
         self.estimate_playcard = estimate_playcard
 
-    def discard(self,
-                is_dealer,
-                hand,
-                player_score,
-                opponent_score):
-        '''
+    def discard(self, is_dealer, hand, player_score, opponent_score):
+        """
         Asks the player to select two cards from `hand` for discarding to
         the crib.
 
@@ -65,7 +64,7 @@ class SimpleCribbagePlayer(CribbagePlayer):
         - `hand`: an array of 6 card values
         - `player_score`: the score of the current player
         - `opponent_score`: the score of the current player's opponent
-        '''
+        """
         if not self.estimate_discard:
             return random.sample(range(6), 2)
         deck = sorted(set(make_deck()) - set(hand))
@@ -78,8 +77,7 @@ class SimpleCribbagePlayer(CribbagePlayer):
             # pre-sample draw cards
             draw_card_idxs = np.random.randint(low=0, high=len(deck), size=num_samples)
             draw_cards = npdeck[draw_card_idxs]
-            samples = [score_hand(keep, draw=draw_cards[i])
-                       for i in range(num_samples)]
+            samples = [score_hand(keep, draw=draw_cards[i]) for i in range(num_samples)]
             results[tuple(sorted(keep))] = sum(samples) / len(samples)
         # get the best hand
         best_hand = max((v, k) for (k, v) in results.items())[1]
@@ -88,16 +86,18 @@ class SimpleCribbagePlayer(CribbagePlayer):
         # return indices to discard
         return [idx for idx, card in enumerate(hand) if card in discard_values]
 
-    def play_card(self,
-                  is_dealer,
-                  hand,
-                  played_cards,
-                  is_go,
-                  linear_play,
-                  player_score,
-                  opponent_score,
-                  legal_moves):
-        '''
+    def play_card(
+        self,
+        is_dealer,
+        hand,
+        played_cards,
+        is_go,
+        linear_play,
+        player_score,
+        opponent_score,
+        legal_moves,
+    ):
+        """
         Asks the player to select one card from `hand` to play during a
         cribbage round.
 
@@ -118,7 +118,7 @@ class SimpleCribbagePlayer(CribbagePlayer):
         - `legal_moves`: a list of indices into `hand` indicating
           which cards from the hand may be played legally at this
           point in the game
-        '''
+        """
         if not self.estimate_playcard:
             return random.choice(legal_moves)
         choices = [hand[x] for x in legal_moves]

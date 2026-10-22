@@ -1,40 +1,53 @@
 #!/usr/bin/env python
 
-'''
+"""
 test_scoring.py
 (c) Will Roberts  25 December, 2016
 
 Test the cribbage_scoring module.
-'''
+"""
 
 import itertools
 import random
 import pytest
-from cribbage.cards import card_tostring, make_random_hand_and_draw, card_worth, cards_worth, string_tocard
+from cribbage.cards import (
+    card_tostring,
+    make_random_hand_and_draw,
+    card_worth,
+    cards_worth,
+    string_tocard,
+)
 from cribbage.cribbage_score import score_hand, score_play
 from cribbage._cribbage_score import score_play as c_score_play
 from cribbage._cribbage_score import score_hand as c_score_hand
 from cribbage._cribbage_score import card_worth as c_card_worth
 from cribbage._cribbage_score import cards_worth as c_cards_worth
 
+
 def explore_score_hand():
-    '''Utility function to test the score_hand method.'''
+    """Utility function to test the score_hand method."""
     global hand, draw
     hand, draw = make_random_hand_and_draw()
     print(hand)
     print(draw)
-    print('hand', ', '.join([card_tostring(v) for v in hand]))
-    print('draw', card_tostring(draw))
+    print("hand", ", ".join([card_tostring(v) for v in hand]))
+    print("draw", card_tostring(draw))
     score_hand(hand, draw, verbose=True)
 
+
 def make_testcases():
-    '''Produce random test cases.'''
+    """Produce random test cases."""
     for i in range(100):
         hand, draw = make_random_hand_and_draw()
-        print('assert score_hand({!r}, {!r}) == {}'.format(hand, draw, score_hand(hand, draw)))
+        print(
+            "assert score_hand({!r}, {!r}) == {}".format(
+                hand, draw, score_hand(hand, draw)
+            )
+        )
+
 
 def score_hand_tester(fn):
-    '''Randomly built test cases to peg scoring behaviour.'''
+    """Randomly built test cases to peg scoring behaviour."""
     assert fn([22, 48, 25, 47], 0) == 2
     assert fn([12, 16, 34, 35], 46) == 3
     assert fn([49, 39, 48, 13], 5) == 2
@@ -136,12 +149,13 @@ def score_hand_tester(fn):
     assert fn([20, 31, 40, 6], 50) == 7
     assert fn([31, 36, 18, 30], 10) == 8
 
+
 def score_hand_tester_2(fn):
-    '''
+    """
     Test cases taken from here:
 
     http://codegolf.stackexchange.com/q/5515
-    '''
+    """
     # 5S 5H 5D JS | KS  gives  21
     assert fn([4, 17, 30, 10], 12, False) == 21
     # AS 2D 3H JS | 4S !  gives  9
@@ -159,85 +173,90 @@ def score_hand_tester_2(fn):
     # AD KD 3C QD | 6D  gives  0
     assert fn([26, 38, 41, 37], 31, False) == 0
 
+
 def test_score_hand():
     score_hand_tester(score_hand)
+
 
 def test_c_score_hand():
     score_hand_tester(c_score_hand)
 
+
 def test_score_hand_2():
     score_hand_tester_2(score_hand)
+
 
 def test_c_score_hand_2():
     score_hand_tester_2(c_score_hand)
 
+
 def test_card_worth():
-    '''
+    """
     Test card_worth against its C implementation.
-    '''
+    """
     for card in range(52):
         assert c_card_worth(card) == card_worth(card)
 
+
 def test_cards_worth():
-    '''
+    """
     Test cards_worth against its C implementation.
-    '''
+    """
     for i in range(1000):
         cards = random.sample(range(52), 5)
         assert c_cards_worth(cards) == cards_worth(cards)
 
+
 def test_score_play():
-    '''
+    """
     Test score_play and its C implementation on a set of fixed card
     play patterns.
-    '''
+    """
     # https://en.wikipedia.org/wiki/Rules_of_cribbage#Example_plays
     EXAMPLE_PLAYS = [
-        ('0H', 0),
-        ('0H 5S', 2),
-        ('0H 5S 7C', 0),
-        ('0H 5S 7C 6H', 3),
-
-        ('6D', 0),
-        ('6D 4S', 0),
-        ('6D 4S 4H', 2),
-
-        ('7C', 0),
-        ('7C 7D', 2),
-        ('7C 7D 7S', 6),
-        ('7C 7D 7S 5S', 0),
-        ('7C 7D 7S 5S 5C', 2),
-
-        ('8H', 0),
-        ('8H 0S', 0),
-        ('8H 0S 0H', 2),
-
-        ('AS 2S 3S', 3),
-        ('AS 2S 3S 4S', 4),
-        ('AS 2S 3S 4S 5S', 7), # fifteen
-        ('2S 3S 4S 5S 6S', 5),
-        ('AS 2S 3S 4S 5S 6S', 6),
-        ('AS 2S 3S 4S 5S 6S 7S', 7),
+        ("0H", 0),
+        ("0H 5S", 2),
+        ("0H 5S 7C", 0),
+        ("0H 5S 7C 6H", 3),
+        ("6D", 0),
+        ("6D 4S", 0),
+        ("6D 4S 4H", 2),
+        ("7C", 0),
+        ("7C 7D", 2),
+        ("7C 7D 7S", 6),
+        ("7C 7D 7S 5S", 0),
+        ("7C 7D 7S 5S 5C", 2),
+        ("8H", 0),
+        ("8H 0S", 0),
+        ("8H 0S 0H", 2),
+        ("AS 2S 3S", 3),
+        ("AS 2S 3S 4S", 4),
+        ("AS 2S 3S 4S 5S", 7),  # fifteen
+        ("2S 3S 4S 5S 6S", 5),
+        ("AS 2S 3S 4S 5S 6S", 6),
+        ("AS 2S 3S 4S 5S 6S 7S", 7),
     ]
-    for (cards, score) in EXAMPLE_PLAYS:
+    for cards, score in EXAMPLE_PLAYS:
         cards = [string_tocard(card) for card in cards.split()]
         assert score_play(cards) == score
         assert c_score_play(cards) == score
 
+
 def test_score_play_2():
-    '''
+    """
     Tess score_play against the C implementation of score_play.
-    '''
+    """
     num_tests = 0
     while num_tests < 1000:
-        num_cards = random.randint(1,6)
+        num_cards = random.randint(1, 6)
         cards = random.sample(range(52), num_cards)
         if cards_worth(cards) <= 31:
             assert score_play(cards) == c_score_play(cards)
             num_tests += 1
 
+
 def ref_score_hand(hand, draw, is_crib=False):
-    '''Brute-force reference implementation of score_hand.'''
+    """Brute-force reference implementation of score_hand."""
     cards = list(hand) + [draw]
     faces = [c % 13 for c in cards]
     values = [min(f + 1, 10) for f in faces]
@@ -267,6 +286,7 @@ def ref_score_hand(hand, draw, is_crib=False):
     score += any(c % 13 == 10 and c // 13 == suits[4] for c in hand)
     return score
 
+
 def score_hand_special_cases(fn):
     # his nobs plus two fifteens: JS 2H 4D 6C | 9S
     assert fn([10, 14, 29, 44], 8, False) == 5
@@ -281,41 +301,53 @@ def score_hand_special_cases(fn):
     # five-card flush in the crib still scores
     assert fn([0, 1, 2, 3], 4, True) == 12
 
+
 def test_score_hand_special_cases():
     score_hand_special_cases(score_hand)
+
 
 def test_c_score_hand_special_cases():
     score_hand_special_cases(c_score_hand)
 
-@pytest.mark.parametrize('fn', [score_hand, c_score_hand])
+
+@pytest.mark.parametrize("fn", [score_hand, c_score_hand])
 def test_score_hand_invalid(fn):
-    '''Both scorers reject bad cards and duplicates.'''
-    for hand, draw in [([52, 1, 2, 3], 4),
-                       ([0, 1, 2, 3], 52),
-                       ([0, 1, 2, 255], 4),
-                       ([-1, 1, 2, 3], 4),
-                       ([0, 0, 2, 3], 4),
-                       ([0, 1, 2, 3], 3),
-                       ([4, 4, 4, 4], 4),
-                       ([0, 1, 2], 4),
-                       ([0, 1, 2, 3, 5], 4)]:
+    """Both scorers reject bad cards and duplicates."""
+    for hand, draw in [
+        ([52, 1, 2, 3], 4),
+        ([0, 1, 2, 3], 52),
+        ([0, 1, 2, 255], 4),
+        ([-1, 1, 2, 3], 4),
+        ([0, 0, 2, 3], 4),
+        ([0, 1, 2, 3], 3),
+        ([4, 4, 4, 4], 4),
+        ([0, 1, 2], 4),
+        ([0, 1, 2, 3, 5], 4),
+    ]:
         with pytest.raises(ValueError):
             fn(hand, draw)
         with pytest.raises(ValueError):
             fn(hand, draw, True)
 
+
 def test_c_score_hand_exhaustive_ranks():
-    '''Every rank combination, with and without flush/nobs suits.'''
+    """Every rank combination, with and without flush/nobs suits."""
     for faces in itertools.combinations_with_replacement(range(13), 5):
-        for suits in ((0, 1, 2, 3, 0), (0, 0, 0, 0, 1), (0, 0, 0, 0, 0), (1, 2, 3, 0, 1)):
+        for suits in (
+            (0, 1, 2, 3, 0),
+            (0, 0, 0, 0, 1),
+            (0, 0, 0, 0, 0),
+            (1, 2, 3, 0, 1),
+        ):
             cards = [f + 13 * s for f, s in zip(faces, suits)]
             if len(set(cards)) < 5:
                 continue
             hand, draw = cards[:4], cards[4]
             assert c_score_hand(hand, draw, False) == ref_score_hand(hand, draw, False)
 
+
 def ref_score_play(cards):
-    '''Brute-force reference implementation of score_play.'''
+    """Brute-force reference implementation of score_play."""
     faces = [c % 13 for c in cards]
     score = 0
     if sum(min(f + 1, 10) for f in faces) == 15:
@@ -331,15 +363,16 @@ def ref_score_play(cards):
             break
     return score
 
+
 def test_score_play_special_cases():
     CASES = [
-        ('3S 5S 4S', 3),            # unordered run
-        ('KS 3S 5S 4S', 3),         # run preceded by a non-run card
-        ('3S 4S 4H 5S', 0),         # duplicate breaks the run
-        ('QS KS AS', 0),            # no ace-high wrap
-        ('JS QS KS', 3),
-        ('AS AH AD 2S 2H 2D 3S 8S', 0),  # 8-card span with duplicates
-        ('AS AH AD AC 2S 2H 2D 2C 3S 3H 3D 3C 4S', None),
+        ("3S 5S 4S", 3),  # unordered run
+        ("KS 3S 5S 4S", 3),  # run preceded by a non-run card
+        ("3S 4S 4H 5S", 0),  # duplicate breaks the run
+        ("QS KS AS", 0),  # no ace-high wrap
+        ("JS QS KS", 3),
+        ("AS AH AD 2S 2H 2D 3S 8S", 0),  # 8-card span with duplicates
+        ("AS AH AD AC 2S 2H 2D 2C 3S 3H 3D 3C 4S", None),
     ]
     for cards, score in CASES:
         cards = [string_tocard(card) for card in cards.split()]
@@ -347,6 +380,7 @@ def test_score_play_special_cases():
         assert ref_score_play(cards) == expected
         assert score_play(cards) == expected
         assert c_score_play(cards) == expected
+
 
 def test_score_play_random_vs_reference():
     num_tests = 0
@@ -359,21 +393,18 @@ def test_score_play_random_vs_reference():
         assert c_score_play(cards) == expected
         num_tests += 1
 
-@pytest.mark.parametrize('fn', [score_play, c_score_play])
+
+@pytest.mark.parametrize("fn", [score_play, c_score_play])
 def test_score_play_invalid(fn):
-    '''Both scorers reject empty, overlong, out-of-range and repeated plays.'''
-    for cards in ([],
-                  list(range(14)),
-                  [0, 1, 52],
-                  [0, 1, -1],
-                  [5, 5],
-                  [3, 4, 5, 3]):
+    """Both scorers reject empty, overlong, out-of-range and repeated plays."""
+    for cards in ([], list(range(14)), [0, 1, 52], [0, 1, -1], [5, 5], [3, 4, 5, 3]):
         with pytest.raises(ValueError):
             fn(cards)
     # 13 cards is the longest legal play
     fn([0, 13, 26, 39, 1, 14, 27, 40, 2, 15, 28, 41, 3])
 
-@pytest.mark.parametrize('fn', [score_hand, c_score_hand])
+
+@pytest.mark.parametrize("fn", [score_hand, c_score_hand])
 def test_score_hand_returns_int(fn):
     # pairs/runs must not leak floats (or numpy ints) into the score
     for _ in range(500):
@@ -381,7 +412,8 @@ def test_score_hand_returns_int(fn):
         assert type(fn(hand, draw)) is int
         assert type(fn(hand, draw, True)) is int
 
-@pytest.mark.parametrize('fn', [score_play, c_score_play])
+
+@pytest.mark.parametrize("fn", [score_play, c_score_play])
 def test_score_play_returns_int(fn):
     for _ in range(500):
         play = random.sample(range(52), random.randint(1, 8))

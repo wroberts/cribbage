@@ -1,27 +1,24 @@
 #!/usr/bin/env python
 
-'''
+"""
 player.py
 (c) Will Roberts  25 December, 2016
 
 Abstract base class for a cribbage player.
-'''
+"""
+
 
 class CribbagePlayer:
-    '''
+    """
     Abstract base class for an object that plays a game of cribbage.
-    '''
+    """
 
     def __init__(self):
-        '''Constructor.'''
+        """Constructor."""
         pass
 
-    def discard(self,
-                is_dealer,
-                hand,
-                player_score,
-                opponent_score):
-        '''
+    def discard(self, is_dealer, hand, player_score, opponent_score):
+        """
         Asks the player to select two cards from `hand` for discarding to
         the crib.
 
@@ -33,19 +30,21 @@ class CribbagePlayer:
         - `hand`: an array of 6 card values
         - `player_score`: the score of the current player
         - `opponent_score`: the score of the current player's opponent
-        '''
+        """
         raise NotImplementedError()
 
-    def play_card(self,
-                  is_dealer,
-                  hand,
-                  played_cards,
-                  is_go,
-                  linear_play,
-                  player_score,
-                  opponent_score,
-                  legal_moves):
-        '''
+    def play_card(
+        self,
+        is_dealer,
+        hand,
+        played_cards,
+        is_go,
+        linear_play,
+        player_score,
+        opponent_score,
+        legal_moves,
+    ):
+        """
         Asks the player to select one card from `hand` to play during a
         cribbage round.
 
@@ -66,21 +65,21 @@ class CribbagePlayer:
         - `legal_moves`: a list of indices into `hand` indicating
           which cards from the hand may be played legally at this
           point in the game
-        '''
+        """
         raise NotImplementedError()
 
     def round_over(self):
-        '''
+        """
         Notification that the current round is over.
-        '''
+        """
         pass
 
     def game_over(self, has_won):
-        '''
+        """
         Notification that the current game is over.  The argument to the
         function is a flag indicating if this player won or not.
 
         Arguments:
         - `has_won`:
-        '''
+        """
         pass

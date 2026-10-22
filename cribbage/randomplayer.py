@@ -1,28 +1,27 @@
 #!/usr/bin/env python
 
-'''
+"""
 randomplayer.py
 (c) Will Roberts  25 December, 2016
 
 A CribbagePlayer that always makes a random move.
-'''
+"""
 
 import random
 from cribbage.player import CribbagePlayer
 
-class RandomCribbagePlayer(CribbagePlayer):
-    '''A CribbagePlayer that always makes a random move.'''
 
-    def __init__(self, ):
-        '''Constructor.'''
+class RandomCribbagePlayer(CribbagePlayer):
+    """A CribbagePlayer that always makes a random move."""
+
+    def __init__(
+        self,
+    ):
+        """Constructor."""
         super().__init__()
 
-    def discard(self,
-                is_dealer,
-                hand,
-                player_score,
-                opponent_score):
-        '''
+    def discard(self, is_dealer, hand, player_score, opponent_score):
+        """
         Asks the player to select two cards from `hand` for discarding to
         the crib.
 
@@ -34,19 +33,21 @@ class RandomCribbagePlayer(CribbagePlayer):
         - `hand`: an array of 6 card values
         - `player_score`: the score of the current player
         - `opponent_score`: the score of the current player's opponent
-        '''
+        """
         return random.sample(range(6), 2)
 
-    def play_card(self,
-                  is_dealer,
-                  hand,
-                  played_cards,
-                  is_go,
-                  linear_play,
-                  player_score,
-                  opponent_score,
-                  legal_moves):
-        '''
+    def play_card(
+        self,
+        is_dealer,
+        hand,
+        played_cards,
+        is_go,
+        linear_play,
+        player_score,
+        opponent_score,
+        legal_moves,
+    ):
+        """
         Asks the player to select one card from `hand` to play during a
         cribbage round.
 
@@ -67,5 +68,5 @@ class RandomCribbagePlayer(CribbagePlayer):
         - `legal_moves`: a list of indices into `hand` indicating
           which cards from the hand may be played legally at this
           point in the game
-        '''
+        """
         return random.choice(legal_moves)

@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
-'''
+"""
 c_cribbage_score.py
 (c) Will Roberts  25 December, 2016
 
 A module to deal with scoring cribbage hands and plays.
-'''
+"""
 
 from collections import Counter
 import itertools
@@ -16,18 +16,20 @@ from .utils import pairwise
 # the longest possible play: a count of 31 cannot be exceeded
 MAX_PLAY_LENGTH = 13
 
+
 def _check_cards(cards):
-    '''
+    """
     Raises ValueError unless `cards` are distinct card values in [0, 51].
-    '''
+    """
     for card in cards:
         if not 0 <= card <= 51:
-            raise ValueError(f'card values must be in [0, 51]: {card!r}')
+            raise ValueError(f"card values must be in [0, 51]: {card!r}")
     if len(set(cards)) != len(cards):
-        raise ValueError(f'duplicate cards: {list(cards)!r}')
+        raise ValueError(f"duplicate cards: {list(cards)!r}")
+
 
 def score_hand(hand, draw=None, crib=False, verbose=False):
-    '''
+    """
     Scores a Cribbage hand.
 
     Arguments:
@@ -37,9 +39,9 @@ def score_hand(hand, draw=None, crib=False, verbose=False):
 
     Raises ValueError if the hand does not have four cards, or if any
     card is outside [0, 51] or appears twice.
-    '''
+    """
     if len(hand) != 4:
-        raise ValueError('hand must have four cards')
+        raise ValueError("hand must have four cards")
     _check_cards(list(hand) + ([] if draw is None else [draw]))
     score = 0
     # split card values
@@ -51,7 +53,7 @@ def score_hand(hand, draw=None, crib=False, verbose=False):
         split_values.append(draw_split)
     face_values = [f for (f, s) in split_values]
     # score runs
-    #sorted_faces = sorted(face_values)
+    # sorted_faces = sorted(face_values)
     face_counts = Counter(face_values)
     sorted_uniq_faces = sorted(face_counts.keys()) + [None]
     # a run is a contiguous
@@ -70,10 +72,15 @@ def score_hand(hand, draw=None, crib=False, verbose=False):
                 run_length = last_v - run_begin + 1
                 if run_length >= 3:
                     # interesting
-                    run_score = math.prod(face_counts[x] for x in
-                                         range(run_begin, run_begin + run_length)) * run_length
+                    run_score = (
+                        math.prod(
+                            face_counts[x]
+                            for x in range(run_begin, run_begin + run_length)
+                        )
+                        * run_length
+                    )
                     if verbose:
-                        print('run', run_begin, last_v, run_score)
+                        print("run", run_begin, last_v, run_score)
                     score += run_score
                 run_begin = None
     # score pairs/triples/quads/etc.
@@ -84,7 +91,7 @@ def score_hand(hand, draw=None, crib=False, verbose=False):
         if count > 1:
             pair_score = math.factorial(count) // math.factorial(count - 2)
             if verbose:
-                print('pair', _f, count, pair_score)
+                print("pair", _f, count, pair_score)
             score += pair_score
     # score 15s
     card_values = [CARD_VALUES[x] for x in face_values]
@@ -92,7 +99,7 @@ def score_hand(hand, draw=None, crib=False, verbose=False):
         for vlist in itertools.combinations(card_values, comb_len):
             if sum(vlist) == 15:
                 if verbose:
-                    print('fifteen')
+                    print("fifteen")
                 score += 2
     # score flush
     suit_values = set([s for (f, s) in split_values_hand])
@@ -100,24 +107,27 @@ def score_hand(hand, draw=None, crib=False, verbose=False):
         if draw is not None and list(suit_values)[0] == draw_suit:
             # draw 5
             if verbose:
-                print('flush 5')
+                print("flush 5")
             score += len(hand) + 1
         else:
             if not crib:
                 if verbose:
-                    print('flush 4')
+                    print("flush 4")
                 score += len(hand)
     # score special jack
-    if draw is not None and [f for (f, s) in split_values_hand if s == draw_suit and f == 10]:
+    if draw is not None and [
+        f for (f, s) in split_values_hand if s == draw_suit and f == 10
+    ]:
         if verbose:
-            print('special jack')
+            print("special jack")
         score += 1
     if verbose:
-        print('score', score)
+        print("score", score)
     return score
 
+
 def is_legal_play(card, linear_play):
-    '''
+    """
     Tests whether the given card value is a legal play in a game of
     cribbage, assuming that the cards in `linear_play` have previously
     been played during the same round.
@@ -125,25 +135,26 @@ def is_legal_play(card, linear_play):
     Arguments:
     - `card`:
     - `linear_play`:
-    '''
+    """
     lp_score = cards_worth(linear_play)
     c_score = card_worth(card)
     return lp_score + c_score <= 31
 
+
 def get_legal_play_idxs(hand, linear_play):
-    '''
+    """
     Faster version of is_legal_play for finding legal plays in a hand.
 
     Arguments:
     - `hand`:
     - `linear_play`:
-    '''
+    """
     lp_score = cards_worth(linear_play)
-    return [idx for idx, card in enumerate(hand)
-            if card_worth(card) + lp_score <= 31]
+    return [idx for idx, card in enumerate(hand) if card_worth(card) + lp_score <= 31]
+
 
 def score_play(linear_play, verbose=False):
-    '''
+    """
     Scores the last play in a game.
 
     Arguments:
@@ -152,28 +163,28 @@ def score_play(linear_play, verbose=False):
 
     Raises ValueError if linear_play is empty or longer than 13
     cards, or if any card is outside [0, 51] or appears twice.
-    '''
+    """
     if not 1 <= len(linear_play) <= MAX_PLAY_LENGTH:
-        raise ValueError('linear_play must have between 1 and 13 cards')
+        raise ValueError("linear_play must have between 1 and 13 cards")
     _check_cards(linear_play)
     # the value we will return
     play_score = 0
     # we only need to know the face values thare played
     face_values = [split_card(c)[0] for c in linear_play]
     if verbose:
-        print('Score', ' '.join(CARD_FACES[f] for f in face_values))
+        print("Score", " ".join(CARD_FACES[f] for f in face_values))
     if cards_worth(linear_play) == 15:
         if verbose:
-            print('fifteen')
+            print("fifteen")
         play_score += 2
     # look for pairs and tuples
     for backwards in range(len(linear_play), 1, -1):
         back_list = sorted(face_values[-backwards:])
         if len(set(back_list)) == 1:
             # pairlike
-            pair_score = [2, 6, 12][len(back_list)-2]
+            pair_score = [2, 6, 12][len(back_list) - 2]
             if verbose:
-                print(f'pair {pair_score} points')
+                print(f"pair {pair_score} points")
             play_score += pair_score
             break
         elif back_list == list(range(min(back_list), max(back_list) + 1)):
@@ -181,7 +192,7 @@ def score_play(linear_play, verbose=False):
             run_score = len(back_list)
             if run_score >= 3:
                 if verbose:
-                    print(f'run {run_score} points')
+                    print(f"run {run_score} points")
                 play_score += run_score
                 break
     return play_score

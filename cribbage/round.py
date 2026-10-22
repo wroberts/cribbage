@@ -1,35 +1,47 @@
 #!/usr/bin/env python
 
-'''
+"""
 round.py
 (c) Will Roberts  25 December, 2016
 
 An object representing a single round in a game of cribbage between
 two CribbagePlayers.
-'''
+"""
 
 import random
 from cribbage.cards import card_tostring, make_deck, split_card
+
 try:
-    from cribbage._cribbage_score import (score_hand, score_play, cards_worth,
-                                          get_legal_play_idxs, is_legal_play)
+    from cribbage._cribbage_score import (
+        score_hand,
+        score_play,
+        cards_worth,
+        get_legal_play_idxs,
+        is_legal_play,
+    )
 except ImportError:
-    from cribbage.cribbage_score import score_hand, score_play, get_legal_play_idxs, is_legal_play
+    from cribbage.cribbage_score import (
+        score_hand,
+        score_play,
+        get_legal_play_idxs,
+        is_legal_play,
+    )
     from cribbage.cards import cards_worth
 
+
 class Round:
-    '''
+    """
     A single round of cribbage in a game between two CribbagePlayers.
-    '''
+    """
 
     def __init__(self, game, players, dealer_idx):
-        '''
+        """
         Constructor.
 
         Arguments:
         - `players`:
         - `dealer_idx`:
-        '''
+        """
         self.game = game
         self.players = players
         self.dealer_idx = dealer_idx
@@ -65,7 +77,7 @@ class Round:
         self.flag_31 = False
 
     def deal(self, verbose=False):
-        '''
+        """
         Shuffles and deals the cards for a single round of cribbage.
 
             The dealer shuffles and deals six cards to each player.
@@ -83,7 +95,7 @@ class Round:
 
         Arguments:
         - `verbose`:
-        '''
+        """
         if self.game.over:
             return False
         # create a new shuffled deck
@@ -94,10 +106,13 @@ class Round:
         dealer_hand = self.deck[:12][1::2]
         self.deck = self.deck[12:]
         # self.dealer_idx indicates the player who is dealer
-        self.hands = ([nondealer_hand, dealer_hand] if self.dealer_idx
-                      else [dealer_hand, nondealer_hand])
+        self.hands = (
+            [nondealer_hand, dealer_hand]
+            if self.dealer_idx
+            else [dealer_hand, nondealer_hand]
+        )
         if verbose:
-            print('Dealing cards')
+            print("Dealing cards")
             self.print_state()
         # copy self.hands after dealing
         self.dealt_hands = [x[:] for x in self.hands]
@@ -108,19 +123,24 @@ class Round:
                 is_dealer=self.dealer_idx == player_idx,
                 hand=self.dealt_hands[player_idx],
                 player_score=self.game.scores[player_idx],
-                opponent_score=self.game.scores[int(not player_idx)])
+                opponent_score=self.game.scores[int(not player_idx)],
+            )
             # sanity checking
             assert len(set(discard_idxs)) == 2
             assert all(0 <= i < 6 for i in discard_idxs)
             discard_idxs = set(discard_idxs)
-            discards = [c for i, c in enumerate(self.hands[player_idx])
-                        if i in discard_idxs]
+            discards = [
+                c for i, c in enumerate(self.hands[player_idx]) if i in discard_idxs
+            ]
             if verbose:
-                print(f'Player {player_idx + 1} discards:',
-                      ' '.join(card_tostring(c) for c in sorted(discards)))
+                print(
+                    f"Player {player_idx + 1} discards:",
+                    " ".join(card_tostring(c) for c in sorted(discards)),
+                )
             self.crib.extend(discards)
-            self.hands[player_idx] = [c for i, c in enumerate(self.hands[player_idx])
-                                      if i not in discard_idxs]
+            self.hands[player_idx] = [
+                c for i, c in enumerate(self.hands[player_idx]) if i not in discard_idxs
+            ]
         # copy self.hands after discarding
         self.kept_hands = [x[:] for x in self.hands]
         if verbose:
@@ -130,10 +150,10 @@ class Round:
         # check for "his nibs"
         starter_value = split_card(self.starter_card)[0]
         if verbose:
-            print('Starter card is ', card_tostring(self.starter_card))
+            print("Starter card is ", card_tostring(self.starter_card))
         if starter_value == 10:
             if verbose:
-                print('Dealer gets two points for his nibs')
+                print("Dealer gets two points for his nibs")
             if not self.game.award_points(self.dealer_idx, 2, verbose=verbose):
                 return False
         # add the starter to the set of played cards
@@ -141,7 +161,7 @@ class Round:
         return True
 
     def play(self, verbose=False):
-        '''
+        """
         Plays out cards (pegging) for a single round of cribbage.
 
             Starting with the non-dealer player, each player in turn
@@ -189,7 +209,7 @@ class Round:
 
         Arguments:
         - `verbose`:
-        '''
+        """
         # start with non-dealer player
         self.turn_idx = int(not self.dealer_idx)
         # a game is composed of sequences
@@ -210,7 +230,9 @@ class Round:
         # loop forever
         while True:
             # determine which plays the player can legally make
-            legal_moves = get_legal_play_idxs(self.hands[self.turn_idx], self.linear_play)
+            legal_moves = get_legal_play_idxs(
+                self.hands[self.turn_idx], self.linear_play
+            )
 
             # a sequence is over if the game is in "Go" and the player
             # has no legal moves, or if the player has previously hit
@@ -225,7 +247,7 @@ class Round:
                         return False
                 # restart the sequence
                 if verbose:
-                    print('Sequence is over')
+                    print("Sequence is over")
                 self.linear_play = []
                 self.is_go = False
                 self.flag_31 = False
@@ -233,7 +255,7 @@ class Round:
                 # the round is over if no player has cards left
                 if sum(map(len, self.hands)) == 0:
                     if verbose:
-                        print('Round is over')
+                        print("Round is over")
                         self.print_state()
                     # notify the players that the round is over
                     for player in self.players:
@@ -254,7 +276,7 @@ class Round:
                 # then we call 'Go' and make it the other player's
                 # turn
                 if verbose:
-                    print(f'Player {self.turn_idx + 1} says go')
+                    print(f"Player {self.turn_idx + 1} says go")
                 self.turn_idx = int(not self.turn_idx)
                 self.is_go = True
                 continue
@@ -268,7 +290,8 @@ class Round:
                 linear_play=self.linear_play,
                 player_score=self.game.scores[self.turn_idx],
                 opponent_score=self.game.scores[int(not self.turn_idx)],
-                legal_moves=legal_moves)
+                legal_moves=legal_moves,
+            )
 
             # sanity checking
             assert 0 <= play_idx < len(self.hands[self.turn_idx])
@@ -285,30 +308,35 @@ class Round:
             del self.hands[self.turn_idx][play_idx]
             self.linear_play.append(play_card)
             if verbose:
-                print(f'Player {self.turn_idx + 1} plays:',
-                      card_tostring(play_card), end='')
-                print('  Count:', cards_worth(self.linear_play))
+                print(
+                    f"Player {self.turn_idx + 1} plays:",
+                    card_tostring(play_card),
+                    end="",
+                )
+                print("  Count:", cards_worth(self.linear_play))
                 self.print_state()
 
             # if the move makes the count hit 31, set the 31 flag
             if cards_worth(self.linear_play) == 31:
                 if verbose:
-                    print(f'Player {self.turn_idx + 1} hit 31')
+                    print(f"Player {self.turn_idx + 1} hit 31")
                 self.flag_31 = True
 
             # if the opponent player has no more cards left, toggle
             # the "Go" flag
             if not self.hands[int(not self.turn_idx)]:
                 if verbose:
-                    print(f'Player {int(not self.turn_idx) + 1} says go')
+                    print(f"Player {int(not self.turn_idx) + 1} says go")
                 self.is_go = True
 
             # score the move for player_1 if it's a 15, pair, or run
             play_score = score_play(self.linear_play, verbose=verbose)
             if play_score:
                 if verbose:
-                    print(f'Player {self.turn_idx + 1} scores:', play_score)
-                if not self.game.award_points(self.turn_idx, play_score, verbose=verbose):
+                    print(f"Player {self.turn_idx + 1} scores:", play_score)
+                if not self.game.award_points(
+                    self.turn_idx, play_score, verbose=verbose
+                ):
                     return False
 
             # players take turns (except when one player is in "Go",
@@ -319,7 +347,7 @@ class Round:
         return True
 
     def show(self, verbose=False):
-        '''
+        """
         Scores all hands after a round of cribbage.
 
             Once the play is complete, each player in turn, starting
@@ -351,14 +379,16 @@ class Round:
 
         Arguments:
         - `verbose`:
-        '''
+        """
         # score the non-dealer player's hand
         nondealer_idx = int(not self.dealer_idx)
         nondealer_hand = self.kept_hands[nondealer_idx]
         if verbose:
-            print(f'Scoring player {nondealer_idx + 1}:',
-                  ' '.join([card_tostring(c) for c in sorted(nondealer_hand)]))
-            print('Starter card is ', card_tostring(self.starter_card))
+            print(
+                f"Scoring player {nondealer_idx + 1}:",
+                " ".join([card_tostring(c) for c in sorted(nondealer_hand)]),
+            )
+            print("Starter card is ", card_tostring(self.starter_card))
         hand_score = score_hand(nondealer_hand, self.starter_card, verbose=verbose)
         if verbose:
             print(f"Player {nondealer_idx + 1}'s hand scores", hand_score)
@@ -368,9 +398,11 @@ class Round:
         # score the dealer's hand
         dealer_hand = self.kept_hands[self.dealer_idx]
         if verbose:
-            print(f'Scoring player {self.dealer_idx + 1}:',
-                  ' '.join([card_tostring(c) for c in sorted(dealer_hand)]))
-            print('Starter card is ', card_tostring(self.starter_card))
+            print(
+                f"Scoring player {self.dealer_idx + 1}:",
+                " ".join([card_tostring(c) for c in sorted(dealer_hand)]),
+            )
+            print("Starter card is ", card_tostring(self.starter_card))
         hand_score = score_hand(dealer_hand, self.starter_card, verbose=verbose)
         if verbose:
             print(f"Player {self.dealer_idx + 1}'s hand scores", hand_score)
@@ -379,10 +411,13 @@ class Round:
 
         # score the dealer's crib
         if verbose:
-            print('Scoring crib:',
-                  ' '.join([card_tostring(c) for c in sorted(self.crib)]))
-            print('Starter card is ', card_tostring(self.starter_card))
-        hand_score = score_hand(self.crib, self.starter_card, crib=True, verbose=verbose)
+            print(
+                "Scoring crib:", " ".join([card_tostring(c) for c in sorted(self.crib)])
+            )
+            print("Starter card is ", card_tostring(self.starter_card))
+        hand_score = score_hand(
+            self.crib, self.starter_card, crib=True, verbose=verbose
+        )
         if verbose:
             print(f"Player {self.dealer_idx + 1}'s crib scores,", hand_score)
         if not self.game.award_points(self.dealer_idx, hand_score, verbose=verbose):
@@ -391,13 +426,22 @@ class Round:
         return True
 
     def print_state(self):
-        '''Print a representation of the current round state to stdout.'''
+        """Print a representation of the current round state to stdout."""
         for idx in range(2):
-            print(f"Player {idx + 1}{'(D)' if idx == self.dealer_idx else '   '}  ", end='')
+            print(
+                f"Player {idx + 1}{'(D)' if idx == self.dealer_idx else '   '}  ",
+                end="",
+            )
             if self.hands:
-                print(f"{' '.join([card_tostring(c) for c in sorted(self.hands[idx])]):17}",
-                      end='')
-            print(f'  {self.game.scores[idx]:3} Points', end='')
+                print(
+                    f"{' '.join([card_tostring(c) for c in sorted(self.hands[idx])]):17}",
+                    end="",
+                )
+            print(f"  {self.game.scores[idx]:3} Points", end="")
             if self.crib and idx == self.dealer_idx:
-                print('  Crib', ' '.join([card_tostring(c) for c in sorted(self.crib)]), end='')
+                print(
+                    "  Crib",
+                    " ".join([card_tostring(c) for c in sorted(self.crib)]),
+                    end="",
+                )
             print()

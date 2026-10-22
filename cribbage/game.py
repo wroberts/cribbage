@@ -1,28 +1,29 @@
 #!/usr/bin/env python
 
-'''
+"""
 game.py
 (c) Will Roberts  25 December, 2016
 
 An object representing a game of cribbage between two CribbagePlayers.
-'''
+"""
 
 import random
 from cribbage.round import Round
 
+
 class Game:
-    '''
+    """
     An object representing a game of cribbage between two
     CribbagePlayers.
-    '''
+    """
 
     def __init__(self, players):
-        '''
+        """
         Constructor.
 
         Arguments:
         - `players`: a list of two CribbagePlayer objects
-        '''
+        """
         self.players = players
         # scores start at zero
         self.scores = [0, 0]
@@ -41,7 +42,7 @@ class Game:
         self.current_round = None
 
     def play_round(self, verbose=False):
-        '''
+        """
         Executes a single round of cribbage.
 
             Play proceeds through a succession of "hands", each hand
@@ -57,9 +58,9 @@ class Game:
 
         Arguments:
         - `verbose`:
-        '''
+        """
         if verbose:
-            print('Starting new round')
+            print("Starting new round")
         self.current_round = Round(self, self.players, self.dealer_idx)
         self.rounds.append(self.current_round)
         if self.current_round.deal(verbose=verbose):
@@ -74,15 +75,15 @@ class Game:
         return False
 
     def play(self, verbose=False):
-        '''
+        """
         Plays through the whole game of cribbage until it is over.
-        '''
+        """
         while self.play_round(verbose=verbose):
             if verbose:
-                print('New round')
+                print("New round")
 
     def award_points(self, player_idx, num_points, verbose=False):
-        '''
+        """
         Awards `num_points` to player `player_idx`.
 
         Returns True if neither player has yet reached `target_score`,
@@ -92,7 +93,7 @@ class Game:
         Arguments:
         - `player_idx`:
         - `num_points`:
-        '''
+        """
         if self.over:
             return False
         # check that neither player is over target_score
@@ -104,15 +105,18 @@ class Game:
         # check if that player is now over target_score
         if self.scores[player_idx] >= self.target_score:
             if verbose:
-                print(f'Player {player_idx + 1} wins with '
-                      f'{self.scores[player_idx]} points')
+                print(
+                    f"Player {player_idx + 1} wins with "
+                    f"{self.scores[player_idx]} points"
+                )
             self.over = True
             self.winner = player_idx
             return False
         return True
 
+
 def compare_players(players, num_games=1000):
-    '''
+    """
     Utility function to compare two player objects.
 
     This function plays the two players against each other for the
@@ -122,7 +126,7 @@ def compare_players(players, num_games=1000):
     Arguments:
     - `players`: a list of two CribbagePlayer objects
     - `num_games`: the number of games to play
-    '''
+    """
     stats = [0, 0]
     for _idx in range(num_games):
         game = Game(players)

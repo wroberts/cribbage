@@ -8,22 +8,22 @@ from cribbage.simpleplayer import SimpleCribbagePlayer
 # Cribbage Game
 
 stats = compare_players([RandomCribbagePlayer(), RandomCribbagePlayer()])
-print('Random vs. random:', stats)
+print("Random vs. random:", stats)
 
 # stats
 # [487, 513]
 
 stats = compare_players([RandomCribbagePlayer(), SimpleCribbagePlayer()], 500)
-print('Random vs. simple:', stats)
+print("Random vs. simple:", stats)
 
 # with discard()
 # stats
 # [16, 484]
 
-stats = compare_players([RandomCribbagePlayer(),
-                         SimpleCribbagePlayer(estimate_playcard=False)],
-                        500)
-print('Random vs. simple (only discard):', stats)
+stats = compare_players(
+    [RandomCribbagePlayer(), SimpleCribbagePlayer(estimate_playcard=False)], 500
+)
+print("Random vs. simple (only discard):", stats)
 
 # with play_card()
 # stats
@@ -33,18 +33,18 @@ print('Random vs. simple (only discard):', stats)
 # http://www.socscistatistics.com/tests/chisquare/Default2.aspx
 # The chi-square statistic is 0.5879. The p-value is .443236.
 
-stats = compare_players([RandomCribbagePlayer(),
-                         SimpleCribbagePlayer(estimate_discard=False)],
-                        500)
-print('Random vs. simple (only play_card):', stats)
+stats = compare_players(
+    [RandomCribbagePlayer(), SimpleCribbagePlayer(estimate_discard=False)], 500
+)
+print("Random vs. simple (only play_card):", stats)
 
 # stats
 # [161, 339]
 
-stats = compare_players([SimpleCribbagePlayer(),
-                         SimpleCribbagePlayer(estimate_playcard=False)],
-                        500)
-print('Simple vs. simple (only discard):', stats)
+stats = compare_players(
+    [SimpleCribbagePlayer(), SimpleCribbagePlayer(estimate_playcard=False)], 500
+)
+print("Simple vs. simple (only discard):", stats)
 
 # stats
 # [326, 174]
@@ -53,13 +53,16 @@ print('Simple vs. simple (only discard):', stats)
 # [298, 202]
 # [325, 175]
 
+
 def myfunc():
-    stats = compare_players([SimpleCribbagePlayer(),
-                             SimpleCribbagePlayer(estimate_playcard=False)],
-                            100)
+    stats = compare_players(
+        [SimpleCribbagePlayer(), SimpleCribbagePlayer(estimate_playcard=False)], 100
+    )
+
 
 import cProfile
-cProfile.run('myfunc()', sort='time')
+
+cProfile.run("myfunc()", sort="time")
 
 # deck=make_deck()
 # random.shuffle(deck)
@@ -78,10 +81,14 @@ cProfile.run('myfunc()', sort='time')
 # stats.sort_stats('time', 'calls')
 # stats.print_stats(20)
 
-stats = compare_players([SimpleCribbagePlayer(estimate_discard=False),
-                         SimpleCribbagePlayer(estimate_playcard=False)],
-                        500)
-print('Simple (only play_card) vs. simple (only discard):', stats)
+stats = compare_players(
+    [
+        SimpleCribbagePlayer(estimate_discard=False),
+        SimpleCribbagePlayer(estimate_playcard=False),
+    ],
+    500,
+)
+print("Simple (only play_card) vs. simple (only discard):", stats)
 
 # stats
 # [48, 452]
@@ -89,10 +96,11 @@ print('Simple (only play_card) vs. simple (only discard):', stats)
 # estimate the number of discard() samples we need for good
 # performance in simpleplayer
 for num_samples in [5, 10, 20, 50, 100, 200, 500, 1000]:
-    stats = compare_players([SimpleCribbagePlayer(),
-                             SimpleCribbagePlayer(num_discard_samples=num_samples)],
-                            200)
-    print(f'Simple vs simple (num_discard_samples = {num_samples}):', stats)
+    stats = compare_players(
+        [SimpleCribbagePlayer(), SimpleCribbagePlayer(num_discard_samples=num_samples)],
+        200,
+    )
+    print(f"Simple vs simple (num_discard_samples = {num_samples}):", stats)
 
 # Simple vs simple (num_discard_samples = 5): [116, 84]
 # Simple vs simple (num_discard_samples = 10): [99, 101]

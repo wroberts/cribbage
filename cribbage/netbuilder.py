@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
-'''
+"""
 netbuilder.py
 (c) Will Roberts  11 January, 2017
 
 Declarative description language for producing persistent neural
 network models.
-'''
+"""
 
 import itertools
 import json
@@ -21,93 +21,102 @@ import theano
 import theano.tensor as T
 
 # logging
-logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s',
-                    stream=sys.stderr, level=logging.DEBUG)
+logging.basicConfig(
+    format="%(asctime)s %(levelname)s: %(message)s",
+    stream=sys.stderr,
+    level=logging.DEBUG,
+)
 logger = logging.getLogger(__name__)
 
+
 class ModelStore:
-    '''
+    """
     An object representing a directory where Model objects are saved to
     disk.
-    '''
+    """
 
     def __init__(self, path, ensure_exists=False):
-        '''
+        """
         Constructor.
 
         Arguments:
         - `path`:
         - `ensure_exists`: if True, call ensure_exists from the
           constructor
-        '''
+        """
         self.path = path
         if ensure_exists:
             self.ensure_exists()
 
     def ensure_exists(self):
-        '''Ensure the directory used by this ModelStore exists.'''
+        """Ensure the directory used by this ModelStore exists."""
         mkdir_p(self.abs_path)
 
     @property
     def abs_path(self):
-        '''Get this ModelStore's absolute path.'''
+        """Get this ModelStore's absolute path."""
         return os.path.abspath(self.path)
 
     def join(self, path):
-        '''Returns the absolute path of the location `path` inside this store.'''
+        """Returns the absolute path of the location `path` inside this store."""
         return os.path.join(self.abs_path, path)
 
+
 NONLINEARITY_NAMES = {
-    'LeakyRectify': lasagne.nonlinearities.LeakyRectify,
-    'ScaledTanH': lasagne.nonlinearities.ScaledTanH,
-    'ScaledTanh': lasagne.nonlinearities.ScaledTanh,
-    'identity': lasagne.nonlinearities.identity,
-    'leaky_rectify': lasagne.nonlinearities.leaky_rectify,
-    'linear': lasagne.nonlinearities.linear,
-    'rectify': lasagne.nonlinearities.rectify,
-    'sigmoid': lasagne.nonlinearities.sigmoid,
-    'softmax': lasagne.nonlinearities.softmax,
-    'tanh': lasagne.nonlinearities.tanh,
-    'theano': lasagne.nonlinearities.theano,
-    'very_leaky_rectify': lasagne.nonlinearities.very_leaky_rectify,
+    "LeakyRectify": lasagne.nonlinearities.LeakyRectify,
+    "ScaledTanH": lasagne.nonlinearities.ScaledTanH,
+    "ScaledTanh": lasagne.nonlinearities.ScaledTanh,
+    "identity": lasagne.nonlinearities.identity,
+    "leaky_rectify": lasagne.nonlinearities.leaky_rectify,
+    "linear": lasagne.nonlinearities.linear,
+    "rectify": lasagne.nonlinearities.rectify,
+    "sigmoid": lasagne.nonlinearities.sigmoid,
+    "softmax": lasagne.nonlinearities.softmax,
+    "tanh": lasagne.nonlinearities.tanh,
+    "theano": lasagne.nonlinearities.theano,
+    "very_leaky_rectify": lasagne.nonlinearities.very_leaky_rectify,
 }
 
 OBJECTIVE_NAMES = {
-    'binary_crossentropy': lasagne.objectives.binary_crossentropy,
-    'categorical_crossentropy': lasagne.objectives.categorical_crossentropy,
-    'squared_error': lasagne.objectives.squared_error,
-    'binary_hinge_loss': lasagne.objectives.binary_hinge_loss,
-    'multiclass_hinge_loss': lasagne.objectives.multiclass_hinge_loss,
-    }
-
-UPDATE_NAMES = {
-    'adadelta': lasagne.updates.adadelta,
-    'adagrad': lasagne.updates.adagrad,
-    'adam': lasagne.updates.adam,
-    'momentum': lasagne.updates.momentum,
-    'nesterov_momentum': lasagne.updates.nesterov_momentum,
-    'rmsprop': lasagne.updates.rmsprop,
-    'sgd': lasagne.updates.sgd,
+    "binary_crossentropy": lasagne.objectives.binary_crossentropy,
+    "categorical_crossentropy": lasagne.objectives.categorical_crossentropy,
+    "squared_error": lasagne.objectives.squared_error,
+    "binary_hinge_loss": lasagne.objectives.binary_hinge_loss,
+    "multiclass_hinge_loss": lasagne.objectives.multiclass_hinge_loss,
 }
 
+UPDATE_NAMES = {
+    "adadelta": lasagne.updates.adadelta,
+    "adagrad": lasagne.updates.adagrad,
+    "adam": lasagne.updates.adam,
+    "momentum": lasagne.updates.momentum,
+    "nesterov_momentum": lasagne.updates.nesterov_momentum,
+    "rmsprop": lasagne.updates.rmsprop,
+    "sgd": lasagne.updates.sgd,
+}
+
+
 def make_input_scaler(mean, std):
-    '''
+    """
     Return a function which can scale an input vector (or array of
     input vectors) to a normal distribution, given the population mean
     and standard deviation.
-    '''
+    """
+
     def input_scaler(inputs):
-        '''Zero-centre and normalise a matrix of inputs.'''
+        """Zero-centre and normalise a matrix of inputs."""
         return (inputs - mean) / std
+
     return input_scaler
 
+
 class NetworkWrapper:
-    '''An object which wraps a Lasagne feedforward neural network.'''
+    """An object which wraps a Lasagne feedforward neural network."""
 
     def __init__(self):
-        '''Constructor.'''
-        self.objective_name = 'squared_error'
-        self.update_name = 'adadelta'
+        """Constructor."""
+        self.objective_name = "squared_error"
+        self.update_name = "adadelta"
         # update parameters, e.g., learning rate, for training
         self.update_args_value = {}
         # this variable holds the actual neural network
@@ -123,140 +132,148 @@ class NetworkWrapper:
         self.param_mags_fn = None
 
     def _build_network(self, network_arch):
-        '''
+        """
         Builds the Lasagne network for this object from the description in
         `network_arch`.
-        '''
+        """
         assert len(network_arch) > 1
-        assert network_arch[0]['layer'] == 'input'
-        assert network_arch[-1]['layer'] == 'output'
+        assert network_arch[0]["layer"] == "input"
+        assert network_arch[-1]["layer"] == "output"
         if self._network is None:
             num_hidden_layers = 0
             for layer in network_arch:
-                if layer['layer'] == 'input':
+                if layer["layer"] == "input":
                     assert self._network is None
                     self._network = lasagne.layers.InputLayer(
-                        shape=(None, layer['size']), name='input')
+                        shape=(None, layer["size"]), name="input"
+                    )
                 else:
                     assert self._network is not None
-                    nonlinearity = NONLINEARITY_NAMES[layer['activation']]
-                    if layer['layer'] == 'hidden':
+                    nonlinearity = NONLINEARITY_NAMES[layer["activation"]]
+                    if layer["layer"] == "hidden":
                         num_hidden_layers += 1
-                        name = f'hidden{num_hidden_layers}'
+                        name = f"hidden{num_hidden_layers}"
                     else:
-                        name = 'output'
+                        name = "output"
                     self._network = lasagne.layers.DenseLayer(
-                        self._network, num_units=layer['size'],
+                        self._network,
+                        num_units=layer["size"],
                         name=name,
-                        nonlinearity=nonlinearity)
-                if 'dropout' in layer and layer['dropout'] is not None:
-                    self._network = lasagne.layers.DropoutLayer(self._network, p=layer['dropout'])
+                        nonlinearity=nonlinearity,
+                    )
+                if "dropout" in layer and layer["dropout"] is not None:
+                    self._network = lasagne.layers.DropoutLayer(
+                        self._network, p=layer["dropout"]
+                    )
 
     @property
     def network_layers(self):
-        '''
+        """
         Returns a dictionary mapping layer names to lasagne Layer objects.
-        '''
-        return dict((layer.name, layer) for layer in
-                    lasagne.layers.get_all_layers(self._network)
-                    if layer.name is not None)
+        """
+        return dict(
+            (layer.name, layer)
+            for layer in lasagne.layers.get_all_layers(self._network)
+            if layer.name is not None
+        )
 
     def load_params(self, filename):
-        '''
+        """
         Loads network parameters (weight matrices) from the given numpy
         .npz file into this object's neural network.
 
         Arguments:
         - `filename`:
-        '''
+        """
         with np.load(filename) as input_file:
-            param_values = [input_file[f'arr_{i}'] for i in
-                            range(len(input_file.files))]
+            param_values = [
+                input_file[f"arr_{i}"] for i in range(len(input_file.files))
+            ]
         lasagne.layers.set_all_param_values(self._network, param_values)
 
     def get_layer(self, layer_name):
-        '''
+        """
         Returns the lasagne Layer from this objects's neural network with
         the given name.
 
         Arguments:
         - `layer_name`:
-        '''
+        """
         return self.network_layers[layer_name]
 
     def set_weights(self, layer_name, values):
-        '''
+        """
         Sets the weight parameters (weight matrix and bias) on the given
         layer of this network to the values given.
 
         Arguments:
         - `layer_name`:
         - `values`: a list of weight parameter matrices
-        '''
+        """
         params = self.get_layer(layer_name).get_params()
         assert len(values) == len(params)
-        for (value, param) in zip(values, params):
+        for value, param in zip(values, params):
             assert value.shape == param.get_value().shape
             param.set_value(value)
 
     def get_weights(self, layer_name):
-        '''
+        """
         Returns the weight parameters (weight matrix and bias) for the
         given layer of this network.
 
         Arguments:
         - `layer_name`:
-        '''
+        """
         return [param.get_value() for param in self.get_layer(layer_name).get_params()]
 
     def objective(self, objective_fn):
-        '''
+        """
         Sets the objective function used for training.  This defaults to
         'squared_error'.
 
         Arguments:
         - `objective_fn`:
-        '''
+        """
         self.objective_name = objective_fn
 
     def update(self, update_fn):
-        '''
+        """
         Sets the update method used for training.  This defaults to
         'adadelta'.
 
         Arguments:
         - `update_fn`:
-        '''
+        """
         self.update_name = update_fn
 
     def update_args(self, params):
-        '''
+        """
         Sets update params (e.g., the learning rate) to use for training.
 
         Arguments:
         - `params`: a dictionary with keywords and values
-        '''
+        """
         self.update_args_value = params
 
     def input_scaler(self, scaler_fn):
-        '''Sets a function which scales the network inputs.'''
+        """Sets a function which scales the network inputs."""
         self.input_scaler_fn = scaler_fn
 
     def output_scaler(self, scaler_fn):
-        '''Sets a function which scales the network outputs.'''
+        """Sets a function which scales the network outputs."""
         self.output_scaler_fn = scaler_fn
 
     def get_theano_functions(self):
-        '''
+        """
         Returns pointers to compiled theano functions using this Model's
         network.
 
         Returns a tuple (train_fn, validation_fn, output_fn).
-        '''
+        """
         if self.train_fn is None:
             # theano variables for inputs and outputs
-            inputs = T.matrix('inputs')
-            outputs = T.matrix('outputs')
+            inputs = T.matrix("inputs")
+            outputs = T.matrix("outputs")
 
             # the raw output of the network
             predictions = lasagne.layers.get_output(self._network, inputs)
@@ -268,16 +285,17 @@ class NetworkWrapper:
             # parameters (e.g., delta for binary_hinge_loss, etc.)
             # TODO: parameterise the aggregation method too?
             loss = objective_fn(predictions, outputs)
-            loss = lasagne.objectives.aggregate(loss, mode='mean')
+            loss = lasagne.objectives.aggregate(loss, mode="mean")
 
             # for validation, we use the network in deterministic mode (e.g.,
             # fix dropout)
             deterministic_predictions = lasagne.layers.get_output(
-                self._network, inputs, deterministic=True)
+                self._network, inputs, deterministic=True
+            )
 
             # validation loss uses the same objective as training loss
             validation_loss = objective_fn(deterministic_predictions, outputs)
-            validation_loss = lasagne.objectives.aggregate(validation_loss, mode='mean')
+            validation_loss = lasagne.objectives.aggregate(validation_loss, mode="mean")
 
             # retrieve all trainable parameters from the model's neural network
             params = lasagne.layers.get_all_params(self._network, trainable=True)
@@ -288,28 +306,35 @@ class NetworkWrapper:
 
             # calculate magnitudes of updates
             update_mags = [((param - updates[param]) ** 2).mean() for param in params]
-            self.update_mags_fn = (lambda f: (lambda i, o: np.array(f(i,o))))(
-                theano.function([inputs, outputs], update_mags))
+            self.update_mags_fn = (lambda f: (lambda i, o: np.array(f(i, o))))(
+                theano.function([inputs, outputs], update_mags)
+            )
             # calculate magnitudes of params
-            param_mags = [(param ** 2).mean() for param in params]
+            param_mags = [(param**2).mean() for param in params]
             self.param_mags_fn = (lambda f: (lambda: np.array(f())))(
-                theano.function([], param_mags))
+                theano.function([], param_mags)
+            )
 
             # compile the training and validation functions in theano
             self.train_fn = theano.function([inputs, outputs], loss, updates=updates)
             self.validation_fn = theano.function([inputs, outputs], validation_loss)
             self.output_fn = theano.function([inputs], deterministic_predictions)
-        return (self.train_fn, self.validation_fn, self.output_fn,
-                self.update_mags_fn, self.param_mags_fn)
+        return (
+            self.train_fn,
+            self.validation_fn,
+            self.output_fn,
+            self.update_mags_fn,
+            self.param_mags_fn,
+        )
 
     def compute(self, inputs):
-        '''
+        """
         Runs the given inputs through the neural network and returns the
         output.
 
         Arguments:
         - `inputs`:
-        '''
+        """
         _tf, _vf, output_fn, _umf, _pmf = self.get_theano_functions()
         if self.input_scaler_fn:
             inputs = self.input_scaler_fn(inputs)
@@ -318,20 +343,21 @@ class NetworkWrapper:
             output = self.output_scaler_fn(output)
         return output
 
+
 class Model(NetworkWrapper):
-    '''An object wrapping a Lasagne feedforward neural network.'''
+    """An object wrapping a Lasagne feedforward neural network."""
 
     MAX_VALIDATION_SET_SIZE = 10000
 
     def __init__(self, store, model_name):
-        '''
+        """
         Constructor
 
         Arguments:
         - `store`: a ModelStore or a string to initialise a ModelStore
           with
         - `model_name`:
-        '''
+        """
         super().__init__()
         if not isinstance(store, ModelStore):
             store = ModelStore(store)
@@ -373,7 +399,7 @@ class Model(NetworkWrapper):
         self.arch_frozen = False
         # are the network's weights loaded from a snapshot?
         self.weights_loaded = False
-        self.just_loaded = False # momentary flag, turns on for one snapshot
+        self.just_loaded = False  # momentary flag, turns on for one snapshot
         # if the architecture is loaded from metadata, the input(),
         # hidden() and output() methods are used to check; this
         # variable stores which layer we're currently checking
@@ -389,100 +415,100 @@ class Model(NetworkWrapper):
         self.ensure_exists()
         try:
             self.load_metadata()
-            if 'architecture' in self.metadata:
+            if "architecture" in self.metadata:
                 self.arch_frozen = True
-            if 'snapshots' in self.metadata and len(self.metadata['snapshots']) > 0:
+            if "snapshots" in self.metadata and len(self.metadata["snapshots"]) > 0:
                 # load the last snapshot into the network
-                last_snapshot_fn = self.metadata['snapshots'][-1]['filename']
-                _ = self.network # build network
+                last_snapshot_fn = self.metadata["snapshots"][-1]["filename"]
+                _ = self.network  # build network
                 self.load_params(os.path.join(self.model_path, last_snapshot_fn))
-                logger.info('weights loaded from snapshot %s', last_snapshot_fn)
+                logger.info("weights loaded from snapshot %s", last_snapshot_fn)
                 self.weights_loaded = True
                 self.just_loaded = True
         except OSError:
             # no metadata file present, initialise metadata
             self.metadata = {
-                'num_training_samples': 0,
-                'num_epochs': 0,
-                'num_minibatches': 0,
-                'snapshots': [],
+                "num_training_samples": 0,
+                "num_epochs": 0,
+                "num_minibatches": 0,
+                "snapshots": [],
             }
             self.save_metadata()
 
     @property
     def model_path(self):
-        '''Get the path where this Model's files are stored.'''
+        """Get the path where this Model's files are stored."""
         return os.path.join(self.store.abs_path, self.model_name)
 
     def ensure_exists(self):
-        '''Ensure the directory used by this Model exists.'''
+        """Ensure the directory used by this Model exists."""
         mkdir_p(self.model_path)
 
     @property
     def metadata_filename(self):
-        '''Get this Model's metadata filename.'''
-        return os.path.join(self.model_path, 'metadata.json')
+        """Get this Model's metadata filename."""
+        return os.path.join(self.model_path, "metadata.json")
 
     def load_metadata(self):
-        '''Loads metadata for this Model from disk.'''
-        with open(self.metadata_filename, 'rb') as input_file:
-            self.metadata = json.loads(input_file.read().decode('utf-8'))
-        self.objective_name = self.metadata['objective_name']
-        self.update_name = self.metadata['update_name']
-        self.update_args_value = self.metadata['update_args_value']
+        """Loads metadata for this Model from disk."""
+        with open(self.metadata_filename, "rb") as input_file:
+            self.metadata = json.loads(input_file.read().decode("utf-8"))
+        self.objective_name = self.metadata["objective_name"]
+        self.update_name = self.metadata["update_name"]
+        self.update_args_value = self.metadata["update_args_value"]
 
     def save_metadata(self):
-        '''Saves metadata for this Model to disk.'''
-        self.metadata['objective_name'] = self.objective_name
-        self.metadata['update_name'] = self.update_name
-        self.metadata['update_args_value'] = self.update_args_value
-        with open_atomic(self.metadata_filename, 'wb') as output_file:
+        """Saves metadata for this Model to disk."""
+        self.metadata["objective_name"] = self.objective_name
+        self.metadata["update_name"] = self.update_name
+        self.metadata["update_args_value"] = self.update_args_value
+        with open_atomic(self.metadata_filename, "wb") as output_file:
             output_file.write(json.dumps(self.metadata, indent=4))
 
     @property
     def best_validation_error(self):
-        '''
+        """
         Property accessor: shortcut for Model.load_snapshot('best_validation')
-        '''
-        return self.load_snapshot('best_validation')
+        """
+        return self.load_snapshot("best_validation")
 
     @property
     def num_minibatches(self):
-        '''
+        """
         Property accessor: shortcut for Model.metadata['num_minibatches'].
-        '''
-        if self.metadata and 'num_minibatches' in self.metadata:
-            return self.metadata['num_minibatches']
+        """
+        if self.metadata and "num_minibatches" in self.metadata:
+            return self.metadata["num_minibatches"]
         return 0
 
     def input(self, input_size, dropout=None):
-        '''
+        """
         Creates an input layer of the given size.
 
         Arguments:
         - `input_size`:
-        '''
+        """
         assert not self.arch_desc_complete
         if self.arch_frozen:
             # we're checking the network architecture against the
             # metadata now
-            assert 'architecture' in self.metadata
-            assert len(self.metadata['architecture']) > 1
-            input_layer = self.metadata['architecture'][0]
-            assert input_layer['layer'] == 'input'
-            assert input_layer['size'] == input_size
-            assert input_layer['dropout'] == dropout
+            assert "architecture" in self.metadata
+            assert len(self.metadata["architecture"]) > 1
+            input_layer = self.metadata["architecture"][0]
+            assert input_layer["layer"] == "input"
+            assert input_layer["size"] == input_size
+            assert input_layer["dropout"] == dropout
             self.arch_check_stage = 1
         else:
             # we're specifying the network architecture now
-            assert 'architecture' not in self.metadata
-            self.metadata['architecture'] = []
-            self.metadata['architecture'].append({'layer': 'input',
-                                                  'size': input_size,
-                                                  'dropout': dropout})
+            assert "architecture" not in self.metadata
+            self.metadata["architecture"] = []
+            self.metadata["architecture"].append(
+                {"layer": "input", "size": input_size, "dropout": dropout}
+            )
 
-    def hidden(self, hidden_size, activation='sigmoid', dropout=None):
-        '''
+    def hidden(self, hidden_size, activation="sigmoid", dropout=None):
+        """
         Creates a hidden layer of the given size.
 
         Arguments:
@@ -490,109 +516,120 @@ class Model(NetworkWrapper):
         - `activation`:
         - `dropout`: if not None, the probability that a node's output
           will be dropped
-        '''
-        assert 'architecture' in self.metadata
+        """
+        assert "architecture" in self.metadata
         assert not self.arch_desc_complete
         if self.arch_frozen:
             # we're checking the network architecture against the
             # metadata now
-            assert len(self.metadata['architecture']) > 1
+            assert len(self.metadata["architecture"]) > 1
             assert self.arch_check_stage > 0
-            current_layer = self.metadata['architecture'][self.arch_check_stage]
-            assert current_layer['layer'] == 'hidden'
-            assert current_layer['size'] == hidden_size
-            assert current_layer['activation'] == activation
-            assert current_layer['dropout'] == dropout
+            current_layer = self.metadata["architecture"][self.arch_check_stage]
+            assert current_layer["layer"] == "hidden"
+            assert current_layer["size"] == hidden_size
+            assert current_layer["activation"] == activation
+            assert current_layer["dropout"] == dropout
             self.arch_check_stage += 1
         else:
             # we're specifying the network architecture now
-            self.metadata['architecture'].append({'layer': 'hidden',
-                                                  'size': hidden_size,
-                                                  'activation': activation,
-                                                  'dropout': dropout})
+            self.metadata["architecture"].append(
+                {
+                    "layer": "hidden",
+                    "size": hidden_size,
+                    "activation": activation,
+                    "dropout": dropout,
+                }
+            )
 
-    def output(self, output_size, activation='sigmoid'):
-        '''
+    def output(self, output_size, activation="sigmoid"):
+        """
         Creates an output layer of the given size.
 
         Arguments:
         - `output_size`:
         - `activation`:
-        '''
-        assert 'architecture' in self.metadata
+        """
+        assert "architecture" in self.metadata
         assert not self.arch_desc_complete
         if self.arch_frozen:
             # we're checking the network architecture against the
             # metadata now
-            assert len(self.metadata['architecture']) > 1
+            assert len(self.metadata["architecture"]) > 1
             assert self.arch_check_stage > 0
-            current_layer = self.metadata['architecture'][self.arch_check_stage]
-            assert current_layer['layer'] == 'output'
-            assert current_layer['size'] == output_size
-            assert current_layer['activation'] == activation
-            assert len(self.metadata['architecture']) == self.arch_check_stage + 1
+            current_layer = self.metadata["architecture"][self.arch_check_stage]
+            assert current_layer["layer"] == "output"
+            assert current_layer["size"] == output_size
+            assert current_layer["activation"] == activation
+            assert len(self.metadata["architecture"]) == self.arch_check_stage + 1
         else:
             # we're specifying the network architecture now
-            self.metadata['architecture'].append({'layer': 'output',
-                                                  'size': output_size,
-                                                  'activation': activation})
+            self.metadata["architecture"].append(
+                {"layer": "output", "size": output_size, "activation": activation}
+            )
         self.arch_desc_complete = True
 
     @property
     def network(self):
-        '''Returns this Model's neural network object.'''
+        """Returns this Model's neural network object."""
         if not self._network:
-            assert 'architecture' in self.metadata
-            self._build_network(self.metadata['architecture'])
+            assert "architecture" in self.metadata
+            self._build_network(self.metadata["architecture"])
         return self._network
 
     @property
     def network_layers(self):
-        '''
+        """
         Returns a dictionary mapping layer names to lasagne Layer objects.
-        '''
-        return dict((layer.name, layer) for layer in
-                    lasagne.layers.get_all_layers(self.network)
-                    if layer.name is not None)
+        """
+        return dict(
+            (layer.name, layer)
+            for layer in lasagne.layers.get_all_layers(self.network)
+            if layer.name is not None
+        )
 
     def set_weights(self, layer_name, values):
-        '''
+        """
         Sets the weight parameters (weight matrix and bias) on the given
         layer of this network to the values given.
 
         Arguments:
         - `layer_name`:
         - `values`: a list of weight parameter matrices
-        '''
+        """
         if self.weights_loaded:
-            logger.info('weights loaded from snapshot; will not '
-                        'overwrite weights for layer %s', layer_name)
+            logger.info(
+                "weights loaded from snapshot; will not "
+                "overwrite weights for layer %s",
+                layer_name,
+            )
         else:
             super().set_weights(layer_name, values)
 
     def get_theano_functions(self):
-        '''
+        """
         Returns pointers to compiled theano functions using this Model's
         network.
 
         Returns a tuple (train_fn, validation_fn, output_fn).
-        '''
-        _nw = self.network # force build network
+        """
+        _nw = self.network  # force build network
         return super().get_theano_functions()
 
     def extra_snapshot(self, extra_snapshot_dict):
-        '''
+        """
         Stores arbitrary values into this Model's snapshots during
         training.
 
         Arguments:
         - `extra_snapshot_dict`: a dictionary of values to store into
           any snapshots created after this method is called
-        '''
+        """
         self.extra_snapshot_dict = extra_snapshot_dict
 
-    def save_snapshot(self, train_err, validation_err, elapsed_time, update_mags, param_mags):
-        '''
+    def save_snapshot(
+        self, train_err, validation_err, elapsed_time, update_mags, param_mags
+    ):
+        """
         Saves a snapshot of this Model's network to disk.  Also records
         metadata about the snapshot, such as training and validation
         error.
@@ -602,42 +639,44 @@ class Model(NetworkWrapper):
         - `validation_err`:
         - `elapsed_time`: the amount of time since the last snapshot,
           in seconds
-        '''
+        """
         snapshot_filename = os.path.join(
-            self.model_path,
-            f'{self.num_minibatches:010d}.npz')
+            self.model_path, f"{self.num_minibatches:010d}.npz"
+        )
         np.savez(snapshot_filename, *lasagne.layers.get_all_param_values(self.network))
-        total_time = 0.
-        if 'snapshots' in self.metadata and len(self.metadata['snapshots']) > 0:
-            total_time = self.metadata['snapshots'][-1]['total_time']
-        self.metadata['snapshots'].append({
-            'num_minibatches': self.num_minibatches,
-            'minibatch_size': self.minibatch_size_value,
-            'weights_loaded': self.weights_loaded,
-            'just_loaded': self.just_loaded,
-            'objective_name': self.objective_name,
-            'update_name': self.update_name,
-            'update_args': self.update_args_value,
-            'train_err': train_err,
-            'validation_err': validation_err,
-            'total_time': total_time + elapsed_time,
-            'filename': os.path.basename(snapshot_filename),
-            'update_mags': list(update_mags),
-            'param_mags': list(param_mags),
-            'update_mags_by_param_mags': list(update_mags / param_mags),
-        })
+        total_time = 0.0
+        if "snapshots" in self.metadata and len(self.metadata["snapshots"]) > 0:
+            total_time = self.metadata["snapshots"][-1]["total_time"]
+        self.metadata["snapshots"].append(
+            {
+                "num_minibatches": self.num_minibatches,
+                "minibatch_size": self.minibatch_size_value,
+                "weights_loaded": self.weights_loaded,
+                "just_loaded": self.just_loaded,
+                "objective_name": self.objective_name,
+                "update_name": self.update_name,
+                "update_args": self.update_args_value,
+                "train_err": train_err,
+                "validation_err": validation_err,
+                "total_time": total_time + elapsed_time,
+                "filename": os.path.basename(snapshot_filename),
+                "update_mags": list(update_mags),
+                "param_mags": list(param_mags),
+                "update_mags_by_param_mags": list(update_mags / param_mags),
+            }
+        )
         self.just_loaded = False
         # additionally values can be logged to the snapshot by
         # external code; to do this, call extra_snapshot()
         if self.extra_snapshot_dict is not None:
-            snapshot = self.metadata['snapshots'][-1]
+            snapshot = self.metadata["snapshots"][-1]
             for k in self.extra_snapshot_dict:
                 if k not in snapshot:
                     snapshot[k] = self.extra_snapshot_dict[k]
         self.save_metadata()
 
     def load_snapshot(self, snapshot_id):
-        '''
+        """
         Loads a previously saved snapshot of this Model and returns it.
 
         Arguments:
@@ -646,31 +685,42 @@ class Model(NetworkWrapper):
           special string value (one of 'first', 'last',
           'best_validation', 'best_train', 'min_validation',
           'max_validation').
-        '''
+        """
         # locate the snapshot filename to load
-        assert 'snapshots' in self.metadata and len(self.metadata['snapshots']) > 0
-        snapshots = self.metadata['snapshots']
+        assert "snapshots" in self.metadata and len(self.metadata["snapshots"]) > 0
+        snapshots = self.metadata["snapshots"]
         if isinstance(snapshot_id, int):
-            candidates = [ss['filename'] for ss in snapshots
-                          if ss['num_minibatches'] == snapshot_id]
+            candidates = [
+                ss["filename"]
+                for ss in snapshots
+                if ss["num_minibatches"] == snapshot_id
+            ]
             if candidates:
                 snapshot_filename = candidates[0]
             else:
-                raise Exception(f'Could not find snapshot with snapshot ID {snapshot_id}')
-        elif snapshot_id == 'first':
-            snapshot_filename = snapshots[0]['filename']
-        elif snapshot_id == 'last':
-            snapshot_filename = snapshots[-1]['filename']
-        elif snapshot_id == 'best_validation' or snapshot_id == 'min_validation':
-            snapshot_filename = min([(ss['validation_err'], ss['filename']) for ss in snapshots])[1]
-        elif snapshot_id == 'max_validation':
-            snapshot_filename = max([(ss['validation_err'], ss['filename']) for ss in snapshots])[1]
-        elif snapshot_id == 'best_train':
-            snapshot_filename = min([(ss['train_err'], ss['filename']) for ss in snapshots])[1]
+                raise Exception(
+                    f"Could not find snapshot with snapshot ID {snapshot_id}"
+                )
+        elif snapshot_id == "first":
+            snapshot_filename = snapshots[0]["filename"]
+        elif snapshot_id == "last":
+            snapshot_filename = snapshots[-1]["filename"]
+        elif snapshot_id == "best_validation" or snapshot_id == "min_validation":
+            snapshot_filename = min(
+                [(ss["validation_err"], ss["filename"]) for ss in snapshots]
+            )[1]
+        elif snapshot_id == "max_validation":
+            snapshot_filename = max(
+                [(ss["validation_err"], ss["filename"]) for ss in snapshots]
+            )[1]
+        elif snapshot_id == "best_train":
+            snapshot_filename = min(
+                [(ss["train_err"], ss["filename"]) for ss in snapshots]
+            )[1]
 
-        assert 'architecture' in self.metadata
+        assert "architecture" in self.metadata
         snapshot = NetworkWrapper()
-        snapshot._build_network(self.metadata['architecture'])
+        snapshot._build_network(self.metadata["architecture"])
         # copy over this Model's inherited attributes
         snapshot.objective_name = self.objective_name
         snapshot.update_name = self.update_name
@@ -679,7 +729,7 @@ class Model(NetworkWrapper):
         return snapshot
 
     def validation(self, validation_set):
-        '''
+        """
         Sets the validation set used for validation during training.
 
         `validation_set` can be an iterable, but it must be of finite
@@ -687,14 +737,16 @@ class Model(NetworkWrapper):
 
         Arguments:
         - `validation_set`:
-        '''
+        """
         # validation set might be a tuple: (inputs, outputs)
         if isinstance(validation_set, tuple) and len(validation_set) == 2:
             inputs, outputs = validation_set
-            inputs = np.array(list(itertools.islice(
-                inputs, self.MAX_VALIDATION_SET_SIZE)))
-            outputs = np.array(list(itertools.islice(
-                outputs, self.MAX_VALIDATION_SET_SIZE)))
+            inputs = np.array(
+                list(itertools.islice(inputs, self.MAX_VALIDATION_SET_SIZE))
+            )
+            outputs = np.array(
+                list(itertools.islice(outputs, self.MAX_VALIDATION_SET_SIZE))
+            )
             assert len(inputs) == len(outputs)
             self.validation_set = (inputs, outputs)
         else:
@@ -704,30 +756,31 @@ class Model(NetworkWrapper):
             # output) pairs
             #
             # truncate validation set to maximum allowed size
-            validation_set = list(itertools.islice(
-                validation_set, self.MAX_VALIDATION_SET_SIZE))
+            validation_set = list(
+                itertools.islice(validation_set, self.MAX_VALIDATION_SET_SIZE)
+            )
             inputs = np.array([i for (i, o) in validation_set])
             outputs = np.array([o for (i, o) in validation_set])
             self.validation_set = (inputs, outputs)
 
     def validation_routine(self, validation_routine):
-        '''
+        """
         Sets the validation function used for validation during training.
         The argument should be a function which, when passed this
         object, returns a validation statistic.
 
         Arguments:
         - `validation_routine`:
-        '''
+        """
         self.use_validation_routine = validation_routine
 
     def training(self, training_set):
-        '''
+        """
         Sets the training set used for training.
 
         Arguments:
         - `training_set`:
-        '''
+        """
         # training set might be a tuple: (inputs, outputs)
         if isinstance(training_set, tuple) and len(training_set) == 2:
             self.training_inputs, self.training_outputs = training_set
@@ -752,48 +805,50 @@ class Model(NetworkWrapper):
             self.training_outputs = (o for (i, o) in outputs)
 
     def minibatch_size(self, minibatch_size):
-        '''
+        """
         Sets the size of minibatches to use for training.
 
         Arguments:
         - `minibatch_size`:
-        '''
+        """
         self.minibatch_size_value = minibatch_size
 
     def max_num_minibatches(self, max_num_minibatches):
-        '''
+        """
         Configures how long training should run for.  Useful if the
         training set is infinitely long.
 
         Arguments:
         - `max_num_minibatches`:
-        '''
+        """
         self.use_max_num_minibatches = max_num_minibatches
 
     def max_num_epochs(self, max_num_epochs):
-        '''
+        """
         Configures how long training should run for, if the training set
         is of finite length.
 
         Arguments:
         - `max_num_epochs`:
-        '''
+        """
         self.use_max_num_epochs = max_num_epochs
 
+
 def minibatcher(num, iterable):
-    '''
+    """
     Wraps a `grouped` generator around `iterable` and then returns the
     result inside a numpy array.
 
     Arguments:
     - `num`:
     - `iterable`:
-    '''
+    """
     for item in grouped(num, iterable):
         yield np.array(item)
 
-def build(model, max_num_epochs = None, max_num_minibatches = None):
-    '''
+
+def build(model, max_num_epochs=None, max_num_minibatches=None):
+    """
     Builds a model and trains it up until its training criterion is
     satisfied.
 
@@ -803,8 +858,10 @@ def build(model, max_num_epochs = None, max_num_minibatches = None):
       train
     - `max_num_minibatches`: optional, the maximum number of
       minibatches to train
-    '''
-    train_fn, validation_fn, _of, update_mag_fn, param_mag_fn = model.get_theano_functions()
+    """
+    train_fn, validation_fn, _of, update_mag_fn, param_mag_fn = (
+        model.get_theano_functions()
+    )
 
     # handle minibatching if specified by the model
     if model.minibatch_size_value is not None:
@@ -841,13 +898,16 @@ def build(model, max_num_epochs = None, max_num_minibatches = None):
         # training loop
         start_time = time.time()
         train_err = 0
-        for (input_minibatch, output_minibatch) in zip(
-                minibatcher_fn(model.training_inputs),
-                minibatcher_fn(model.training_outputs)):
+        for input_minibatch, output_minibatch in zip(
+            minibatcher_fn(model.training_inputs),
+            minibatcher_fn(model.training_outputs),
+        ):
 
-            model.metadata['num_minibatches'] += 1
+            model.metadata["num_minibatches"] += 1
             if (model.num_minibatches + 1) % model.validation_interval == 0:
-                update_mags = update_mag_fn(input_scaler_fn(input_minibatch), output_minibatch)
+                update_mags = update_mag_fn(
+                    input_scaler_fn(input_minibatch), output_minibatch
+                )
                 param_mags = param_mag_fn()
 
             train_err += train_fn(input_scaler_fn(input_minibatch), output_minibatch)
@@ -860,36 +920,42 @@ def build(model, max_num_epochs = None, max_num_minibatches = None):
                 elif model.validation_set is not None:
                     validation_err = 0
                     for input_minibatch, output_minibatch in zip(
-                            *map(minibatcher_fn, model.validation_set)):
-                        validation_err += validation_fn(input_scaler_fn(input_minibatch),
-                                                        output_minibatch)
+                        *map(minibatcher_fn, model.validation_set)
+                    ):
+                        validation_err += validation_fn(
+                            input_scaler_fn(input_minibatch), output_minibatch
+                        )
 
                 train_err /= model.validation_interval
 
                 # model snapshot
                 elapsed_time = time.time() - start_time
-                model.save_snapshot(train_err=train_err,
-                                    validation_err=validation_err,
-                                    elapsed_time=elapsed_time,
-                                    update_mags=update_mags,
-                                    param_mags=param_mags)
+                model.save_snapshot(
+                    train_err=train_err,
+                    validation_err=validation_err,
+                    elapsed_time=elapsed_time,
+                    update_mags=update_mags,
+                    param_mags=param_mags,
+                )
 
                 # Then we print the results for this epoch:
-                report = f'Training round {elapsed_time:.1f} secs; '
-                report += f'training {train_err:.6f};'
+                report = f"Training round {elapsed_time:.1f} secs; "
+                report += f"training {train_err:.6f};"
                 if validation_err is not None:
-                    report += f' validation {validation_err:.6f}'
+                    report += f" validation {validation_err:.6f}"
                 if counting_epochs:
-                    report += f' epochs {epoch} / {max_num_epochs}'
+                    report += f" epochs {epoch} / {max_num_epochs}"
                 print(report)
                 start_time = time.time()
                 train_err = 0
 
             # stop when training criterion is reached
-            if (max_num_minibatches is not None and
-                    max_num_minibatches <= model.num_minibatches):
+            if (
+                max_num_minibatches is not None
+                and max_num_minibatches <= model.num_minibatches
+            ):
                 break
 
         # update num_epochs
         if counting_epochs:
-            model.metadata['num_epochs'] += 1
+            model.metadata["num_epochs"] += 1
