@@ -11,6 +11,7 @@ Test the cribbage_scoring module.
 from __future__ import absolute_import, print_function
 import itertools
 import random
+import pytest
 from cribbage.cards import card_tostring, make_random_hand_and_draw, card_worth, cards_worth, string_tocard
 from cribbage.cribbage_score import score_hand, score_play
 from cribbage._cribbage_score import score_play as c_score_play
@@ -288,19 +289,22 @@ def test_score_hand_special_cases():
 def test_c_score_hand_special_cases():
     score_hand_special_cases(c_score_hand)
 
-def test_c_score_hand_out_of_range():
-    '''The C scorer returns -1 for invalid card values.'''
-    assert c_score_hand([52, 1, 2, 3], 4, False) == -1
-    assert c_score_hand([0, 1, 2, 3], 52, False) == -1
-    assert c_score_hand([0, 1, 2, 255], 4, False) == -1
-
-def test_score_hand_random_vs_reference():
-    for _ in range(2000):
-        hand, draw = make_random_hand_and_draw()
-        for crib in (False, True):
-            expected = ref_score_hand(hand, draw, crib)
-            assert score_hand(hand, draw, crib) == expected
-            assert c_score_hand(hand, draw, crib) == expected
+@pytest.mark.parametrize('fn', [score_hand, c_score_hand])
+def test_score_hand_invalid(fn):
+    '''Both scorers reject bad cards and duplicates.'''
+    for hand, draw in [([52, 1, 2, 3], 4),
+                       ([0, 1, 2, 3], 52),
+                       ([0, 1, 2, 255], 4),
+                       ([-1, 1, 2, 3], 4),
+                       ([0, 0, 2, 3], 4),
+                       ([0, 1, 2, 3], 3),
+                       ([4, 4, 4, 4], 4),
+                       ([0, 1, 2], 4),
+                       ([0, 1, 2, 3, 5], 4)]:
+        with pytest.raises(ValueError):
+            fn(hand, draw)
+        with pytest.raises(ValueError):
+            fn(hand, draw, True)
 
 def test_c_score_hand_exhaustive_ranks():
     '''Every rank combination, with and without flush/nobs suits.'''
@@ -356,3 +360,17 @@ def test_score_play_random_vs_reference():
         assert score_play(cards) == expected
         assert c_score_play(cards) == expected
         num_tests += 1
+
+@pytest.mark.parametrize('fn', [score_play, c_score_play])
+def test_score_play_invalid(fn):
+    '''Both scorers reject empty, overlong, out-of-range and repeated plays.'''
+    for cards in ([],
+                  list(range(14)),
+                  [0, 1, 52],
+                  [0, 1, -1],
+                  [5, 5],
+                  [3, 4, 5, 3]):
+        with pytest.raises(ValueError):
+            fn(cards)
+    # 13 cards is the longest legal play
+    fn([0, 13, 26, 39, 1, 14, 27, 40, 2, 15, 28, 41, 3])

@@ -8,17 +8,52 @@ cdef extern from "cribbage_score.h":
     int c_score_play "score_play" (unsigned char cards[13])
 
 def score_hand(hand, draw, crib=False, verbose=False):
-    return c_score_hand(hand[0], hand[1], hand[2], hand[3], draw, crib)
+    '''
+    Scores a hand of four cards with the given draw card.
+
+    Raises ValueError if the hand does not have four cards, or if any
+    card is outside [0, 51] or appears twice.
+    '''
+    if len(hand) != 4:
+        raise ValueError('hand must have four cards')
+    cdef int score = 0
+    cdef int cards[5]
+    cdef int idx
+    for idx in range(4):
+        cards[idx] = _check_card(hand[idx])
+    cards[4] = _check_card(draw)
+    score = c_score_hand(cards[0], cards[1], cards[2], cards[3], cards[4], bool(crib))
+    if score < 0:
+        raise ValueError('invalid hand: duplicate cards')
+    return score
 
 def score_play(linear_play, verbose=False):
+    '''
+    Scores the last card played in linear_play.
+
+    Raises ValueError if linear_play is empty or longer than 13 cards,
+    or if any card is outside [0, 51] or appears twice.
+    '''
     cdef unsigned char cards[13]
     cdef int num_cards = len(linear_play)
     cdef int idx
+    cdef int score
+    if num_cards == 0 or num_cards > 13:
+        raise ValueError('linear_play must have between 1 and 13 cards')
     for idx in range(num_cards):
-        cards[idx] = linear_play[idx]
+        cards[idx] = _check_card(linear_play[idx])
     if num_cards < 13:
         cards[num_cards] = 0xFF
-    return c_score_play(cards)
+    score = c_score_play(cards)
+    if score < 0:
+        raise ValueError('invalid play: duplicate cards')
+    return score
+
+cdef int _check_card(card) except -1:
+    cdef int c = card
+    if c < 0 or c > 51:
+        raise ValueError('card values must be in [0, 51]: {!r}'.format(card))
+    return c
 
 cpdef card_worth(card):
     cdef int face = card % 13 + 1

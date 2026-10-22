@@ -16,6 +16,19 @@ import numpy as np
 from .cards import CARD_FACES, CARD_VALUES, card_worth, cards_worth, split_card
 from .utils import pairwise
 
+# the longest possible play: a count of 31 cannot be exceeded
+MAX_PLAY_LENGTH = 13
+
+def _check_cards(cards):
+    '''
+    Raises ValueError unless `cards` are distinct card values in [0, 51].
+    '''
+    for card in cards:
+        if not 0 <= card <= 51:
+            raise ValueError('card values must be in [0, 51]: {!r}'.format(card))
+    if len(set(cards)) != len(cards):
+        raise ValueError('duplicate cards: {!r}'.format(list(cards)))
+
 def score_hand(hand, draw=None, crib=False, verbose=False):
     '''
     Scores a Cribbage hand.
@@ -24,8 +37,13 @@ def score_hand(hand, draw=None, crib=False, verbose=False):
     - `hand`: a list of four card values
     - `draw`: a card value, or None
     - `crib`: a flag indicating if the given hand is a crib or not
+
+    Raises ValueError if the hand does not have four cards, or if any
+    card is outside [0, 51] or appears twice.
     '''
-    assert len(hand) == 4
+    if len(hand) != 4:
+        raise ValueError('hand must have four cards')
+    _check_cards(list(hand) + ([] if draw is None else [draw]))
     score = 0
     # split card values
     split_values_hand = [split_card(c) for c in hand]
@@ -134,7 +152,13 @@ def score_play(linear_play, verbose=False):
     Arguments:
     - `linear_play`: a list containing the card values played, in
       order, during the round
+
+    Raises ValueError if linear_play is empty or longer than 13
+    cards, or if any card is outside [0, 51] or appears twice.
     '''
+    if not 1 <= len(linear_play) <= MAX_PLAY_LENGTH:
+        raise ValueError('linear_play must have between 1 and 13 cards')
+    _check_cards(linear_play)
     # the value we will return
     play_score = 0
     # we only need to know the face values thare played

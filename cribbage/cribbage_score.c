@@ -294,11 +294,19 @@ static void init_rank_scores(void)
  * card is given in draw_card.
  *
  * Returns the number of points to score for the given hand and draw,
- * or -1 if a card value is out of range.
+ * or -1 if a card value is out of range or a card appears twice.
  */
 score_t score_hand(card_t card1, card_t card2, card_t card3, card_t card4, card_t draw_card, flag_t is_crib)
 {
     if (card1 > 51 || card2 > 51 || card3 > 51 || card4 > 51 || draw_card > 51)
+    {
+        return -1;
+    }
+    // reject duplicate cards
+    if (card1 == card2 || card1 == card3 || card1 == card4 || card1 == draw_card ||
+        card2 == card3 || card2 == card4 || card2 == draw_card ||
+        card3 == card4 || card3 == draw_card ||
+        card4 == draw_card)
     {
         return -1;
     }
@@ -336,7 +344,7 @@ score_t score_hand(card_t card1, card_t card2, card_t card3, card_t card4, card_
  * set to 0xFF.
  *
  * Returns the number of points to score for playing the last card in
- * linear_play.
+ * linear_play, or -1 if linear_play is empty or repeats a card.
  */
 score_t score_play(play_list_t linear_play)
 {
@@ -345,8 +353,13 @@ score_t score_play(play_list_t linear_play)
     // we also use this opportunity to count the length of the
     // linear_play array
     int len_play = 0;
+    // a card cannot be played twice
+    unsigned long long seen = 0;
     for (; len_play < MAX_PLAY_LENGTH && linear_play[len_play] <= 51; len_play++)
     {
+        unsigned long long bit = 1ULL << linear_play[len_play];
+        if (seen & bit) return -1;
+        seen |= bit;
         face_values[len_play] = CARD_FACE(linear_play[len_play]);
     }
     if (len_play == 0) return -1;
