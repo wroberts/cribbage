@@ -13,3 +13,4 @@
 /test_c_scoring/cribbage
 build/
 /cribbage/*.so
+*.egg-info/

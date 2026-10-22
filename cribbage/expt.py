@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 '''
 expt.py
@@ -8,7 +7,6 @@ expt.py
 Training an AI to play cribbage.
 '''
 
-from __future__ import absolute_import, print_function
 import functools
 import itertools
 import random
@@ -145,7 +143,7 @@ class QLearningPlayer(CribbagePlayer):
         - `play_card_model`:
         - `epsilon`:
         '''
-        super(QLearningPlayer, self).__init__()
+        super().__init__()
         self.discard_model = discard_model
         self.play_card_model = play_card_model
         self.epsilon = epsilon
@@ -204,7 +202,7 @@ def dqlearner_vs_random(qlearner_model, _dummy_model):
     '''
     qplayer = QLearningPlayer(qlearner_model, None, epsilon=0.05)
     stats = compare_players([qplayer, RandomCribbagePlayer()], 100)
-    return stats[0] / 100.
+    return stats[0] / 100
 
 @numpy_memoize(ModelStore('models', ensure_exists=True).join('discard_scaling.npz'))
 def get_discard_scaling():

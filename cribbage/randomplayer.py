@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 '''
 randomplayer.py
@@ -8,7 +7,6 @@ randomplayer.py
 A CribbagePlayer that always makes a random move.
 '''
 
-from __future__ import absolute_import, print_function
 import random
 from cribbage.player import CribbagePlayer
 
@@ -17,7 +15,7 @@ class RandomCribbagePlayer(CribbagePlayer):
 
     def __init__(self, ):
         '''Constructor.'''
-        super(RandomCribbagePlayer, self).__init__()
+        super().__init__()
 
     def discard(self,
                 is_dealer,

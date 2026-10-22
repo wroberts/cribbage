@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 '''
 round.py
@@ -9,7 +8,6 @@ An object representing a single round in a game of cribbage between
 two CribbagePlayers.
 '''
 
-from __future__ import absolute_import, print_function
 import random
 from cribbage.cards import card_tostring, make_deck, split_card
 try:
@@ -19,7 +17,7 @@ except ImportError:
     from cribbage.cribbage_score import score_hand, score_play, get_legal_play_idxs, is_legal_play
     from cribbage.cards import cards_worth
 
-class Round(object):
+class Round:
     '''
     A single round of cribbage in a game between two CribbagePlayers.
     '''
@@ -118,7 +116,7 @@ class Round(object):
             discards = [c for i, c in enumerate(self.hands[player_idx])
                         if i in discard_idxs]
             if verbose:
-                print('Player {} discards:'.format(player_idx+1),
+                print(f'Player {player_idx + 1} discards:',
                       ' '.join(card_tostring(c) for c in sorted(discards)))
             self.crib.extend(discards)
             self.hands[player_idx] = [c for i, c in enumerate(self.hands[player_idx])
@@ -256,7 +254,7 @@ class Round(object):
                 # then we call 'Go' and make it the other player's
                 # turn
                 if verbose:
-                    print('Player {} says go'.format(self.turn_idx+1))
+                    print(f'Player {self.turn_idx + 1} says go')
                 self.turn_idx = int(not self.turn_idx)
                 self.is_go = True
                 continue
@@ -287,7 +285,7 @@ class Round(object):
             del self.hands[self.turn_idx][play_idx]
             self.linear_play.append(play_card)
             if verbose:
-                print('Player {} plays:'.format(self.turn_idx+1),
+                print(f'Player {self.turn_idx + 1} plays:',
                       card_tostring(play_card), end='')
                 print('  Count:', cards_worth(self.linear_play))
                 self.print_state()
@@ -295,21 +293,21 @@ class Round(object):
             # if the move makes the count hit 31, set the 31 flag
             if cards_worth(self.linear_play) == 31:
                 if verbose:
-                    print('Player {} hit 31'.format(self.turn_idx+1))
+                    print(f'Player {self.turn_idx + 1} hit 31')
                 self.flag_31 = True
 
             # if the opponent player has no more cards left, toggle
             # the "Go" flag
             if not self.hands[int(not self.turn_idx)]:
                 if verbose:
-                    print('Player {} says go'.format(int(not self.turn_idx) + 1))
+                    print(f'Player {int(not self.turn_idx) + 1} says go')
                 self.is_go = True
 
             # score the move for player_1 if it's a 15, pair, or run
             play_score = score_play(self.linear_play, verbose=verbose)
             if play_score:
                 if verbose:
-                    print('Player {} scores:'.format(self.turn_idx+1), play_score)
+                    print(f'Player {self.turn_idx + 1} scores:', play_score)
                 if not self.game.award_points(self.turn_idx, play_score, verbose=verbose):
                     return False
 
@@ -358,24 +356,24 @@ class Round(object):
         nondealer_idx = int(not self.dealer_idx)
         nondealer_hand = self.kept_hands[nondealer_idx]
         if verbose:
-            print('Scoring player {}:'.format(nondealer_idx + 1),
+            print(f'Scoring player {nondealer_idx + 1}:',
                   ' '.join([card_tostring(c) for c in sorted(nondealer_hand)]))
             print('Starter card is ', card_tostring(self.starter_card))
         hand_score = score_hand(nondealer_hand, self.starter_card, verbose=verbose)
         if verbose:
-            print('Player {}\'s hand scores'.format(nondealer_idx + 1), hand_score)
+            print(f"Player {nondealer_idx + 1}'s hand scores", hand_score)
         if not self.game.award_points(nondealer_idx, hand_score, verbose=verbose):
             return False
 
         # score the dealer's hand
         dealer_hand = self.kept_hands[self.dealer_idx]
         if verbose:
-            print('Scoring player {}:'.format(self.dealer_idx + 1),
+            print(f'Scoring player {self.dealer_idx + 1}:',
                   ' '.join([card_tostring(c) for c in sorted(dealer_hand)]))
             print('Starter card is ', card_tostring(self.starter_card))
         hand_score = score_hand(dealer_hand, self.starter_card, verbose=verbose)
         if verbose:
-            print('Player {}\'s hand scores'.format(self.dealer_idx + 1), hand_score)
+            print(f"Player {self.dealer_idx + 1}'s hand scores", hand_score)
         if not self.game.award_points(self.dealer_idx, hand_score, verbose=verbose):
             return False
 
@@ -386,7 +384,7 @@ class Round(object):
             print('Starter card is ', card_tostring(self.starter_card))
         hand_score = score_hand(self.crib, self.starter_card, crib=True, verbose=verbose)
         if verbose:
-            print('Player {}\'s crib scores,'.format(self.dealer_idx + 1), hand_score)
+            print(f"Player {self.dealer_idx + 1}'s crib scores,", hand_score)
         if not self.game.award_points(self.dealer_idx, hand_score, verbose=verbose):
             return False
 
@@ -395,11 +393,11 @@ class Round(object):
     def print_state(self):
         '''Print a representation of the current round state to stdout.'''
         for idx in range(2):
-            print('Player {}{}  '.format(idx+1, '(D)' if idx == self.dealer_idx else '   '), end='')
+            print(f"Player {idx + 1}{'(D)' if idx == self.dealer_idx else '   '}  ", end='')
             if self.hands:
-                print('{:17}'.format(' '.join([card_tostring(c) for c in sorted(self.hands[idx])])),
+                print(f"{' '.join([card_tostring(c) for c in sorted(self.hands[idx])]):17}",
                       end='')
-            print('  {:3} Points'.format(self.game.scores[idx]), end='')
+            print(f'  {self.game.scores[idx]:3} Points', end='')
             if self.crib and idx == self.dealer_idx:
                 print('  Crib', ' '.join([card_tostring(c) for c in sorted(self.crib)]), end='')
             print()

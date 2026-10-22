@@ -1,15 +1,13 @@
 language: python
 python:
-  - "2.7"
-  - "3.4"
-  - "3.5"
-  - "3.6"
-  - "3.7"
   - "3.8"
+  - "3.9"
+  - "3.10"
+  - "3.11"
 before_install:
-  - "pip install pytest-cov coveralls cython"
-# command to install dependencies
-install: "python setup.py build_ext --inplace"
+  - "pip install pytest-cov coveralls"
+# command to install dependencies (also builds the C extension)
+install: "pip install -e ."
 # command to run tests
 script: py.test --cov=cribbage cribbage
 after_success: coveralls

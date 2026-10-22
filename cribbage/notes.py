@@ -1,7 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
-from __future__ import absolute_import, print_function
 from cribbage.game import compare_players
 from cribbage.randomplayer import RandomCribbagePlayer
 from cribbage.simpleplayer import SimpleCribbagePlayer
@@ -94,7 +92,7 @@ for num_samples in [5, 10, 20, 50, 100, 200, 500, 1000]:
     stats = compare_players([SimpleCribbagePlayer(),
                              SimpleCribbagePlayer(num_discard_samples=num_samples)],
                             200)
-    print('Simple vs simple (num_discard_samples = {}):'.format(num_samples), stats)
+    print(f'Simple vs simple (num_discard_samples = {num_samples}):', stats)
 
 # Simple vs simple (num_discard_samples = 5): [116, 84]
 # Simple vs simple (num_discard_samples = 10): [99, 101]

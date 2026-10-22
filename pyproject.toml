@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=64", "Cython>=3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cribbage"
+version = "0.1.0"
+description = "Python library for experimenting with the game of cribbage"
+readme = "README.rst"
+license = {file = "LICENSE"}
+requires-python = ">=3.8"
+dependencies = ["numpy"]
+
+[project.optional-dependencies]
+# Old, unmaintained dependencies; needed only for the RL stack
+# (netbuilder, dqlearning, expt).
+rl = ["Theano", "Lasagne"]
+test = ["pytest", "pytest-cov"]
+
+[tool.setuptools]
+packages = ["cribbage", "cribbage.test"]
+
+[[tool.setuptools.ext-modules]]
+name = "cribbage._cribbage_score"
+sources = ["cribbage/_cribbage_score.pyx", "cribbage/cribbage_score.c"]
+extra-compile-args = ["-std=c99", "-O3"]
+
+[tool.pytest.ini_options]
+testpaths = ["cribbage"]

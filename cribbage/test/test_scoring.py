@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 '''
 test_scoring.py
@@ -8,7 +7,6 @@ test_scoring.py
 Test the cribbage_scoring module.
 '''
 
-from __future__ import absolute_import, print_function
 import itertools
 import random
 import pytest
@@ -374,3 +372,17 @@ def test_score_play_invalid(fn):
             fn(cards)
     # 13 cards is the longest legal play
     fn([0, 13, 26, 39, 1, 14, 27, 40, 2, 15, 28, 41, 3])
+
+@pytest.mark.parametrize('fn', [score_hand, c_score_hand])
+def test_score_hand_returns_int(fn):
+    # pairs/runs must not leak floats (or numpy ints) into the score
+    for _ in range(500):
+        hand, draw = make_random_hand_and_draw()
+        assert type(fn(hand, draw)) is int
+        assert type(fn(hand, draw, True)) is int
+
+@pytest.mark.parametrize('fn', [score_play, c_score_play])
+def test_score_play_returns_int(fn):
+    for _ in range(500):
+        play = random.sample(range(52), random.randint(1, 8))
+        assert type(fn(play)) is int

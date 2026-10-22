@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 '''
 dqlearning.py
@@ -26,7 +25,6 @@ set to the value None.  Such None states are assumed to have a
 constant Q-value of 0.
 '''
 
-from __future__ import absolute_import
 import itertools
 import random
 import numpy as np
@@ -72,7 +70,7 @@ def default_q_value_func(model, states, actions=None):
         q_values = q_values[np.arange(len(actions)), actions]
     return q_values
 
-class DQLearner(object):
+class DQLearner:
     '''A class implementing double Q-learning.'''
 
     def __init__(self, model_a, model_b, init_sars_fn, sample_sars_fn):

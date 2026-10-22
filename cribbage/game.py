@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 '''
 game.py
@@ -8,11 +7,10 @@ game.py
 An object representing a game of cribbage between two CribbagePlayers.
 '''
 
-from __future__ import absolute_import, print_function
 import random
 from cribbage.round import Round
 
-class Game(object):
+class Game:
     '''
     An object representing a game of cribbage between two
     CribbagePlayers.
@@ -106,8 +104,8 @@ class Game(object):
         # check if that player is now over target_score
         if self.scores[player_idx] >= self.target_score:
             if verbose:
-                print('Player {} wins with {} points'.format(
-                    player_idx + 1, self.scores[player_idx]))
+                print(f'Player {player_idx + 1} wins with '
+                      f'{self.scores[player_idx]} points')
             self.over = True
             self.winner = player_idx
             return False

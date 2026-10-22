@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 '''
 netbuilder.py
@@ -9,7 +8,6 @@ Declarative description language for producing persistent neural
 network models.
 '''
 
-from __future__ import absolute_import, print_function
 import itertools
 import json
 import logging
@@ -21,17 +19,13 @@ import lasagne
 import numpy as np
 import theano
 import theano.tensor as T
-try:
-    import itertools.izip as zip
-except ImportError:
-    pass
 
 # logging
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s',
                     stream=sys.stderr, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-class ModelStore(object):
+class ModelStore:
     '''
     An object representing a directory where Model objects are saved to
     disk.
@@ -107,7 +101,7 @@ def make_input_scaler(mean, std):
         return (inputs - mean) / std
     return input_scaler
 
-class NetworkWrapper(object):
+class NetworkWrapper:
     '''An object which wraps a Lasagne feedforward neural network.'''
 
     def __init__(self):
@@ -148,7 +142,7 @@ class NetworkWrapper(object):
                     nonlinearity = NONLINEARITY_NAMES[layer['activation']]
                     if layer['layer'] == 'hidden':
                         num_hidden_layers += 1
-                        name = 'hidden{}'.format(num_hidden_layers)
+                        name = f'hidden{num_hidden_layers}'
                     else:
                         name = 'output'
                     self._network = lasagne.layers.DenseLayer(
@@ -176,7 +170,7 @@ class NetworkWrapper(object):
         - `filename`:
         '''
         with np.load(filename) as input_file:
-            param_values = [input_file['arr_%d' % i] for i in
+            param_values = [input_file[f'arr_{i}'] for i in
                             range(len(input_file.files))]
         lasagne.layers.set_all_param_values(self._network, param_values)
 
@@ -338,7 +332,7 @@ class Model(NetworkWrapper):
           with
         - `model_name`:
         '''
-        super(Model, self).__init__()
+        super().__init__()
         if not isinstance(store, ModelStore):
             store = ModelStore(store)
         self.store = store
@@ -405,7 +399,7 @@ class Model(NetworkWrapper):
                 logger.info('weights loaded from snapshot %s', last_snapshot_fn)
                 self.weights_loaded = True
                 self.just_loaded = True
-        except IOError:
+        except OSError:
             # no metadata file present, initialise metadata
             self.metadata = {
                 'num_training_samples': 0,
@@ -574,7 +568,7 @@ class Model(NetworkWrapper):
             logger.info('weights loaded from snapshot; will not '
                         'overwrite weights for layer %s', layer_name)
         else:
-            super(Model, self).set_weights(layer_name, values)
+            super().set_weights(layer_name, values)
 
     def get_theano_functions(self):
         '''
@@ -584,7 +578,7 @@ class Model(NetworkWrapper):
         Returns a tuple (train_fn, validation_fn, output_fn).
         '''
         _nw = self.network # force build network
-        return super(Model, self).get_theano_functions()
+        return super().get_theano_functions()
 
     def extra_snapshot(self, extra_snapshot_dict):
         '''
@@ -611,7 +605,7 @@ class Model(NetworkWrapper):
         '''
         snapshot_filename = os.path.join(
             self.model_path,
-            '{:010d}.npz'.format(self.num_minibatches))
+            f'{self.num_minibatches:010d}.npz')
         np.savez(snapshot_filename, *lasagne.layers.get_all_param_values(self.network))
         total_time = 0.
         if 'snapshots' in self.metadata and len(self.metadata['snapshots']) > 0:
@@ -662,7 +656,7 @@ class Model(NetworkWrapper):
             if candidates:
                 snapshot_filename = candidates[0]
             else:
-                raise Exception('Could not find snapshot with snapshot ID {}'.format(snapshot_id))
+                raise Exception(f'Could not find snapshot with snapshot ID {snapshot_id}')
         elif snapshot_id == 'first':
             snapshot_filename = snapshots[0]['filename']
         elif snapshot_id == 'last':
@@ -881,12 +875,12 @@ def build(model, max_num_epochs = None, max_num_minibatches = None):
                                     param_mags=param_mags)
 
                 # Then we print the results for this epoch:
-                report = 'Training round {:.1f} secs; '.format(elapsed_time)
-                report += 'training {:.6f};'.format(train_err)
+                report = f'Training round {elapsed_time:.1f} secs; '
+                report += f'training {train_err:.6f};'
                 if validation_err is not None:
-                    report += ' validation {:.6f}'.format(validation_err)
+                    report += f' validation {validation_err:.6f}'
                 if counting_epochs:
-                    report += ' epochs {} / {}'.format(epoch, max_num_epochs)
+                    report += f' epochs {epoch} / {max_num_epochs}'
                 print(report)
                 start_time = time.time()
                 train_err = 0

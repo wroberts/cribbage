@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-- Build the Cython/C scoring extension: `python setup.py build_ext --inplace` (needs Cython; compiles `cribbage/_cribbage_score.pyx` + `cribbage/cribbage_score.c` with `-std=c99`)
+- Build the Cython/C scoring extension: `pip install -e .` (config is in `pyproject.toml`; Cython is pulled in as a build requirement and compiles `cribbage/_cribbage_score.pyx` + `cribbage/cribbage_score.c` with `-std=c99`)
 - Run tests: `py.test` (CI runs `py.test --cov=cribbage cribbage`)
 - Single test: `py.test cribbage/test/test_scoring.py::<test_name>`
 
-There is no lint config. CI (`.travis.yml`) targets Python 2.7 and 3.4–3.8, so keep code 2/3 compatible (`from __future__ import ...`, `object` base classes).
+There is no lint config. The codebase is Python 3 only (`requires-python >= 3.8`; CI in `.travis.yml` runs 3.8–3.11), so use modern idioms: f-strings, `super()`, `//` for integer division. Scores must stay plain `int`s (no floats or numpy ints); `test_scoring.py` checks this for both scorers.
 
 ## Architecture
 

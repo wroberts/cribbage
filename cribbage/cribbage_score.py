@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 '''
 c_cribbage_score.py
@@ -8,11 +7,9 @@ c_cribbage_score.py
 A module to deal with scoring cribbage hands and plays.
 '''
 
-from __future__ import absolute_import, print_function
 from collections import Counter
 import itertools
 import math
-import numpy as np
 from .cards import CARD_FACES, CARD_VALUES, card_worth, cards_worth, split_card
 from .utils import pairwise
 
@@ -25,9 +22,9 @@ def _check_cards(cards):
     '''
     for card in cards:
         if not 0 <= card <= 51:
-            raise ValueError('card values must be in [0, 51]: {!r}'.format(card))
+            raise ValueError(f'card values must be in [0, 51]: {card!r}')
     if len(set(cards)) != len(cards):
-        raise ValueError('duplicate cards: {!r}'.format(list(cards)))
+        raise ValueError(f'duplicate cards: {list(cards)!r}')
 
 def score_hand(hand, draw=None, crib=False, verbose=False):
     '''
@@ -73,8 +70,8 @@ def score_hand(hand, draw=None, crib=False, verbose=False):
                 run_length = last_v - run_begin + 1
                 if run_length >= 3:
                     # interesting
-                    run_score = np.product([face_counts[x] for x in
-                                            range(run_begin, run_begin + run_length)]) * run_length
+                    run_score = math.prod(face_counts[x] for x in
+                                         range(run_begin, run_begin + run_length)) * run_length
                     if verbose:
                         print('run', run_begin, last_v, run_score)
                     score += run_score
@@ -85,7 +82,7 @@ def score_hand(hand, draw=None, crib=False, verbose=False):
         # count = 3 -> 6
         # count = n -> 2 * (n CHOOSE 2)
         if count > 1:
-            pair_score = math.factorial(count) / math.factorial(count - 2)
+            pair_score = math.factorial(count) // math.factorial(count - 2)
             if verbose:
                 print('pair', _f, count, pair_score)
             score += pair_score
@@ -176,7 +173,7 @@ def score_play(linear_play, verbose=False):
             # pairlike
             pair_score = [2, 6, 12][len(back_list)-2]
             if verbose:
-                print('pair {} points'.format(pair_score))
+                print(f'pair {pair_score} points')
             play_score += pair_score
             break
         elif back_list == list(range(min(back_list), max(back_list) + 1)):
@@ -184,7 +181,7 @@ def score_play(linear_play, verbose=False):
             run_score = len(back_list)
             if run_score >= 3:
                 if verbose:
-                    print('run {} points'.format(run_score))
+                    print(f'run {run_score} points')
                 play_score += run_score
                 break
     return play_score

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 '''
 utils.py
@@ -16,10 +15,6 @@ import os
 import random
 import tempfile
 import numpy as np
-try:
-    import itertools.izip as zip
-except ImportError:
-    pass
 
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
@@ -86,9 +81,9 @@ def numpy_memoize(filename):
             '''Function wrapper used by numpy_memoize.'''
             try:
                 with np.load(filename) as input_file:
-                    values = [input_file['arr_%d' % i] for i in
+                    values = [input_file[f'arr_{i}'] for i in
                               range(len(input_file.files))]
-            except IOError:
+            except OSError:
                 values = func(*args, **kwargs)
                 np.savez(filename, *values)
             return values

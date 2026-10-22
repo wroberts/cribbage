@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 '''
 neural.py
@@ -149,7 +148,7 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
 
     def __init__(self, player):
         '''Constructor.'''
-        super(NeuralRecordingCribbagePlayer, self).__init__()
+        super().__init__()
         self.player = player
         self.last_discard_state = None
         self.last_discard_action = None

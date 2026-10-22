@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 '''
 player.py
@@ -8,7 +7,7 @@ player.py
 Abstract base class for a cribbage player.
 '''
 
-class CribbagePlayer(object):
+class CribbagePlayer:
     '''
     Abstract base class for an object that plays a game of cribbage.
     '''

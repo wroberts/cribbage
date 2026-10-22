@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 '''
 simpleplayer.py
@@ -9,7 +8,6 @@ Simple AI cribbage player.  This player uses Monte Carlo simulation to
 try to pick the best cards to discard and play.
 '''
 
-from __future__ import absolute_import, print_function
 import random
 import numpy as np
 from cribbage.cards import make_deck
@@ -45,7 +43,7 @@ class SimpleCribbagePlayer(CribbagePlayer):
                  num_discard_samples=20,
                  estimate_playcard=True):
         '''Constructor.'''
-        super(SimpleCribbagePlayer, self).__init__()
+        super().__init__()
         self.estimate_discard = estimate_discard
         self.num_discard_samples = num_discard_samples
         self.estimate_playcard = estimate_playcard
@@ -82,7 +80,7 @@ class SimpleCribbagePlayer(CribbagePlayer):
             draw_cards = npdeck[draw_card_idxs]
             samples = [score_hand(keep, draw=draw_cards[i])
                        for i in range(num_samples)]
-            results[tuple(sorted(keep))] = sum(samples) / float(len(samples))
+            results[tuple(sorted(keep))] = sum(samples) / len(samples)
         # get the best hand
         best_hand = max((v, k) for (k, v) in results.items())[1]
         # convert back into indices into hand

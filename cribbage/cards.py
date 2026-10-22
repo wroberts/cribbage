@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 '''
 cards.py
@@ -33,7 +32,7 @@ def split_card(vint):
 def card_tostring(vint):
     '''Returns a string representation of the given card value.'''
     value, suit = split_card(vint)
-    return '{}{}'.format(CARD_FACES[value], CARD_SUITS[suit])
+    return f'{CARD_FACES[value]}{CARD_SUITS[suit]}'
 
 def string_tocard(sval):
     '''Converts a string representation into a card value.'''

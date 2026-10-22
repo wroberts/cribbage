@@ -17,9 +17,9 @@ C Extension
 There is a C function which can score a cribbage hand 100 times faster
 than doing it in pure Python.
 
-To compile the Cython extension::
+Installing the package (requires a C compiler) builds the Cython extension::
 
-    python setup.py build_ext --inplace
+    pip install -e .
 
 Then::
 
