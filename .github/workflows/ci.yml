@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+      - name: Install (also builds the C extension)
+        run: |
+          pip install pytest-cov
+          pip install -e .
+      - name: Test
+        run: py.test --cov=cribbage --cov-report=xml cribbage
+      - name: Upload coverage
+        uses: coverallsapp/github-action@v2
+        with:
+          file: coverage.xml
+          flag-name: py${{ matrix.python-version }}
+          parallel: true
+
+  coverage:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: coverallsapp/github-action@v2
+        with:
+          parallel-finished: true

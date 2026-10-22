@@ -2,8 +2,8 @@
  Cribbage
 ==========
 
-.. image:: https://travis-ci.org/wroberts/cribbage.svg?branch=master
-    :target: https://travis-ci.org/wroberts/cribbage
+.. image:: https://github.com/wroberts/cribbage/actions/workflows/ci.yml/badge.svg?branch=master
+    :target: https://github.com/wroberts/cribbage/actions/workflows/ci.yml
 
 .. image:: https://coveralls.io/repos/wroberts/cribbage/badge.svg?branch=master
   :target: https://coveralls.io/r/wroberts/cribbage?branch=master
