@@ -20,6 +20,9 @@ test = ["pytest", "pytest-cov"]
 [tool.setuptools]
 packages = ["cribbage", "cribbage.test"]
 
+[tool.setuptools.package-data]
+cribbage = ["py.typed", "*.pyi"]
+
 [[tool.setuptools.ext-modules]]
 name = "cribbage._cribbage_score"
 sources = ["cribbage/_cribbage_score.pyx", "cribbage/cribbage_score.c"]
@@ -27,3 +30,17 @@ extra-compile-args = ["-std=c99", "-O3"]
 
 [tool.pytest.ini_options]
 testpaths = ["cribbage"]
+
+[tool.mypy]
+python_version = "3.11"
+# Theano and Lasagne are unmaintained and ship no stubs
+ignore_missing_imports = true
+check_untyped_defs = true
+
+# every function must be annotated
+disallow_untyped_defs = true
+
+# the tests are still checked, but don't need annotations
+[[tool.mypy.overrides]]
+module = "cribbage.test.*"
+disallow_untyped_defs = false

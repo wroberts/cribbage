@@ -27,11 +27,18 @@ constant Q-value of 0.
 
 import itertools
 import random
+from collections.abc import Callable, Iterator
+from typing import Any
 import numpy as np
-from cribbage.netbuilder import build
+from cribbage.netbuilder import Model, NetworkWrapper, build
+from cribbage.neural import Sars
+
+# adaptor functions that let the learner work with any kind of model
+ChooseActionFunc = Callable[[Any, np.ndarray], np.ndarray]
+QValueFunc = Callable[..., np.ndarray]
 
 
-def default_choose_action_func(model, states):
+def default_choose_action_func(model: NetworkWrapper, states: np.ndarray) -> np.ndarray:
     """
     Default adaptor method for greedily choosing an action from a
     given state.
@@ -46,7 +53,9 @@ def default_choose_action_func(model, states):
     return q_values.argmax(axis=1)
 
 
-def default_q_value_func(model, states, actions=None):
+def default_q_value_func(
+    model: NetworkWrapper, states: np.ndarray, actions: np.ndarray | None = None
+) -> np.ndarray:
     """
     Default adaptor method for computing the Q-values for a given set
     of states.
@@ -76,7 +85,13 @@ def default_q_value_func(model, states, actions=None):
 class DQLearner:
     """A class implementing double Q-learning."""
 
-    def __init__(self, model_a, model_b, init_sars_fn, sample_sars_fn):
+    def __init__(
+        self,
+        model_a: Model,
+        model_b: Model,
+        init_sars_fn: Callable[[], Iterator[Sars]],
+        sample_sars_fn: Callable[[Model, float], Iterator[Sars]],
+    ) -> None:
         """
         Constructor.
 
@@ -101,12 +116,12 @@ class DQLearner:
         self.init_sars_func = init_sars_fn
         self.init_sars_epsilon_value = 0.1
         self.sample_sars_func = sample_sars_fn
-        self.epsilon_func = lambda n: 0.1
-        self.choose_action_func = default_choose_action_func
-        self.q_value_func = default_q_value_func
-        self.replay_memory = []
+        self.epsilon_func: Callable[[int], float] = lambda n: 0.1
+        self.choose_action_func: ChooseActionFunc = default_choose_action_func
+        self.q_value_func: QValueFunc = default_q_value_func
+        self.replay_memory: list[Sars] = []
 
-    def replay_memory_init_size(self, num):
+    def replay_memory_init_size(self, num: int) -> None:
         """
         Sets the number of (s,a,r,s) tuples that the replay memory should
         start with, before training begins.  Defaults to 50,000.
@@ -116,7 +131,7 @@ class DQLearner:
         """
         self.rmem_init_size = num
 
-    def replay_memory_max_size(self, num):
+    def replay_memory_max_size(self, num: int) -> None:
         """
         Sets the maximum number of (s,a,r,s) tuples that the replay memory
         should contain.  Defaults to 500,000.
@@ -126,7 +141,7 @@ class DQLearner:
         """
         self.rmem_max_size = num
 
-    def samples_per_loop(self, num):
+    def samples_per_loop(self, num: int) -> None:
         """
         Sets the number of (s,a,r,s) tuples that should be sampled during
         each loop of the train() function.  Defaults to 5,000.
@@ -136,7 +151,7 @@ class DQLearner:
         """
         self.nsamples_per_loop = num
 
-    def minibatch_size(self, num):
+    def minibatch_size(self, num: int) -> None:
         """
         Sets the minibatch size.  Defaults to 32.
 
@@ -145,7 +160,7 @@ class DQLearner:
         """
         self.nminibatch_size = num
 
-    def minibatches_per_loop(self, num):
+    def minibatches_per_loop(self, num: int) -> None:
         """
         Sets how many minibatches will be sampled from the replay_memory
         and trained on the model during each loop of the train()
@@ -156,7 +171,7 @@ class DQLearner:
         """
         self.nminibatches_per_loop = num
 
-    def gamma(self, value):
+    def gamma(self, value: float) -> None:
         """
         Sets the value of gamma used in the Q-learning update.  Defaults
         to 0.99.
@@ -166,7 +181,7 @@ class DQLearner:
         """
         self.gamma_value = value
 
-    def init_sars_fn(self, func):
+    def init_sars_fn(self, func: Callable[[], Iterator[Sars]]) -> None:
         """
         This sets a function which is used to initialise the replay memory
         when train() is first called.  This function should take no
@@ -182,7 +197,7 @@ class DQLearner:
         """
         self.init_sars_func = func
 
-    def init_sars_epsilon(self, value):
+    def init_sars_epsilon(self, value: float) -> None:
         """
         Sets the epsilon value used to produce samples for initialising
         the replay memory when train() is first called.  If a
@@ -196,7 +211,9 @@ class DQLearner:
         """
         self.init_sars_epsilon_value = value
 
-    def sample_sars_fn(self, func):
+    def sample_sars_fn(
+        self, func: Callable[[Model, float], Iterator[Sars]]
+    ) -> None:
         """
         This sets a function which is used to add (s,a,r,s) tuples to the
         replay memory when the train() function is running.  The
@@ -211,7 +228,7 @@ class DQLearner:
         """
         self.sample_sars_func = func
 
-    def epsilon_fn(self, func):
+    def epsilon_fn(self, func: Callable[[int], float]) -> None:
         """
         This sets a function which updates the epsilon value used for
         sampling.  The function should take a single `n` parameter,
@@ -227,7 +244,7 @@ class DQLearner:
         """
         self.epsilon_func = func
 
-    def choose_action_fn(self, func):
+    def choose_action_fn(self, func: ChooseActionFunc) -> None:
         """
         This sets an adaptor method which greedily selects the optimal
         action for a given state.  The function should take a `model`
@@ -242,7 +259,7 @@ class DQLearner:
         """
         self.choose_action_func = func
 
-    def q_value_fn(self, func):
+    def q_value_fn(self, func: QValueFunc) -> None:
         """
         This sets an adaptor method which finds the Q-values for all
         actions in a given state.  The function should take a `model`
@@ -262,7 +279,7 @@ class DQLearner:
         """
         self.q_value_func = func
 
-    def seed_replay_memory(self):
+    def seed_replay_memory(self) -> None:
         """
         Initialises the replay memory for this Q-learning run.
         """
@@ -275,7 +292,7 @@ class DQLearner:
             init_gen = self.init_sars_func()
         self.replay_memory = list(itertools.islice(init_gen, self.rmem_init_size))
 
-    def sample_policy(self, update_model):
+    def sample_policy(self, update_model: Model) -> None:
         """
         Sample the given model's policy and add (s,a,r,s) tuples to the
         replay memory.
@@ -299,7 +316,7 @@ class DQLearner:
         if len(self.replay_memory) > self.rmem_max_size:
             self.replay_memory = self.replay_memory[-self.rmem_max_size :]
 
-    def update_q_values(self, update_model, scoring_model):
+    def update_q_values(self, update_model: Model, scoring_model: Model) -> None:
         """
         Update the Q values in `update_model`, using `scoring_model` to
         predict the future values of actions.
@@ -355,7 +372,7 @@ class DQLearner:
         update_model.training((pre_states, updated_values))
         build(update_model, max_num_epochs=1)
 
-    def train_step(self):
+    def train_step(self) -> None:
         """
         Run the RL training loop once.
         """
@@ -372,7 +389,7 @@ class DQLearner:
         # modify the update model's q value function
         self.update_q_values(update_model, scoring_model)
 
-    def train(self):
+    def train(self) -> None:
         """Runs the double Q-learning algorithm to train the models."""
         self.seed_replay_memory()
         while True:

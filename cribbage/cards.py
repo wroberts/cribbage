@@ -13,37 +13,42 @@ Spades to 3 representing Clubs).
 """
 
 import random
+from collections.abc import Iterable
 
 # ------------------------------------------------------------
 # Cards
 
 CARD_FACES = "A234567890JQK"
 CARD_SUITS = "SHDC"
+# a card is an integer in [0, 51]; a hand is a list of cards
+Card = int
+Hand = list[Card]
+
 CARD_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10]
 
 
-def make_card(face, suit):
+def make_card(face: int, suit: int) -> Card:
     """Creates a card value with the given `face` and `suit`."""
     return face + suit * 13
 
 
-def split_card(vint):
+def split_card(vint: Card) -> tuple[int, int]:
     """Splits a card value into its `face` and `suit` values."""
     return vint % 13, vint // 13
 
 
-def card_tostring(vint):
+def card_tostring(vint: Card) -> str:
     """Returns a string representation of the given card value."""
     value, suit = split_card(vint)
     return f"{CARD_FACES[value]}{CARD_SUITS[suit]}"
 
 
-def string_tocard(sval):
+def string_tocard(sval: str) -> Card:
     """Converts a string representation into a card value."""
     return make_card(CARD_FACES.index(sval[0]), CARD_SUITS.index(sval[1]))
 
 
-def make_deck():
+def make_deck() -> list[Card]:
     """Creates a list containing all 52 card values."""
     return list(range(52))
 
@@ -52,12 +57,12 @@ def make_deck():
 # Utility Functions
 
 
-def make_random_hand():
+def make_random_hand() -> Hand:
     """Create a random 4-card cribbage hand."""
     return random.sample(make_deck(), 4)
 
 
-def make_random_hand_and_draw():
+def make_random_hand_and_draw() -> tuple[Hand, Card]:
     """Create a random 4-card cribbage hand, and a random card as the starter."""
     hand_draw = random.sample(make_deck(), 5)
     return hand_draw[:4], hand_draw[4]
@@ -67,7 +72,7 @@ def make_random_hand_and_draw():
 # Determining cards' worth (for making 15s and 31s)
 
 
-def card_worth(card):
+def card_worth(card: Card) -> int:
     """
     Returns the number of points the given card value is worth.
 
@@ -77,7 +82,7 @@ def card_worth(card):
     return CARD_VALUES[split_card(card)[0]]
 
 
-def cards_worth(cards):
+def cards_worth(cards: Iterable[Card]) -> int:
     """
     Calls `card_worth` on every value in `cards` and returns the sum.
 

@@ -10,14 +10,23 @@ A module to deal with scoring cribbage hands and plays.
 from collections import Counter
 import itertools
 import math
-from .cards import CARD_FACES, CARD_VALUES, card_worth, cards_worth, split_card
+from collections.abc import Sequence
+from .cards import (
+    CARD_FACES,
+    CARD_VALUES,
+    Card,
+    Hand,
+    card_worth,
+    cards_worth,
+    split_card,
+)
 from .utils import pairwise
 
 # the longest possible play: a count of 31 cannot be exceeded
 MAX_PLAY_LENGTH = 13
 
 
-def _check_cards(cards):
+def _check_cards(cards: Sequence[Card]) -> None:
     """
     Raises ValueError unless `cards` are distinct card values in [0, 51].
     """
@@ -28,7 +37,12 @@ def _check_cards(cards):
         raise ValueError(f"duplicate cards: {list(cards)!r}")
 
 
-def score_hand(hand, draw=None, crib=False, verbose=False):
+def score_hand(
+    hand: Hand,
+    draw: Card | None = None,
+    crib: bool = False,
+    verbose: bool = False,
+) -> int:
     """
     Scores a Cribbage hand.
 
@@ -55,10 +69,12 @@ def score_hand(hand, draw=None, crib=False, verbose=False):
     # score runs
     # sorted_faces = sorted(face_values)
     face_counts = Counter(face_values)
-    sorted_uniq_faces = sorted(face_counts.keys()) + [None]
+    sorted_uniq_faces: list[int | None] = [*sorted(face_counts.keys()), None]
     # a run is a contiguous
-    run_begin = None
+    run_begin: int | None = None
     for last_v, this_v in pairwise(sorted_uniq_faces):
+        # only the second item of a pair can be the None sentinel
+        assert last_v is not None
         if this_v == last_v + 1:
             if run_begin is None:
                 run_begin = last_v
@@ -126,7 +142,7 @@ def score_hand(hand, draw=None, crib=False, verbose=False):
     return score
 
 
-def is_legal_play(card, linear_play):
+def is_legal_play(card: Card, linear_play: Sequence[Card]) -> bool:
     """
     Tests whether the given card value is a legal play in a game of
     cribbage, assuming that the cards in `linear_play` have previously
@@ -141,7 +157,7 @@ def is_legal_play(card, linear_play):
     return lp_score + c_score <= 31
 
 
-def get_legal_play_idxs(hand, linear_play):
+def get_legal_play_idxs(hand: Sequence[Card], linear_play: Sequence[Card]) -> list[int]:
     """
     Faster version of is_legal_play for finding legal plays in a hand.
 
@@ -153,7 +169,7 @@ def get_legal_play_idxs(hand, linear_play):
     return [idx for idx, card in enumerate(hand) if card_worth(card) + lp_score <= 31]
 
 
-def score_play(linear_play, verbose=False):
+def score_play(linear_play: Sequence[Card], verbose: bool = False) -> int:
     """
     Scores the last play in a game.
 

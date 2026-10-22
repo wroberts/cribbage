@@ -8,6 +8,7 @@ An object representing a game of cribbage between two CribbagePlayers.
 """
 
 import random
+from cribbage.player import CribbagePlayer
 from cribbage.round import Round
 
 
@@ -17,7 +18,7 @@ class Game:
     CribbagePlayers.
     """
 
-    def __init__(self, players):
+    def __init__(self, players: list[CribbagePlayer]) -> None:
         """
         Constructor.
 
@@ -35,13 +36,13 @@ class Game:
         # a flag to cache the game state
         self.over = False
         # indicates the index of the player that won
-        self.winner = None
+        self.winner: int | None = None
         # a game consists of a series of Round objects
-        self.rounds = []
+        self.rounds: list[Round] = []
         # the last one in the series is called the current_round
-        self.current_round = None
+        self.current_round: Round | None = None
 
-    def play_round(self, verbose=False):
+    def play_round(self, verbose: bool = False) -> bool:
         """
         Executes a single round of cribbage.
 
@@ -74,7 +75,7 @@ class Game:
             player.game_over(player_idx == self.winner)
         return False
 
-    def play(self, verbose=False):
+    def play(self, verbose: bool = False) -> None:
         """
         Plays through the whole game of cribbage until it is over.
         """
@@ -82,7 +83,9 @@ class Game:
             if verbose:
                 print("New round")
 
-    def award_points(self, player_idx, num_points, verbose=False):
+    def award_points(
+        self, player_idx: int, num_points: int, verbose: bool = False
+    ) -> bool:
         """
         Awards `num_points` to player `player_idx`.
 
@@ -115,7 +118,7 @@ class Game:
         return True
 
 
-def compare_players(players, num_games=1000):
+def compare_players(players: list[CribbagePlayer], num_games: int = 1000) -> list[int]:
     """
     Utility function to compare two player objects.
 
@@ -131,5 +134,7 @@ def compare_players(players, num_games=1000):
     for _idx in range(num_games):
         game = Game(players)
         game.play()
+        # a finished game always has a winner
+        assert game.winner is not None
         stats[game.winner] += 1
     return stats

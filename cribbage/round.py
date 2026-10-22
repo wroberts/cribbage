@@ -8,8 +8,15 @@ An object representing a single round in a game of cribbage between
 two CribbagePlayers.
 """
 
+from __future__ import annotations
+
 import random
-from cribbage.cards import card_tostring, make_deck, split_card
+from typing import TYPE_CHECKING
+from cribbage.cards import Card, Hand, card_tostring, make_deck, split_card
+from cribbage.player import CribbagePlayer
+
+if TYPE_CHECKING:
+    from cribbage.game import Game
 
 try:
     from cribbage._cribbage_score import (
@@ -34,7 +41,9 @@ class Round:
     A single round of cribbage in a game between two CribbagePlayers.
     """
 
-    def __init__(self, game, players, dealer_idx):
+    def __init__(
+        self, game: Game, players: list[CribbagePlayer], dealer_idx: int
+    ) -> None:
         """
         Constructor.
 
@@ -46,29 +55,29 @@ class Round:
         self.players = players
         self.dealer_idx = dealer_idx
         # the deck of the current game round
-        self.deck = None
+        self.deck: list[Card] = []
         # the hands of the two players during the current game round
-        self.hands = None
+        self.hands: list[Hand] = []
         # copy of self.hands directly after the deal
-        self.dealt_hands = None
+        self.dealt_hands: list[Hand] = []
         # copy of self.hands directly after discarding, before play
-        self.kept_hands = None
+        self.kept_hands: list[Hand] = []
         # the crib of the current game round
-        self.crib = None
+        self.crib: Hand = []
         # the card value of the "starter" or "cut" card for the
         # current game round
-        self.starter_card = None
+        self.starter_card: Card = -1
         # the player whose turn it currently is to play a card
-        self.turn_idx = None
+        self.turn_idx = 0
         # the array of cards that have been played already during the
         # current game round by the two players, linearised into
         # a single list, based on the time that the cards were played
-        self.linear_play = None
+        self.linear_play: list[Card] = []
         # during a round, we keep track of the last_player
-        self.last_player = None
+        self.last_player: int | None = None
         # the set of all cards that have been "seen" by both players
         # during this round, used for counting cards
-        self.played_cards = set()
+        self.played_cards: set[Card] = set()
         # a flag that indicates whether the current sequence of the
         # current game round has gone to "Go" or not
         self.is_go = False
@@ -76,7 +85,7 @@ class Round:
         # during the current sequence of the current game round
         self.flag_31 = False
 
-    def deal(self, verbose=False):
+    def deal(self, verbose: bool = False) -> bool:
         """
         Shuffles and deals the cards for a single round of cribbage.
 
@@ -128,9 +137,9 @@ class Round:
             # sanity checking
             assert len(set(discard_idxs)) == 2
             assert all(0 <= i < 6 for i in discard_idxs)
-            discard_idxs = set(discard_idxs)
+            discard_set = set(discard_idxs)
             discards = [
-                c for i, c in enumerate(self.hands[player_idx]) if i in discard_idxs
+                c for i, c in enumerate(self.hands[player_idx]) if i in discard_set
             ]
             if verbose:
                 print(
@@ -139,7 +148,7 @@ class Round:
                 )
             self.crib.extend(discards)
             self.hands[player_idx] = [
-                c for i, c in enumerate(self.hands[player_idx]) if i not in discard_idxs
+                c for i, c in enumerate(self.hands[player_idx]) if i not in discard_set
             ]
         # copy self.hands after discarding
         self.kept_hands = [x[:] for x in self.hands]
@@ -160,7 +169,7 @@ class Round:
         self.played_cards.add(self.starter_card)
         return True
 
-    def play(self, verbose=False):
+    def play(self, verbose: bool = False) -> bool:
         """
         Plays out cards (pegging) for a single round of cribbage.
 
@@ -239,6 +248,7 @@ class Round:
             # 31
             if (self.is_go and not legal_moves) or self.flag_31:
                 # then last_player gets awarded 1 or 2 points, and we restart the sequence
+                assert self.last_player is not None
                 if self.flag_31:
                     if not self.game.award_points(self.last_player, 2, verbose=verbose):
                         return False
@@ -346,7 +356,7 @@ class Round:
 
         return True
 
-    def show(self, verbose=False):
+    def show(self, verbose: bool = False) -> bool:
         """
         Scores all hands after a round of cribbage.
 
@@ -425,7 +435,7 @@ class Round:
 
         return True
 
-    def print_state(self):
+    def print_state(self) -> None:
         """Print a representation of the current round state to stdout."""
         for idx in range(2):
             print(

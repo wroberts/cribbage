@@ -6,6 +6,7 @@ player.py
 
 Abstract base class for a cribbage player.
 """
+from cribbage.cards import Card, Hand
 
 
 class CribbagePlayer:
@@ -13,11 +14,17 @@ class CribbagePlayer:
     Abstract base class for an object that plays a game of cribbage.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Constructor."""
         pass
 
-    def discard(self, is_dealer, hand, player_score, opponent_score):
+    def discard(
+        self,
+        is_dealer: bool,
+        hand: Hand,
+        player_score: int,
+        opponent_score: int,
+    ) -> list[int]:
         """
         Asks the player to select two cards from `hand` for discarding to
         the crib.
@@ -35,15 +42,15 @@ class CribbagePlayer:
 
     def play_card(
         self,
-        is_dealer,
-        hand,
-        played_cards,
-        is_go,
-        linear_play,
-        player_score,
-        opponent_score,
-        legal_moves,
-    ):
+        is_dealer: bool,
+        hand: Hand,
+        played_cards: set[Card],
+        is_go: bool,
+        linear_play: list[Card],
+        player_score: int,
+        opponent_score: int,
+        legal_moves: list[int],
+    ) -> int:
         """
         Asks the player to select one card from `hand` to play during a
         cribbage round.
@@ -68,13 +75,13 @@ class CribbagePlayer:
         """
         raise NotImplementedError()
 
-    def round_over(self):
+    def round_over(self) -> None:
         """
         Notification that the current round is over.
         """
         pass
 
-    def game_over(self, has_won):
+    def game_over(self, has_won: bool) -> None:
         """
         Notification that the current game is over.  The argument to the
         function is a flag indicating if this player won or not.

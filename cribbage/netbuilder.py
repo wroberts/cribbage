@@ -8,12 +8,16 @@ Declarative description language for producing persistent neural
 network models.
 """
 
+from __future__ import annotations
+
 import itertools
 import json
 import logging
 import os
 import sys
 import time
+from collections.abc import Callable, Iterable, Iterator
+from typing import Any
 from cribbage.utils import grouped, mkdir_p, open_atomic
 import lasagne
 import numpy as np
@@ -35,7 +39,7 @@ class ModelStore:
     disk.
     """
 
-    def __init__(self, path, ensure_exists=False):
+    def __init__(self, path: str, ensure_exists: bool = False) -> None:
         """
         Constructor.
 
@@ -48,16 +52,16 @@ class ModelStore:
         if ensure_exists:
             self.ensure_exists()
 
-    def ensure_exists(self):
+    def ensure_exists(self) -> None:
         """Ensure the directory used by this ModelStore exists."""
         mkdir_p(self.abs_path)
 
     @property
-    def abs_path(self):
+    def abs_path(self) -> str:
         """Get this ModelStore's absolute path."""
         return os.path.abspath(self.path)
 
-    def join(self, path):
+    def join(self, path: str) -> str:
         """Returns the absolute path of the location `path` inside this store."""
         return os.path.join(self.abs_path, path)
 
@@ -96,14 +100,16 @@ UPDATE_NAMES = {
 }
 
 
-def make_input_scaler(mean, std):
+def make_input_scaler(
+    mean: np.ndarray, std: np.ndarray
+) -> Callable[[np.ndarray], np.ndarray]:
     """
     Return a function which can scale an input vector (or array of
     input vectors) to a normal distribution, given the population mean
     and standard deviation.
     """
 
-    def input_scaler(inputs):
+    def input_scaler(inputs: np.ndarray) -> np.ndarray:
         """Zero-centre and normalise a matrix of inputs."""
         return (inputs - mean) / std
 
@@ -113,25 +119,25 @@ def make_input_scaler(mean, std):
 class NetworkWrapper:
     """An object which wraps a Lasagne feedforward neural network."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Constructor."""
         self.objective_name = "squared_error"
         self.update_name = "adadelta"
         # update parameters, e.g., learning rate, for training
-        self.update_args_value = {}
-        # this variable holds the actual neural network
-        self._network = None
+        self.update_args_value: dict[str, Any] = {}
+        # this variable holds the actual neural network (a Lasagne layer)
+        self._network: Any = None
         # functions which can scale the input and output of the network
-        self.input_scaler_fn = None
-        self.output_scaler_fn = None
+        self.input_scaler_fn: Callable[[np.ndarray], np.ndarray] | None = None
+        self.output_scaler_fn: Callable[[np.ndarray], np.ndarray] | None = None
         # pointers to compiled theano functions
-        self.train_fn = None
-        self.validation_fn = None
-        self.output_fn = None
-        self.update_mags_fn = None
-        self.param_mags_fn = None
+        self.train_fn: Any = None
+        self.validation_fn: Any = None
+        self.output_fn: Any = None
+        self.update_mags_fn: Any = None
+        self.param_mags_fn: Any = None
 
-    def _build_network(self, network_arch):
+    def _build_network(self, network_arch: list[dict[str, Any]]) -> None:
         """
         Builds the Lasagne network for this object from the description in
         `network_arch`.
@@ -167,7 +173,7 @@ class NetworkWrapper:
                     )
 
     @property
-    def network_layers(self):
+    def network_layers(self) -> dict[str, Any]:
         """
         Returns a dictionary mapping layer names to lasagne Layer objects.
         """
@@ -177,7 +183,7 @@ class NetworkWrapper:
             if layer.name is not None
         )
 
-    def load_params(self, filename):
+    def load_params(self, filename: str) -> None:
         """
         Loads network parameters (weight matrices) from the given numpy
         .npz file into this object's neural network.
@@ -191,7 +197,7 @@ class NetworkWrapper:
             ]
         lasagne.layers.set_all_param_values(self._network, param_values)
 
-    def get_layer(self, layer_name):
+    def get_layer(self, layer_name: str) -> Any:
         """
         Returns the lasagne Layer from this objects's neural network with
         the given name.
@@ -201,7 +207,7 @@ class NetworkWrapper:
         """
         return self.network_layers[layer_name]
 
-    def set_weights(self, layer_name, values):
+    def set_weights(self, layer_name: str, values: list[np.ndarray]) -> None:
         """
         Sets the weight parameters (weight matrix and bias) on the given
         layer of this network to the values given.
@@ -216,7 +222,7 @@ class NetworkWrapper:
             assert value.shape == param.get_value().shape
             param.set_value(value)
 
-    def get_weights(self, layer_name):
+    def get_weights(self, layer_name: str) -> list[np.ndarray]:
         """
         Returns the weight parameters (weight matrix and bias) for the
         given layer of this network.
@@ -226,7 +232,7 @@ class NetworkWrapper:
         """
         return [param.get_value() for param in self.get_layer(layer_name).get_params()]
 
-    def objective(self, objective_fn):
+    def objective(self, objective_fn: str) -> None:
         """
         Sets the objective function used for training.  This defaults to
         'squared_error'.
@@ -236,7 +242,7 @@ class NetworkWrapper:
         """
         self.objective_name = objective_fn
 
-    def update(self, update_fn):
+    def update(self, update_fn: str) -> None:
         """
         Sets the update method used for training.  This defaults to
         'adadelta'.
@@ -246,7 +252,7 @@ class NetworkWrapper:
         """
         self.update_name = update_fn
 
-    def update_args(self, params):
+    def update_args(self, params: dict[str, Any]) -> None:
         """
         Sets update params (e.g., the learning rate) to use for training.
 
@@ -255,15 +261,15 @@ class NetworkWrapper:
         """
         self.update_args_value = params
 
-    def input_scaler(self, scaler_fn):
+    def input_scaler(self, scaler_fn: Callable[[np.ndarray], np.ndarray]) -> None:
         """Sets a function which scales the network inputs."""
         self.input_scaler_fn = scaler_fn
 
-    def output_scaler(self, scaler_fn):
+    def output_scaler(self, scaler_fn: Callable[[np.ndarray], np.ndarray]) -> None:
         """Sets a function which scales the network outputs."""
         self.output_scaler_fn = scaler_fn
 
-    def get_theano_functions(self):
+    def get_theano_functions(self) -> tuple[Any, Any, Any, Any, Any]:
         """
         Returns pointers to compiled theano functions using this Model's
         network.
@@ -327,7 +333,7 @@ class NetworkWrapper:
             self.param_mags_fn,
         )
 
-    def compute(self, inputs):
+    def compute(self, inputs: np.ndarray) -> np.ndarray:
         """
         Runs the given inputs through the neural network and returns the
         output.
@@ -349,7 +355,7 @@ class Model(NetworkWrapper):
 
     MAX_VALIDATION_SET_SIZE = 10000
 
-    def __init__(self, store, model_name):
+    def __init__(self, store: ModelStore | str, model_name: str) -> None:
         """
         Constructor
 
@@ -369,32 +375,32 @@ class Model(NetworkWrapper):
         # this is a tuple of (np.array, np.array) representing inputs
         # and outputs; if it is not None, it is used between
         # minibatches to compute validation
-        self.validation_set = None
+        self.validation_set: tuple[np.ndarray, np.ndarray] | None = None
         # if not None, this function is passed this object to compute
         # a validation statistic
-        self.use_validation_routine = None
+        self.use_validation_routine: Callable[[Model], float | None] | None = None
         # these are iterables of np.array values representing inputs
         # and outputs; if not None, they are used for training
-        self.training_inputs = None
-        self.training_outputs = None
+        self.training_inputs: Iterable[Any] | None = None
+        self.training_outputs: Iterable[Any] | None = None
         # this value is set to a positive integer (length of training
         # set) if the training set for this Model is of finite size;
         # it is set to False otherwise
-        self.finite_training_set = False
+        self.finite_training_set: int | bool = False
         # minibatch size; if this is not None, training (input,
         # output) pairs are grouped into blocks of this size during
         # training
-        self.minibatch_size_value = None
+        self.minibatch_size_value: int | None = None
         # training length
         # number of minibatches to train; if this is not None,
         # training stops after this many minibatches have been seen
-        self.use_max_num_minibatches = None
+        self.use_max_num_minibatches: int | None = None
         # number of epochs to train; if this is not None, training
         # stops after this many loops through the training set.  only
         # use if training set is of finite size.
-        self.use_max_num_epochs = None
+        self.use_max_num_epochs: int | None = None
         # metadata dictionary for this Model
-        self.metadata = None
+        self.metadata: dict[str, Any] = {}
         # is the network architecture specified by the metadata file?
         self.arch_frozen = False
         # are the network's weights loaded from a snapshot?
@@ -410,7 +416,7 @@ class Model(NetworkWrapper):
         self.arch_desc_complete = False
         # dictionary containing arbitrary values to be saved to the
         # snapshot
-        self.extra_snapshot_dict = None
+        self.extra_snapshot_dict: dict[str, Any] | None = None
         # load metadata if possible
         self.ensure_exists()
         try:
@@ -436,20 +442,20 @@ class Model(NetworkWrapper):
             self.save_metadata()
 
     @property
-    def model_path(self):
+    def model_path(self) -> str:
         """Get the path where this Model's files are stored."""
         return os.path.join(self.store.abs_path, self.model_name)
 
-    def ensure_exists(self):
+    def ensure_exists(self) -> None:
         """Ensure the directory used by this Model exists."""
         mkdir_p(self.model_path)
 
     @property
-    def metadata_filename(self):
+    def metadata_filename(self) -> str:
         """Get this Model's metadata filename."""
         return os.path.join(self.model_path, "metadata.json")
 
-    def load_metadata(self):
+    def load_metadata(self) -> None:
         """Loads metadata for this Model from disk."""
         with open(self.metadata_filename, "rb") as input_file:
             self.metadata = json.loads(input_file.read().decode("utf-8"))
@@ -457,7 +463,7 @@ class Model(NetworkWrapper):
         self.update_name = self.metadata["update_name"]
         self.update_args_value = self.metadata["update_args_value"]
 
-    def save_metadata(self):
+    def save_metadata(self) -> None:
         """Saves metadata for this Model to disk."""
         self.metadata["objective_name"] = self.objective_name
         self.metadata["update_name"] = self.update_name
@@ -466,14 +472,14 @@ class Model(NetworkWrapper):
             output_file.write(json.dumps(self.metadata, indent=4))
 
     @property
-    def best_validation_error(self):
+    def best_validation_error(self) -> NetworkWrapper:
         """
         Property accessor: shortcut for Model.load_snapshot('best_validation')
         """
         return self.load_snapshot("best_validation")
 
     @property
-    def num_minibatches(self):
+    def num_minibatches(self) -> int:
         """
         Property accessor: shortcut for Model.metadata['num_minibatches'].
         """
@@ -481,7 +487,7 @@ class Model(NetworkWrapper):
             return self.metadata["num_minibatches"]
         return 0
 
-    def input(self, input_size, dropout=None):
+    def input(self, input_size: int, dropout: float | None = None) -> None:
         """
         Creates an input layer of the given size.
 
@@ -507,7 +513,12 @@ class Model(NetworkWrapper):
                 {"layer": "input", "size": input_size, "dropout": dropout}
             )
 
-    def hidden(self, hidden_size, activation="sigmoid", dropout=None):
+    def hidden(
+        self,
+        hidden_size: int,
+        activation: str = "sigmoid",
+        dropout: float | None = None,
+    ) -> None:
         """
         Creates a hidden layer of the given size.
 
@@ -541,7 +552,7 @@ class Model(NetworkWrapper):
                 }
             )
 
-    def output(self, output_size, activation="sigmoid"):
+    def output(self, output_size: int, activation: str = "sigmoid") -> None:
         """
         Creates an output layer of the given size.
 
@@ -569,7 +580,7 @@ class Model(NetworkWrapper):
         self.arch_desc_complete = True
 
     @property
-    def network(self):
+    def network(self) -> Any:
         """Returns this Model's neural network object."""
         if not self._network:
             assert "architecture" in self.metadata
@@ -577,7 +588,7 @@ class Model(NetworkWrapper):
         return self._network
 
     @property
-    def network_layers(self):
+    def network_layers(self) -> dict[str, Any]:
         """
         Returns a dictionary mapping layer names to lasagne Layer objects.
         """
@@ -587,7 +598,7 @@ class Model(NetworkWrapper):
             if layer.name is not None
         )
 
-    def set_weights(self, layer_name, values):
+    def set_weights(self, layer_name: str, values: list[np.ndarray]) -> None:
         """
         Sets the weight parameters (weight matrix and bias) on the given
         layer of this network to the values given.
@@ -605,7 +616,7 @@ class Model(NetworkWrapper):
         else:
             super().set_weights(layer_name, values)
 
-    def get_theano_functions(self):
+    def get_theano_functions(self) -> tuple[Any, Any, Any, Any, Any]:
         """
         Returns pointers to compiled theano functions using this Model's
         network.
@@ -615,7 +626,7 @@ class Model(NetworkWrapper):
         _nw = self.network  # force build network
         return super().get_theano_functions()
 
-    def extra_snapshot(self, extra_snapshot_dict):
+    def extra_snapshot(self, extra_snapshot_dict: dict[str, Any]) -> None:
         """
         Stores arbitrary values into this Model's snapshots during
         training.
@@ -627,8 +638,13 @@ class Model(NetworkWrapper):
         self.extra_snapshot_dict = extra_snapshot_dict
 
     def save_snapshot(
-        self, train_err, validation_err, elapsed_time, update_mags, param_mags
-    ):
+        self,
+        train_err: float,
+        validation_err: float | None,
+        elapsed_time: float,
+        update_mags: np.ndarray,
+        param_mags: np.ndarray,
+    ) -> None:
         """
         Saves a snapshot of this Model's network to disk.  Also records
         metadata about the snapshot, such as training and validation
@@ -675,7 +691,7 @@ class Model(NetworkWrapper):
                     snapshot[k] = self.extra_snapshot_dict[k]
         self.save_metadata()
 
-    def load_snapshot(self, snapshot_id):
+    def load_snapshot(self, snapshot_id: int | str) -> NetworkWrapper:
         """
         Loads a previously saved snapshot of this Model and returns it.
 
@@ -728,7 +744,10 @@ class Model(NetworkWrapper):
         snapshot.load_params(os.path.join(self.model_path, snapshot_filename))
         return snapshot
 
-    def validation(self, validation_set):
+    def validation(
+        self,
+        validation_set: tuple[Iterable[Any], Iterable[Any]] | Iterable[tuple[Any, Any]],
+    ) -> None:
         """
         Sets the validation set used for validation during training.
 
@@ -763,7 +782,9 @@ class Model(NetworkWrapper):
             outputs = np.array([o for (i, o) in validation_set])
             self.validation_set = (inputs, outputs)
 
-    def validation_routine(self, validation_routine):
+    def validation_routine(
+        self, validation_routine: Callable[[Model], float | None]
+    ) -> None:
         """
         Sets the validation function used for validation during training.
         The argument should be a function which, when passed this
@@ -774,7 +795,10 @@ class Model(NetworkWrapper):
         """
         self.use_validation_routine = validation_routine
 
-    def training(self, training_set):
+    def training(
+        self,
+        training_set: tuple[Iterable[Any], Iterable[Any]] | Iterable[tuple[Any, Any]],
+    ) -> None:
         """
         Sets the training set used for training.
 
@@ -786,7 +810,7 @@ class Model(NetworkWrapper):
             self.training_inputs, self.training_outputs = training_set
             # try to detect if the training set is finite or not
             try:
-                self.finite_training_set = len(self.training_inputs)
+                self.finite_training_set = len(self.training_inputs)  # type: ignore[arg-type]
             except TypeError:
                 self.finite_training_set = False
         else:
@@ -797,14 +821,14 @@ class Model(NetworkWrapper):
             #
             # try to detect if the training set is finite or not
             try:
-                self.finite_training_set = len(training_set)
+                self.finite_training_set = len(training_set)  # type: ignore[arg-type]
             except TypeError:
                 self.finite_training_set = False
             inputs, outputs = itertools.tee(training_set)
             self.training_inputs = (i for (i, o) in inputs)
             self.training_outputs = (o for (i, o) in outputs)
 
-    def minibatch_size(self, minibatch_size):
+    def minibatch_size(self, minibatch_size: int) -> None:
         """
         Sets the size of minibatches to use for training.
 
@@ -813,7 +837,7 @@ class Model(NetworkWrapper):
         """
         self.minibatch_size_value = minibatch_size
 
-    def max_num_minibatches(self, max_num_minibatches):
+    def max_num_minibatches(self, max_num_minibatches: int) -> None:
         """
         Configures how long training should run for.  Useful if the
         training set is infinitely long.
@@ -823,7 +847,7 @@ class Model(NetworkWrapper):
         """
         self.use_max_num_minibatches = max_num_minibatches
 
-    def max_num_epochs(self, max_num_epochs):
+    def max_num_epochs(self, max_num_epochs: int) -> None:
         """
         Configures how long training should run for, if the training set
         is of finite length.
@@ -834,7 +858,7 @@ class Model(NetworkWrapper):
         self.use_max_num_epochs = max_num_epochs
 
 
-def minibatcher(num, iterable):
+def minibatcher(num: int, iterable: Iterable[Any]) -> Iterator[np.ndarray]:
     """
     Wraps a `grouped` generator around `iterable` and then returns the
     result inside a numpy array.
@@ -847,7 +871,11 @@ def minibatcher(num, iterable):
         yield np.array(item)
 
 
-def build(model, max_num_epochs=None, max_num_minibatches=None):
+def build(
+    model: Model,
+    max_num_epochs: int | None = None,
+    max_num_minibatches: int | None = None,
+) -> None:
     """
     Builds a model and trains it up until its training criterion is
     satisfied.
@@ -897,7 +925,7 @@ def build(model, max_num_epochs=None, max_num_minibatches=None):
     for epoch in range(max_num_epochs):
         # training loop
         start_time = time.time()
-        train_err = 0
+        train_err: float = 0
         for input_minibatch, output_minibatch in zip(
             minibatcher_fn(model.training_inputs),
             minibatcher_fn(model.training_outputs),

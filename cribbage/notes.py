@@ -54,7 +54,7 @@ print("Simple vs. simple (only discard):", stats)
 # [325, 175]
 
 
-def myfunc():
+def myfunc() -> None:
     stats = compare_players(
         [SimpleCribbagePlayer(), SimpleCribbagePlayer(estimate_playcard=False)], 100
     )

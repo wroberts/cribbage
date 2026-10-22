@@ -12,7 +12,9 @@ for inspiration.
 """
 
 import random
-from cribbage.cards import split_card
+from collections.abc import Iterable
+from typing import Any
+from cribbage.cards import Card, Hand, split_card
 
 try:
     from cribbage._cribbage_score import is_legal_play
@@ -22,11 +24,15 @@ from cribbage.game import Game
 from cribbage.player import CribbagePlayer
 import numpy as np
 
+# an (s,a,r,s2) tuple, as stored in the replay memory of a Q-learner; the
+# final state s2 is None when the action ended the episode
+Sars = tuple[np.ndarray, Any, float, np.ndarray | None]
+
 # ------------------------------------------------------------
 # Utility functions
 
 
-def one_hot(vec, start_offset, value):
+def one_hot(vec: np.ndarray, start_offset: int, value: int) -> None:
     """
     One hot encodes `value` into `vec`, using the range of vector
     positions between `start_offset` and `start_offset` + `max_value`,
@@ -40,7 +46,7 @@ def one_hot(vec, start_offset, value):
     vec[start_offset + value] = 1
 
 
-def encode_categories(vec, start_offset, values):
+def encode_categories(vec: np.ndarray, start_offset: int, values: Iterable[int]) -> None:
     """
     One-hot encoding of multiple values (in `values`) into `vec`.
 
@@ -62,7 +68,13 @@ def encode_categories(vec, start_offset, values):
 # other player's score: 121 units
 
 
-def discard_state_repr(is_dealer, hand, crib, player_score, opponent_score):
+def discard_state_repr(
+    is_dealer: bool,
+    hand: Hand,
+    crib: Card | None,
+    player_score: int,
+    opponent_score: int,
+) -> np.ndarray:
     """
     Constructs a vector representation of a discard state.
 
@@ -100,8 +112,14 @@ def discard_state_repr(is_dealer, hand, crib, player_score, opponent_score):
 
 
 def play_state_repr(
-    is_dealer, hand, played_cards, is_go, linear_play, player_score, opponent_score
-):
+    is_dealer: bool,
+    hand: Hand,
+    played_cards: set[Card],
+    is_go: bool,
+    linear_play: list[Card],
+    player_score: int,
+    opponent_score: int,
+) -> np.ndarray:
     """
     Constructs a vector representation of a play_card state.
 
@@ -127,7 +145,7 @@ def play_state_repr(
     return retval
 
 
-def play_action_repr(play_card):
+def play_action_repr(play_card: Card) -> np.ndarray:
     """
     Constructs a vector representation of a play_card action.
 
@@ -148,18 +166,18 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
     A CribbagePlayer wrapper that records the game states it observes.
     """
 
-    def __init__(self, player):
+    def __init__(self, player: CribbagePlayer) -> None:
         """Constructor."""
         super().__init__()
         self.player = player
-        self.last_discard_state = None
-        self.last_discard_action = None
-        self.discard_states = []
-        self.last_play_card_state = None
-        self.last_play_card_action = None
-        self.play_card_states = []
+        self.last_discard_state: np.ndarray | None = None
+        self.last_discard_action: Any = None
+        self.discard_states: list[Sars] = []
+        self.last_play_card_state: np.ndarray | None = None
+        self.last_play_card_action: Any = None
+        self.play_card_states: list[Sars] = []
 
-    def reset(self):
+    def reset(self) -> None:
         """
         Resets this player's internal state record lists.
         """
@@ -170,7 +188,9 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
         self.last_play_card_action = None
         self.play_card_states = []
 
-    def record_discard_state(self, reward, state, action):
+    def record_discard_state(
+        self, reward: float, state: np.ndarray | None, action: Any
+    ) -> None:
         """
         Appends a (s,a,r,s) tuple onto this player's discard_states list.
 
@@ -186,7 +206,13 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
         self.last_discard_state = state
         self.last_discard_action = action
 
-    def discard(self, is_dealer, hand, player_score, opponent_score):
+    def discard(
+        self,
+        is_dealer: bool,
+        hand: Hand,
+        player_score: int,
+        opponent_score: int,
+    ) -> list[int]:
         """
         Asks the player to select two cards from `hand` for discarding to
         the crib.
@@ -228,7 +254,9 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
         self.record_discard_state(0, state, action)
         return discard_idxs
 
-    def record_play_card_state(self, reward, state, action):
+    def record_play_card_state(
+        self, reward: float, state: np.ndarray | None, action: Any
+    ) -> None:
         """
         Appends a play_card (s,a,r,s) tuple onto this player's
         play_card_states list.
@@ -247,15 +275,15 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
 
     def play_card(
         self,
-        is_dealer,
-        hand,
-        played_cards,
-        is_go,
-        linear_play,
-        player_score,
-        opponent_score,
-        legal_moves,
-    ):
+        is_dealer: bool,
+        hand: Hand,
+        played_cards: set[Card],
+        is_go: bool,
+        linear_play: list[Card],
+        player_score: int,
+        opponent_score: int,
+        legal_moves: list[int],
+    ) -> int:
         """
         Asks the player to select one card from `hand` to play during a
         cribbage round.
@@ -307,13 +335,13 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
         self.record_play_card_state(0, state, action)
         return play_idx
 
-    def round_over(self):
+    def round_over(self) -> None:
         """
         Notification that the current round is over.
         """
         self.player.round_over()
 
-    def game_over(self, has_won):
+    def game_over(self, has_won: bool) -> None:
         """
         Notification that the current game is over.  The argument to the
         function is a flag indicating if this player won or not.
@@ -326,7 +354,9 @@ class NeuralRecordingCribbagePlayer(CribbagePlayer):
         self.player.game_over(has_won)
 
 
-def record_player1_states(player1, player2):
+def record_player1_states(
+    player1: CribbagePlayer, player2: CribbagePlayer
+) -> tuple[list[Sars], list[Sars]]:
     """
     Plays a single game of cribbage between player1 and player2.
 
@@ -338,13 +368,15 @@ def record_player1_states(player1, player2):
     - `player2`:
     """
     # wrap player1 object in a recorder
-    player1 = NeuralRecordingCribbagePlayer(player1)
-    game = Game([player1, player2])
+    recorder = NeuralRecordingCribbagePlayer(player1)
+    game = Game([recorder, player2])
     game.play()
-    return (player1.discard_states, player1.play_card_states)
+    return (recorder.discard_states, recorder.play_card_states)
 
 
-def record_both_player_states(player1, player2):
+def record_both_player_states(
+    player1: CribbagePlayer, player2: CribbagePlayer
+) -> tuple[list[Sars], list[Sars], list[Sars], list[Sars]]:
     """
     Plays a single game of cribbage between player1 and player2.
 
@@ -357,13 +389,13 @@ def record_both_player_states(player1, player2):
     - `player2`:
     """
     # wrap player objects in recorders
-    player1 = NeuralRecordingCribbagePlayer(player1)
-    player2 = NeuralRecordingCribbagePlayer(player2)
-    game = Game([player1, player2])
+    recorder1 = NeuralRecordingCribbagePlayer(player1)
+    recorder2 = NeuralRecordingCribbagePlayer(player2)
+    game = Game([recorder1, recorder2])
     game.play()
     return (
-        player1.discard_states,
-        player1.play_card_states,
-        player2.discard_states,
-        player2.play_card_states,
+        recorder1.discard_states,
+        recorder1.play_card_states,
+        recorder2.discard_states,
+        recorder2.play_card_states,
     )

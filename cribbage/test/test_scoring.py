@@ -24,6 +24,11 @@ from cribbage._cribbage_score import card_worth as c_card_worth
 from cribbage._cribbage_score import cards_worth as c_cards_worth
 
 
+# set by explore_score_hand, for poking at from an interactive session
+hand: list[int]
+draw: int
+
+
 def explore_score_hand():
     """Utility function to test the score_hand method."""
     global hand, draw
@@ -236,8 +241,8 @@ def test_score_play():
         ("AS 2S 3S 4S 5S 6S", 6),
         ("AS 2S 3S 4S 5S 6S 7S", 7),
     ]
-    for cards, score in EXAMPLE_PLAYS:
-        cards = [string_tocard(card) for card in cards.split()]
+    for card_str, score in EXAMPLE_PLAYS:
+        cards = [string_tocard(card) for card in card_str.split()]
         assert score_play(cards) == score
         assert c_score_play(cards) == score
 
@@ -374,8 +379,8 @@ def test_score_play_special_cases():
         ("AS AH AD 2S 2H 2D 3S 8S", 0),  # 8-card span with duplicates
         ("AS AH AD AC 2S 2H 2D 2C 3S 3H 3D 3C 4S", None),
     ]
-    for cards, score in CASES:
-        cards = [string_tocard(card) for card in cards.split()]
+    for card_str, score in CASES:
+        cards = [string_tocard(card) for card in card_str.split()]
         expected = ref_score_play(cards) if score is None else score
         assert ref_score_play(cards) == expected
         assert score_play(cards) == expected

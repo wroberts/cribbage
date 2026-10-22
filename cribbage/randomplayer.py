@@ -8,6 +8,7 @@ A CribbagePlayer that always makes a random move.
 """
 
 import random
+from cribbage.cards import Card, Hand
 from cribbage.player import CribbagePlayer
 
 
@@ -16,11 +17,17 @@ class RandomCribbagePlayer(CribbagePlayer):
 
     def __init__(
         self,
-    ):
+    ) -> None:
         """Constructor."""
         super().__init__()
 
-    def discard(self, is_dealer, hand, player_score, opponent_score):
+    def discard(
+        self,
+        is_dealer: bool,
+        hand: Hand,
+        player_score: int,
+        opponent_score: int,
+    ) -> list[int]:
         """
         Asks the player to select two cards from `hand` for discarding to
         the crib.
@@ -38,15 +45,15 @@ class RandomCribbagePlayer(CribbagePlayer):
 
     def play_card(
         self,
-        is_dealer,
-        hand,
-        played_cards,
-        is_go,
-        linear_play,
-        player_score,
-        opponent_score,
-        legal_moves,
-    ):
+        is_dealer: bool,
+        hand: Hand,
+        played_cards: set[Card],
+        is_go: bool,
+        linear_play: list[Card],
+        player_score: int,
+        opponent_score: int,
+        legal_moves: list[int],
+    ) -> int:
         """
         Asks the player to select one card from `hand` to play during a
         cribbage round.

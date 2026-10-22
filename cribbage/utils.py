@@ -7,6 +7,7 @@ utils.py
 Utility functions.
 """
 
+from collections.abc import Callable, Generator, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from functools import wraps
 import errno
@@ -14,24 +15,27 @@ import itertools
 import os
 import random
 import tempfile
+from typing import IO, Any, TypeVar
 import numpy as np
 
+T = TypeVar("T")
 
-def pairwise(iterable):
+
+def pairwise(iterable: Iterable[T]) -> Iterator[tuple[T, T]]:
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
     iter1, iter2 = itertools.tee(iterable)
     next(iter2, None)
     return zip(iter1, iter2)
 
 
-def doubled(iterable):
+def doubled(iterable: Iterable[T]) -> Iterator[tuple[T, T]]:
     """(x, y, z, ...) -> ((x, x), (y, y), (z, z), ...)"""
     for val in iterable:
         yield (val, val)
 
 
 # http://stackoverflow.com/a/8991553/1062499
-def grouped(num, iterable):
+def grouped(num: int, iterable: Iterable[T]) -> Iterator[tuple[T, ...]]:
     """
     >>> list(grouped(3, 'ABCDEFG'))
     [('A', 'B', 'C'), ('D', 'E', 'F'), ('G',)]
@@ -48,7 +52,7 @@ def grouped(num, iterable):
         yield chunk
 
 
-def random_skip(seq, prob=0.2):
+def random_skip(seq: Iterable[T], prob: float = 0.2) -> Iterator[T]:
     """
     Generator yields items from a sequence, randomly skipping some of
     them.
@@ -62,7 +66,7 @@ def random_skip(seq, prob=0.2):
             yield item
 
 
-def mkdir_p(path):
+def mkdir_p(path: str | os.PathLike[str]) -> None:
     """
     Functionality similar to mkdir -p.
     """
@@ -75,18 +79,23 @@ def mkdir_p(path):
             raise
 
 
-def numpy_memoize(filename):
+def numpy_memoize(
+    filename: str,
+) -> Callable[[Callable[..., Sequence[Any]]], Callable[..., Sequence[Any]]]:
     """
     Function decorator to cache the results of a function call in a
     numpy archive.
     """
 
-    def numpy_memoize_decorator(func):
+    def numpy_memoize_decorator(
+        func: Callable[..., Sequence[Any]],
+    ) -> Callable[..., Sequence[Any]]:
         """Inner function produced by numpy_memoize."""
 
         @wraps(func)
-        def func_wrapper(*args, **kwargs):
+        def func_wrapper(*args: Any, **kwargs: Any) -> Sequence[Any]:
             """Function wrapper used by numpy_memoize."""
+            values: Sequence[Any]
             try:
                 with np.load(filename) as input_file:
                     values = [
@@ -109,7 +118,9 @@ def numpy_memoize(filename):
 
 
 @contextmanager
-def tempfilename(suffix="", directory=None):
+def tempfilename(
+    suffix: str = "", directory: str | None = None
+) -> Generator[str, None, None]:
     """
     Context manager for creating temporary file names.
 
@@ -135,7 +146,12 @@ def tempfilename(suffix="", directory=None):
 
 
 @contextmanager
-def open_atomic(filepath, mode="w+b", fsync=False, **kwargs):
+def open_atomic(
+    filepath: str,
+    mode: str = "w+b",
+    fsync: bool = False,
+    **kwargs: Any,
+) -> Generator[IO[Any], None, None]:
     """
     Open temporary file object that atomically moves to destination
     upon exiting.

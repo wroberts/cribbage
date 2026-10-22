@@ -10,21 +10,30 @@ Training an AI to play cribbage.
 import functools
 import itertools
 import random
+from collections.abc import Iterator
 from cribbage.dqlearning import DQLearner
 from cribbage.game import compare_players
-from cribbage.netbuilder import ModelStore, Model, build, make_input_scaler
+from cribbage.netbuilder import (
+    Model,
+    ModelStore,
+    NetworkWrapper,
+    build,
+    make_input_scaler,
+)
 from cribbage.neural import (
+    Sars,
     discard_state_repr,
     record_both_player_states,
     record_player1_states,
 )
+from cribbage.cards import Card, Hand
 from cribbage.player import CribbagePlayer
 from cribbage.randomplayer import RandomCribbagePlayer
 from cribbage.utils import doubled, numpy_memoize, random_skip
 import numpy as np
 
 
-def random_discard_sars_gen(random_seed=None):
+def random_discard_sars_gen(random_seed: int | None = None) -> Iterator[Sars]:
     """
     Infinite generator over discard (state, action, reward,
     next_state) tuples, using a random player.  Produces about 2700
@@ -45,7 +54,7 @@ def random_discard_sars_gen(random_seed=None):
             yield state
 
 
-def random_discard_state_gen(random_seed=None):
+def random_discard_state_gen(random_seed: int | None = None) -> Iterator[np.ndarray]:
     """
     Infinite generator over discard states, using a random player.
     Produces about 2700 states per second on samarkand.
@@ -63,7 +72,7 @@ def random_discard_state_gen(random_seed=None):
 #  Autoencode discard() states
 
 
-def build_dautoenc():
+def build_dautoenc() -> None:
     """Construct a single-layer discard() state autoencoder."""
     # models will be stored in the models/ directory
     # store = ModelStore('models')
@@ -96,7 +105,7 @@ def build_dautoenc():
 # Two-layer discard() autoencoder
 
 
-def build_dautoenc2():
+def build_dautoenc2() -> None:
     """Construct a two-layer discard() state autoencoder."""
     # create and configure a new model
     dautoenc2 = Model("models", "dautoenc2")
@@ -130,7 +139,9 @@ def build_dautoenc2():
 #  Q-learning on discard()
 
 
-def choose_discard_actions(qlearner_model, states_matrix):
+def choose_discard_actions(
+    qlearner_model: NetworkWrapper, states_matrix: np.ndarray
+) -> np.ndarray:
     """
     Given a Model with a Q-learning neural network in it, and a matrix
     of N states, returns a vector of length N containing the argmax of
@@ -145,7 +156,7 @@ def choose_discard_actions(qlearner_model, states_matrix):
         return np.array([], dtype=int)
     output = qlearner_model.compute(states_matrix)
     # only consider those actions which are possible in the given hands
-    masked_output = np.ma.masked_array(
+    masked_output: np.ma.MaskedArray = np.ma.masked_array(
         output, mask=~states_matrix[:, 1:53].astype(bool)
     )
     return masked_output.argmax(axis=1)
@@ -154,7 +165,12 @@ def choose_discard_actions(qlearner_model, states_matrix):
 class QLearningPlayer(CribbagePlayer):
     """A CribbagePlayer that plays using a Q-learned model."""
 
-    def __init__(self, discard_model, play_card_model, epsilon):
+    def __init__(
+        self,
+        discard_model: NetworkWrapper | None,
+        play_card_model: NetworkWrapper | None,
+        epsilon: float,
+    ) -> None:
         """
         Constructor.
 
@@ -168,7 +184,13 @@ class QLearningPlayer(CribbagePlayer):
         self.play_card_model = play_card_model
         self.epsilon = epsilon
 
-    def discard(self, is_dealer, hand, player_score, opponent_score):
+    def discard(
+        self,
+        is_dealer: bool,
+        hand: Hand,
+        player_score: int,
+        opponent_score: int,
+    ) -> list[int]:
         """Discard two cards from dealt hand into crib."""
         if self.discard_model is not None and random.random() > self.epsilon:
             hand = hand[:]
@@ -195,15 +217,15 @@ class QLearningPlayer(CribbagePlayer):
 
     def play_card(
         self,
-        is_dealer,
-        hand,
-        played_cards,
-        is_go,
-        linear_play,
-        player_score,
-        opponent_score,
-        legal_moves,
-    ):
+        is_dealer: bool,
+        hand: Hand,
+        played_cards: set[Card],
+        is_go: bool,
+        linear_play: list[Card],
+        player_score: int,
+        opponent_score: int,
+        legal_moves: list[int],
+    ) -> int:
         """Select a single card from the hand to play during cribbage play."""
         if self.play_card_model is not None and random.random() > self.epsilon:
             # TODO: integrate self.play_card_model
@@ -211,7 +233,7 @@ class QLearningPlayer(CribbagePlayer):
         return random.choice(legal_moves)
 
 
-def dqlearner_vs_random(qlearner_model, _dummy_model):
+def dqlearner_vs_random(qlearner_model: Model, _dummy_model: Model) -> float:
     """
     Plays a set of games between the Q-Learner player and a
     RandomPlayer, returns the fraction that the Q-Learner player wins.
@@ -225,7 +247,7 @@ def dqlearner_vs_random(qlearner_model, _dummy_model):
 
 
 @numpy_memoize(ModelStore("models", ensure_exists=True).join("discard_scaling.npz"))
-def get_discard_scaling():
+def get_discard_scaling() -> tuple[np.ndarray, np.ndarray]:
     """
     Estimates the mean and standard deviation of input vectors to the
     discard() neural network.
@@ -235,7 +257,7 @@ def get_discard_scaling():
 
 
 # Q-learning model for discard()
-def make_dqlearner(store, name):
+def make_dqlearner(store: ModelStore | str, name: str) -> Model:
     """
     Builds a Q-learning model to learn how to discard.
 
@@ -260,7 +282,7 @@ def make_dqlearner(store, name):
     return model
 
 
-def record_player1_discard_sars_gen(model, epsilon):
+def record_player1_discard_sars_gen(model: Model, epsilon: float) -> Iterator[Sars]:
     """
     Returns an infinite generator of (s,a,r,s2) discard tuples by
     playing the given model with the given epsilon value against a
@@ -282,7 +304,7 @@ def record_player1_discard_sars_gen(model, epsilon):
 #  Double Q-Learning
 
 
-def learn_discard():
+def learn_discard() -> None:
     """
     Main function: learn a model to perform cribbage discards using
     Q-learning.

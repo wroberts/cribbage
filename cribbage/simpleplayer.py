@@ -10,7 +10,7 @@ try to pick the best cards to discard and play.
 
 import random
 import numpy as np
-from cribbage.cards import make_deck
+from cribbage.cards import Card, Hand, make_deck
 from cribbage.player import CribbagePlayer
 
 try:
@@ -43,15 +43,24 @@ class SimpleCribbagePlayer(CribbagePlayer):
     """
 
     def __init__(
-        self, estimate_discard=True, num_discard_samples=20, estimate_playcard=True
-    ):
+        self,
+        estimate_discard: bool = True,
+        num_discard_samples: int = 20,
+        estimate_playcard: bool = True,
+    ) -> None:
         """Constructor."""
         super().__init__()
         self.estimate_discard = estimate_discard
         self.num_discard_samples = num_discard_samples
         self.estimate_playcard = estimate_playcard
 
-    def discard(self, is_dealer, hand, player_score, opponent_score):
+    def discard(
+        self,
+        is_dealer: bool,
+        hand: Hand,
+        player_score: int,
+        opponent_score: int,
+    ) -> list[int]:
         """
         Asks the player to select two cards from `hand` for discarding to
         the crib.
@@ -88,15 +97,15 @@ class SimpleCribbagePlayer(CribbagePlayer):
 
     def play_card(
         self,
-        is_dealer,
-        hand,
-        played_cards,
-        is_go,
-        linear_play,
-        player_score,
-        opponent_score,
-        legal_moves,
-    ):
+        is_dealer: bool,
+        hand: Hand,
+        played_cards: set[Card],
+        is_go: bool,
+        linear_play: list[Card],
+        player_score: int,
+        opponent_score: int,
+        legal_moves: list[int],
+    ) -> int:
         """
         Asks the player to select one card from `hand` to play during a
         cribbage round.
