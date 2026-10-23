@@ -9,7 +9,7 @@ description = "Python library for experimenting with the game of cribbage"
 readme = "README.rst"
 license = {file = "LICENSE"}
 requires-python = ">=3.11"
-dependencies = ["numpy"]
+dependencies = ["numpy", "torch"]
 
 [project.optional-dependencies]
 # Old, unmaintained dependencies; needed only for the RL stack

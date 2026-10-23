@@ -10,6 +10,7 @@
 /cribbage/_cribbage_score.c
 /cribbage/_cribbage_score.so
 /models
+/data
 /test_c_scoring/cribbage
 build/
 /cribbage/*.so
