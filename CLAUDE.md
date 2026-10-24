@@ -22,6 +22,7 @@ A Python library for playing cribbage and training neural-network (double Q-lear
   - `netbuilder.py` is a declarative description language for Lasagne/Theano networks, with persistent `ModelStore`/`Model` snapshots and training resumption.
   - `dqlearning.py` is the `DQLearner` double Q-learner. It uses a replay memory of (s, a, r, s2) tuples, with `None` as the terminal state.
   - `expt.py` ties these together into the training experiments. Trained models live in `models/`.
+- **Pegging experiments**: `pegging_expt_2026.py` (CLI: `python -m cribbage.pegging_expt_2026 --help`) compares `play_card` policies (random, greedy, determinized rollouts/minimax, ISMCTS, an oracle) with the discard policy held fixed. `PegState` re-implements `Round.play` for fast search (`test_pegging_expt_2026.py` checks it against `Round`); `peg-bench` plays duplicate deals with the seats swapped. Generated data goes in `data/pegging/`.
 - Lasagne and Theano are old dependencies, with no requirements file.
 - `discard_models.ipynb` and `priors.ipynb` are analysis notebooks, and `notes.org` holds dev notes and a TODO list.
 - Ignore the `*~` backup files and `.pyc` files. They are editor and build leftovers.
