@@ -261,9 +261,7 @@ class WorldSampler:
         """The world in which the opponent holds `opp_hand`."""
         obs = self.obs
         last = None if not obs.seq else (0 if obs.is_go else 1)
-        return PegState(
-            [obs.hand[:], list(opp_hand)], 0, obs.seq, obs.is_go, last
-        )
+        return PegState([obs.hand[:], list(opp_hand)], 0, obs.seq, obs.is_go, last)
 
     def sample(self, rng: random.Random) -> PegState:
         return self.build(rng.sample(self.pool, self.num_opp))
@@ -298,8 +296,9 @@ def greedy_move(state: PegState, rng: random.Random) -> int:
     return best_idxs[0] if len(best_idxs) == 1 else rng.choice(best_idxs)
 
 
-def rollout(state: PegState, move: Callable[[PegState, random.Random], int],
-            rng: random.Random) -> None:
+def rollout(
+    state: PegState, move: Callable[[PegState, random.Random], int], rng: random.Random
+) -> None:
     """Plays `state` out to the end of the round with `move` for both players."""
     while not state.done:
         state.play(move(state, rng))
@@ -402,9 +401,7 @@ class GreedyPeg(PegPolicy):
     """Simple's rule: the card with the best immediate score."""
 
     def choose(self, obs: PegObs) -> int:
-        values = {
-            i: float(score_play([*obs.seq, obs.hand[i]])) for i in obs.legal
-        }
+        values = {i: float(score_play([*obs.seq, obs.hand[i]])) for i in obs.legal}
         return self.argmax(values)
 
 
@@ -429,17 +426,16 @@ class Greedy2Peg(PegPolicy):
             if n and not obs.is_go:
                 room = 31 - cards_worth(obs.seq) - WORTH[card]
                 scores = sorted(
-                    (
-                        score_play([*obs.seq, card, x])
-                        for x in pool
-                        if WORTH[x] <= room
-                    ),
+                    (score_play([*obs.seq, card, x]) for x in pool if WORTH[x] <= room),
                     reverse=True,
                 )
-                reply = sum(
-                    s * math.comb(len(pool) - 1 - k, n - 1)
-                    for k, s in enumerate(scores)
-                ) / total
+                reply = (
+                    sum(
+                        s * math.comb(len(pool) - 1 - k, n - 1)
+                        for k, s in enumerate(scores)
+                    )
+                    / total
+                )
             values[i] = immediate - reply
         return self.argmax(values)
 
@@ -447,9 +443,7 @@ class Greedy2Peg(PegPolicy):
 class PimcRollout(PegPolicy):
     """Scores each card by greedy rollouts in sampled worlds."""
 
-    def __init__(
-        self, worlds: int, rollouts: int = 1, opp_aware: bool = False
-    ) -> None:
+    def __init__(self, worlds: int, rollouts: int = 1, opp_aware: bool = False) -> None:
         super().__init__()
         self.worlds = worlds
         self.rollouts = rollouts
@@ -680,8 +674,14 @@ class PegPlayer(CribbagePlayer):
             for i in range(len(mine), len(linear_play)):
                 self.opp_plays.append((tuple(linear_play[:i]), linear_play[i]))
         obs = PegObs(
-            hand, linear_play, played_cards, is_go, legal_moves,
-            self.discards, is_dealer, self.opp_plays,
+            hand,
+            linear_play,
+            played_cards,
+            is_go,
+            legal_moves,
+            self.discards,
+            is_dealer,
+            self.opp_plays,
         )
         if self.policy.needs_oracle:
             assert self.peek is not None
@@ -721,7 +721,9 @@ class Deals:
         return len(self.starter)
 
     def slice(self, start: int, stop: int) -> Deals:
-        return Deals(self.kept[start:stop], self.thrown[start:stop], self.starter[start:stop])
+        return Deals(
+            self.kept[start:stop], self.thrown[start:stop], self.starter[start:stop]
+        )
 
 
 def make_deals(num: int, seed: int, discard: str = "random") -> Deals:
@@ -821,7 +823,9 @@ class PegResult:
 
     def role_margins(self) -> tuple[float, float]:
         """A's mean margin as non-dealer and as dealer."""
-        return float((self.a_nd - self.b_d).mean()), float((self.a_d - self.b_nd).mean())
+        return float((self.a_nd - self.b_d).mean()), float(
+            (self.a_d - self.b_nd).mean()
+        )
 
     def ms_per_hand(self) -> tuple[float, float]:
         n = 2 * len(self.a_nd)
@@ -834,9 +838,18 @@ class PegResult:
             for f in ("a_nd", "b_d", "b_nd", "a_d")
         )
         return PegResult(
-            a_nd, b_d, b_nd, a_d,
-            seconds=(sum(r.seconds[0] for r in results), sum(r.seconds[1] for r in results)),
-            decisions=(sum(r.decisions[0] for r in results), sum(r.decisions[1] for r in results)),
+            a_nd,
+            b_d,
+            b_nd,
+            a_d,
+            seconds=(
+                sum(r.seconds[0] for r in results),
+                sum(r.seconds[1] for r in results),
+            ),
+            decisions=(
+                sum(r.decisions[0] for r in results),
+                sum(r.decisions[1] for r in results),
+            ),
         )
 
 
@@ -854,8 +867,12 @@ def _peg_chunk(task: tuple[str, str, Deals, int, int]) -> PegResult:
         # ... then B is the non-dealer with X, and A the dealer with Y
         cols[i, 2], cols[i, 3] = play_pegging([b, a], kept, thrown, starter)
     return PegResult(
-        cols[:, 0], cols[:, 1], cols[:, 2], cols[:, 3],
-        seconds=(a.seconds, b.seconds), decisions=(a.decisions, b.decisions),
+        cols[:, 0],
+        cols[:, 1],
+        cols[:, 2],
+        cols[:, 3],
+        seconds=(a.seconds, b.seconds),
+        decisions=(a.decisions, b.decisions),
     )
 
 
@@ -915,9 +932,7 @@ def _match_chunk(task: tuple[str, str, int, int]) -> int:
     return compare_players(list(players), games)[0]
 
 
-def play_match(
-    spec_a: str, spec_b: str, games: int, seed: int, workers: int
-) -> float:
+def play_match(spec_a: str, spec_b: str, games: int, seed: int, workers: int) -> float:
     """A's win rate over `games` full games (chunked, so independent of `workers`)."""
     chunk = 100
     sizes = [chunk] * (games // chunk) + ([games % chunk] if games % chunk else [])
@@ -963,8 +978,10 @@ def run_ladder(args: argparse.Namespace) -> None:
             m_a, m_b = result.ms_per_hand()
             ms[a], ms[b] = max(ms.get(a, 0), m_a), max(ms.get(b, 0), m_b)
             print(f"  {a} vs {b}: {margins[a, b][0]:+.3f}", flush=True)
-    print(f"\nrow's pegging-points margin over column, per hand "
-          f"({args.deals} deals, 95% half-width ~{max(h for _, h in margins.values()):.3f})")
+    print(
+        f"\nrow's pegging-points margin over column, per hand "
+        f"({args.deals} deals, 95% half-width ~{max(h for _, h in margins.values()):.3f})"
+    )
     width = max(len(s) for s in specs) + 2
     print(" " * width + "".join(f"{s:>{width}}" for s in specs) + "   ms/hand")
     for a in specs:
@@ -976,7 +993,11 @@ def run_ladder(args: argparse.Namespace) -> None:
                 cells.append(f"{margins[a, b][0]:+.3f}")
             else:
                 cells.append(f"{-margins[b, a][0]:+.3f}")
-        print(f"{a:<{width}}" + "".join(f"{c:>{width}}" for c in cells) + f"   {ms.get(a, 0):.3f}")
+        print(
+            f"{a:<{width}}"
+            + "".join(f"{c:>{width}}" for c in cells)
+            + f"   {ms.get(a, 0):.3f}"
+        )
 
 
 def run_cost(args: argparse.Namespace) -> None:
@@ -985,9 +1006,14 @@ def run_cost(args: argparse.Namespace) -> None:
     print(f"{args.family}:N vs {args.ref}, {args.deals} deals")
     print("      N   margin/hand   +/-     ms/hand")
     for n in (int(x) for x in args.budgets.split(",")):
-        result = run_pegging(f"{args.family}:{n}{args.flags}", args.ref, deals, args.seed, args.workers)
+        result = run_pegging(
+            f"{args.family}:{n}{args.flags}", args.ref, deals, args.seed, args.workers
+        )
         margin, half = result.per_hand()
-        print(f"{n:7d}   {margin:+.3f}    {half:.3f}    {result.ms_per_hand()[0]:.3f}", flush=True)
+        print(
+            f"{n:7d}   {margin:+.3f}    {half:.3f}    {result.ms_per_hand()[0]:.3f}",
+            flush=True,
+        )
 
 
 def run_match(args: argparse.Namespace) -> None:
@@ -1008,16 +1034,27 @@ def run_calibrate(args: argparse.Namespace) -> None:
     print(f"discard {args.discard}; each policy vs random pegging")
     print("policy               margin/hand   win rate")
     for spec in args.policies.split(","):
-        margin, half = run_pegging(spec, "random", deals, args.seed, args.workers).per_hand()
+        margin, half = run_pegging(
+            spec, "random", deals, args.seed, args.workers
+        ).per_hand()
         rate = play_match(
-            f"{args.discard}+{spec}", f"{args.discard}+random", args.games, args.seed, args.workers
+            f"{args.discard}+{spec}",
+            f"{args.discard}+random",
+            args.games,
+            args.seed,
+            args.workers,
         )
         xs.append(margin)
         ys.append(rate - 0.5)
-        print(f"{spec:<20} {margin:+.3f}+/-{half:.3f}   {100 * rate:.1f}% +/- {100 * win_ci(rate, args.games):.1f}%", flush=True)
+        print(
+            f"{spec:<20} {margin:+.3f}+/-{half:.3f}   {100 * rate:.1f}% +/- {100 * win_ci(rate, args.games):.1f}%",
+            flush=True,
+        )
     x, y = np.array(xs), np.array(ys)
     slope = float((x * y).sum() / (x * x).sum())
-    print(f"least-squares slope through 50%: {100 * 0.1 * slope:.2f} pp of win rate per 0.1 pt/hand")
+    print(
+        f"least-squares slope through 50%: {100 * 0.1 * slope:.2f} pp of win rate per 0.1 pt/hand"
+    )
 
 
 def main() -> None:
@@ -1031,7 +1068,10 @@ def main() -> None:
     bench.set_defaults(func=run_peg_bench)
 
     ladder = commands.add_parser("ladder", help=run_ladder.__doc__)
-    ladder.add_argument("--policies", default="random,greedy,greedy2,pimc-roll:10,pimc-solve:10,ismcts:200,oracle")
+    ladder.add_argument(
+        "--policies",
+        default="random,greedy,greedy2,pimc-roll:10,pimc-solve:10,ismcts:200,oracle",
+    )
     ladder.set_defaults(func=run_ladder)
 
     cost = commands.add_parser("cost", help=run_cost.__doc__)

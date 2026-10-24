@@ -443,9 +443,7 @@ def split_of(hands: np.ndarray) -> np.ndarray:
     return np.searchsorted(np.cumsum(SPLIT_PERCENT), bucket, side="right")
 
 
-def sample_split_hands(
-    num: int, split: int, rng: np.random.Generator
-) -> np.ndarray:
+def sample_split_hands(num: int, split: int, rng: np.random.Generator) -> np.ndarray:
     """Deals random hands, keeping only those that belong to `split`."""
     kept: list[np.ndarray] = []
     have = 0
@@ -631,7 +629,9 @@ class DiscardNet(nn.Module):
         self.register_buffer("columns", torch.tensor(columns), persistent=False)
         size = len(columns)
         num_outputs = 2 if two_head else 1
-        self.register_buffer("in_mean", torch.zeros(size) if standardize_inputs else None)
+        self.register_buffer(
+            "in_mean", torch.zeros(size) if standardize_inputs else None
+        )
         self.register_buffer("in_std", torch.ones(size) if standardize_inputs else None)
         self.register_buffer(
             "out_mean", torch.zeros(num_outputs) if standardize_targets else None
@@ -683,7 +683,9 @@ def loss_fn(
         out = model(features)
         return F.mse_loss(out[..., 0], h) + F.mse_loss(out[..., 1], c)
     dealer_loss, nondealer_loss = (
-        F.mse_loss(predict_values(model, features, dealer), candidate_values(h, c, dealer))
+        F.mse_loss(
+            predict_values(model, features, dealer), candidate_values(h, c, dealer)
+        )
         for dealer in (True, False)
     )
     return (dealer_loss + nondealer_loss) / 2
@@ -1009,9 +1011,10 @@ def run_ablation(
     ]
     print(f"{len(tasks)} runs to do ({len(done)} already done)", flush=True)
     start = time.time()
-    with multiprocessing.Pool(
-        procs, _init_ablation_worker, (threads,)
-    ) as pool, open(path, "a") as results_file:
+    with (
+        multiprocessing.Pool(procs, _init_ablation_worker, (threads,)) as pool,
+        open(path, "a") as results_file,
+    ):
         for i, record in enumerate(pool.imap_unordered(_ablation_task, tasks), 1):
             results_file.write(json.dumps(record) + "\n")
             results_file.flush()
@@ -1062,7 +1065,9 @@ def ablation_report(path: str) -> str:
             for r in records
         ) / len(records)
         seconds = sum(r["seconds"] for r in records) / len(records)
-        paired = [rmse(r) - base_rmse[r["seed"]] for r in records if r["seed"] in base_rmse]
+        paired = [
+            rmse(r) - base_rmse[r["seed"]] for r in records if r["seed"] in base_rmse
+        ]
         change = (
             f"{sum(paired) / len(paired):+.4f}" if paired and label != "base" else ""
         )
@@ -1082,10 +1087,15 @@ def ablation_report(path: str) -> str:
         lines += [row(label) for label in runs if groups[label] == group]
         lines.append("")
     # the size study as a grid of RMSE
-    size_records = [r for label in runs for r in runs[label] if r["group"] in ("size", "base")]
+    size_records = [
+        r for label in runs for r in runs[label] if r["group"] in ("size", "base")
+    ]
     if size_records:
         widths = sorted({r["config"]["width"] for r in size_records})
-        lines += ["### size grid: test RMSE (pts), rows are depth, columns are width", ""]
+        lines += [
+            "### size grid: test RMSE (pts), rows are depth, columns are width",
+            "",
+        ]
         lines += ["| depth | " + " | ".join(map(str, widths)) + " |"]
         lines += ["|---" * (len(widths) + 1) + "|"]
         for depth in sorted({r["config"]["depth"] for r in size_records}):
@@ -1282,7 +1292,9 @@ def main() -> None:
 
     ablate = commands.add_parser("ablate", help=run_ablate.__doc__)
     ablate.add_argument("--out", default="data/ablation.jsonl")
-    ablate.add_argument("--steps", type=int, default=1500, help="gradient steps per run")
+    ablate.add_argument(
+        "--steps", type=int, default=1500, help="gradient steps per run"
+    )
     ablate.add_argument("--seeds", type=int, default=3)
     ablate.add_argument("--procs", type=int, default=4, help="runs in parallel")
     ablate.add_argument("--threads", type=int, default=2, help="threads per run")
