@@ -902,7 +902,7 @@ BASE_DATA = {"k": 20, "hands": 100000}
 def ablation_variants() -> list[tuple[str, str, dict[str, Any]]]:
     """The (group, label, overrides) of every run in the study."""
     variants: list[tuple[str, str, dict[str, Any]]] = [("base", "base", {})]
-    for depth in (1, 2, 3):
+    for depth in (1, 2, 3, 4, 5):
         for width in (8, 16, 32, 64, 128, 256):
             if (depth, width) != (BASE_CONFIG.depth, BASE_CONFIG.width):
                 variants.append(
