@@ -6,10 +6,13 @@ test_discard_expt_2026.py
 Test the discard_expt_2026 module.
 """
 
+import json
+
 import numpy as np
 import torch
 from cribbage.cribbage_score import score_hand
 from cribbage.discard_expt_2026 import (
+    BASE_CONFIG,
     NUM_FEATURES,
     NUM_KEEPS,
     SPLITS,
@@ -19,6 +22,8 @@ from cribbage.discard_expt_2026 import (
     LearnedDiscardPlayer,
     TrainConfig,
     UniformThrows,
+    ablation_report,
+    ablation_variants,
     candidate_values,
     canonical_keys,
     choice_stats,
@@ -262,3 +267,83 @@ def test_make_player_and_match(tmp_path):
         make_player(spec)
     wins, games = play_match(f"model:{path}", "random", games=6, seed=0, workers=1)
     assert games == 6 and 0 <= wins <= 6
+
+
+def test_ablation_options_train_and_round_trip(tmp_path):
+    train = to_tensors(generate_dataset("train", num=300, k=5, seed=1, workers=1))
+    val = to_tensors(generate_dataset("val", num=100, k=5, seed=1, workers=1))
+    variants = [
+        dict(init="he"),
+        dict(schedule="constant"),
+        dict(standardize_inputs=True),
+        dict(standardize_targets=True),
+        dict(standardize_inputs=True, standardize_targets=True, two_head=False),
+        dict(drop=("nobs", "flush", "suited")),
+    ]
+    for i, extra in enumerate(variants):
+        config = TrainConfig(width=8, depth=2, epochs=1, batch_size=64, **extra)
+        model, _ = train_model(config, train, val, False)
+        path = str(tmp_path / f"model{i}.pt")
+        save_model(model, config, path)
+        features = encode_hands(val[0][:5])
+        with torch.no_grad():
+            assert torch.allclose(
+                predict_values(model, features, False),
+                predict_values(load_model(path), features, False),
+                atol=1e-6,
+            ), extra
+
+
+def test_standardisation_uses_training_statistics():
+    train = to_tensors(generate_dataset("train", num=300, k=5, seed=2, workers=1))
+    config = TrainConfig(width=8, depth=1, standardize_inputs=True, standardize_targets=True)
+    model = config.make_net()
+    from cribbage.discard_expt_2026 import fit_standardisation
+
+    fit_standardisation(model, train)
+    features = encode_hands(train[0][:300]).reshape(-1, NUM_FEATURES)
+    assert torch.allclose(model.in_mean, features.mean(dim=0), atol=1e-5)
+    assert torch.allclose(model.out_mean, torch.stack([train[1].mean(), train[2].mean()]))
+    # an untrained network predicts about the mean of each target
+    with torch.no_grad():
+        out = model(encode_hands(train[0][:100]))
+    assert abs(out[..., 0].mean() - train[1].mean()) < 1.5
+
+
+def test_dropped_features_do_not_matter():
+    model = DiscardNet(two_head=True, width=8, depth=2, drop=("nobs", "flush"))
+    assert model.layers[0].in_features == NUM_FEATURES - 2
+    features = encode_hands(torch.tensor([[0, 1, 2, 10, 13, 26]]))
+    changed = features.clone()
+    changed[..., 26] = 1 - changed[..., 26]  # flush
+    changed[..., 28] += 0.5  # nobs
+    assert torch.equal(model(features), model(changed))
+    changed[..., 27] = 1 - changed[..., 27]  # suited is kept
+    assert not torch.equal(model(features), model(changed))
+
+
+def test_ablation_variants_are_well_formed():
+    variants = ablation_variants()
+    labels = [label for _, label, _ in variants]
+    assert len(set(labels)) == len(labels) and labels[0] == "base"
+    fields = set(vars(BASE_CONFIG)) | {"k", "hands"}
+    for _, _, overrides in variants:
+        assert set(overrides) <= fields
+
+
+def test_ablation_report(tmp_path):
+    def record(label, group, seed, mse, width=256):
+        test = dict(mse=mse, dealer_regret=0.01, nondealer_regret=0.03,
+                    dealer_optimal=0.9, nondealer_optimal=0.8)
+        return dict(label=label, group=group, seed=seed, params=1000, seconds=2.0,
+                    test=test, config=dict(width=width, depth=3))
+
+    rows = [record("base", "base", s, 0.04) for s in range(2)]
+    rows += [record("32x3", "size", s, 0.09, width=32) for s in range(2)]
+    path = tmp_path / "results.jsonl"
+    path.write_text("\n".join(json.dumps(r) for r in rows))
+    report = ablation_report(str(path))
+    assert "### size" in report and "| 32x3 |" in report
+    # rmse goes from 0.2 to 0.3
+    assert "+0.1000" in report and "0.2000 ± 0.0000" in report
+    assert "size grid" in report

@@ -45,19 +45,26 @@ Stage 4: head-to-head games (`python -m cribbage.discard_expt_2026
 head-to-head`) between a trained model and the existing players.  The
 model only chooses discards; it pegs at random, so that a match against
 `simple-discard` (Simple's discard, random pegging) isolates discarding.
+
+Stage 5: an ablation study (`ablate`, `ablate-report`) of the network and
+training choices: size, heads, learning rate and schedule, initialisation,
+standardisation, features, label noise and amount of data.
 """
 
 import argparse
 import copy
+import dataclasses
+import functools
 import itertools
 import json
+import math
 import multiprocessing
 import os
 import random
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Protocol, TypeVar
+from typing import Any, Protocol, TypeVar
 
 import numpy as np
 import torch
@@ -580,26 +587,80 @@ def encode_hands(hands: torch.Tensor) -> torch.Tensor:
     ).float()
 
 
+# the features that can be dropped, by name, and their column
+FEATURE_GROUPS = {"flush": 26, "suited": 27, "nobs": 28}
+
+
 class DiscardNet(nn.Module):
     """
     An MLP applied independently to each split's features.  With
     `two_head` it outputs (H, C) estimates; otherwise it takes the dealer
     flag as an extra input and outputs a single value.
+
+    The remaining arguments are for ablation studies.  `init` is
+    "default" (PyTorch's) or "he" (He normal weights, zero biases, for the
+    hidden layers).  `drop` names features (see FEATURE_GROUPS) to leave
+    out.  `standardize_inputs` and `standardize_targets` rescale the
+    inputs inside the network, and the outputs back to points, using
+    statistics that train_model fits; the buffers only exist when these
+    are set, so models saved without them still load.
     """
 
-    def __init__(self, two_head: bool, width: int, depth: int) -> None:
+    columns: torch.Tensor
+    in_mean: torch.Tensor | None
+    in_std: torch.Tensor | None
+    out_mean: torch.Tensor | None
+    out_std: torch.Tensor | None
+
+    def __init__(
+        self,
+        two_head: bool,
+        width: int,
+        depth: int,
+        init: str = "default",
+        drop: Sequence[str] = (),
+        standardize_inputs: bool = False,
+        standardize_targets: bool = False,
+    ) -> None:
         super().__init__()
         self.two_head = two_head
+        dropped = {FEATURE_GROUPS[name] for name in drop}
+        columns = [i for i in range(NUM_FEATURES) if i not in dropped]
+        if not two_head:
+            columns.append(NUM_FEATURES)  # the dealer flag
+        self.register_buffer("columns", torch.tensor(columns), persistent=False)
+        size = len(columns)
+        num_outputs = 2 if two_head else 1
+        self.register_buffer("in_mean", torch.zeros(size) if standardize_inputs else None)
+        self.register_buffer("in_std", torch.ones(size) if standardize_inputs else None)
+        self.register_buffer(
+            "out_mean", torch.zeros(num_outputs) if standardize_targets else None
+        )
+        self.register_buffer(
+            "out_std", torch.ones(num_outputs) if standardize_targets else None
+        )
         layers: list[nn.Module] = []
-        size = NUM_FEATURES + (0 if two_head else 1)
         for _ in range(depth):
             layers += [nn.Linear(size, width), nn.ReLU()]
             size = width
-        layers.append(nn.Linear(size, 2 if two_head else 1))
+        layers.append(nn.Linear(size, num_outputs))
+        if init == "he":
+            for layer in layers[:-1]:
+                if isinstance(layer, nn.Linear):
+                    nn.init.kaiming_normal_(layer.weight, nonlinearity="relu")
+                    nn.init.zeros_(layer.bias)
+        elif init != "default":
+            raise ValueError(f"unknown init {init!r}")
         self.layers = nn.Sequential(*layers)
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
-        return self.layers(features)
+        x = features[..., self.columns]
+        if self.in_mean is not None and self.in_std is not None:
+            x = (x - self.in_mean) / self.in_std
+        out = self.layers(x)
+        if self.out_mean is not None and self.out_std is not None:
+            out = out * self.out_std + self.out_mean
+        return out
 
 
 def predict_values(
@@ -708,23 +769,78 @@ class TrainConfig:
     batch_size: int = 1024
     lr: float = 2e-3
     seed: int = 0
+    # the remaining fields are for ablation studies
+    schedule: str = "onecycle"  # or "constant"
+    init: str = "default"  # or "he"
+    standardize_inputs: bool = False
+    standardize_targets: bool = False
+    drop: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        self.drop = tuple(self.drop)  # a list, if it was read from JSON
+
+    def make_net(self) -> DiscardNet:
+        """An untrained network with this configuration's architecture."""
+        return DiscardNet(
+            self.two_head,
+            self.width,
+            self.depth,
+            self.init,
+            self.drop,
+            self.standardize_inputs,
+            self.standardize_targets,
+        )
+
+
+BASE_CONFIG = TrainConfig()
+
+
+@torch.no_grad()
+def fit_standardisation(model: DiscardNet, train: Tensors) -> None:
+    """
+    Sets the input and target statistics of a network built with
+    `standardize_inputs` / `standardize_targets` from the training data
+    (inputs: a sample of 20,000 hands; the dealer flag is left alone).
+    """
+    hands, h, c = train
+    if model.in_mean is not None and model.in_std is not None:
+        sample = encode_hands(hands[:20000]).reshape(-1, NUM_FEATURES)
+        feature_columns = model.columns[model.columns < NUM_FEATURES]
+        x = sample[:, feature_columns]
+        std = x.std(dim=0)
+        model.in_mean[: len(feature_columns)] = x.mean(dim=0)
+        model.in_std[: len(feature_columns)] = torch.where(
+            std < 1e-6, torch.ones_like(std), std
+        )
+    if model.out_mean is not None and model.out_std is not None:
+        if model.two_head:
+            targets = [h, c]
+        else:
+            targets = [torch.cat([(h + c).flatten(), (h - c).flatten()])]
+        model.out_mean[:] = torch.stack([t.mean() for t in targets])
+        model.out_std[:] = torch.stack([t.std() for t in targets])
 
 
 def train_model(
     config: TrainConfig, train: Tensors, val: Tensors, verbose: bool = True
 ) -> tuple[DiscardNet, list[dict[str, float]]]:
     """
-    Trains a DiscardNet with AdamW and a one-cycle learning rate.
-    Returns the weights from the epoch with the lowest validation MSE,
-    and the per-epoch history.
+    Trains a DiscardNet with AdamW and, by default, a one-cycle learning
+    rate.  Returns the weights from the epoch with the lowest validation
+    MSE, and the per-epoch history.
     """
     torch.manual_seed(config.seed)
-    model = DiscardNet(config.two_head, config.width, config.depth)
+    model = config.make_net()
     hands, h, c = train
+    fit_standardisation(model, train)
     steps_per_epoch = (len(hands) + config.batch_size - 1) // config.batch_size
     optimiser = torch.optim.AdamW(model.parameters(), lr=config.lr)
-    schedule = torch.optim.lr_scheduler.OneCycleLR(
-        optimiser, max_lr=config.lr, total_steps=config.epochs * steps_per_epoch
+    schedule = (
+        torch.optim.lr_scheduler.OneCycleLR(
+            optimiser, max_lr=config.lr, total_steps=config.epochs * steps_per_epoch
+        )
+        if config.schedule == "onecycle"
+        else None
     )
     best_mse, best_state = float("inf"), copy.deepcopy(model.state_dict())
     history = []
@@ -739,7 +855,8 @@ def train_model(
             optimiser.zero_grad()
             loss.backward()
             optimiser.step()
-            schedule.step()
+            if schedule is not None:
+                schedule.step()
             train_loss += loss.item() * len(idx)
         stats = evaluate(model, val)
         stats["train_loss"] = train_loss / len(hands)
@@ -768,9 +885,221 @@ def load_model(path: str) -> DiscardNet:
     """Reads a model written by `save_model`."""
     saved = torch.load(path)
     config = TrainConfig(**saved["config"])
-    model = DiscardNet(config.two_head, config.width, config.depth)
+    model = config.make_net()
     model.load_state_dict(saved["state"])
     return model.eval()
+
+
+# ------------------------------------------------------------
+#  Ablation study
+
+# Each variant changes one thing about the base run.  Keys of the
+# overrides are TrainConfig fields, plus `k` (Monte Carlo samples behind
+# the training labels) and `hands` (number of training hands).
+BASE_DATA = {"k": 20, "hands": 100000}
+
+
+def ablation_variants() -> list[tuple[str, str, dict[str, Any]]]:
+    """The (group, label, overrides) of every run in the study."""
+    variants: list[tuple[str, str, dict[str, Any]]] = [("base", "base", {})]
+    for depth in (1, 2, 3):
+        for width in (8, 16, 32, 64, 128, 256):
+            if (depth, width) != (BASE_CONFIG.depth, BASE_CONFIG.width):
+                variants.append(
+                    ("size", f"{depth}x{width}", {"depth": depth, "width": width})
+                )
+    variants.append(("heads", "scalar head", {"two_head": False}))
+    for lr in (3e-4, 1e-3, 5e-3, 1e-2):
+        variants.append(("learning rate", f"lr {lr:g}", {"lr": lr}))
+    for lr in (2e-3, 5e-4):
+        variants.append(
+            ("schedule", f"constant lr {lr:g}", {"schedule": "constant", "lr": lr})
+        )
+    variants.append(("init", "He init", {"init": "he"}))
+    variants += [
+        ("scaling", "standardise inputs", {"standardize_inputs": True}),
+        ("scaling", "standardise targets", {"standardize_targets": True}),
+        (
+            "scaling",
+            "standardise both",
+            {"standardize_inputs": True, "standardize_targets": True},
+        ),
+    ]
+    variants += [
+        ("features", "no nobs", {"drop": ("nobs",)}),
+        ("features", "no keep-flush", {"drop": ("flush",)}),
+        ("features", "no discard-suited", {"drop": ("suited",)}),
+        ("features", "ranks only", {"drop": ("nobs", "flush", "suited")}),
+    ]
+    for k in (1, 5, 100):
+        variants.append(("label noise", f"K={k}", {"k": k}))
+    for hands in (3000, 10000, 30000, 300000, 1000000):
+        variants.append(("data", f"{hands} hands", {"hands": hands}))
+    return variants
+
+
+@functools.lru_cache(maxsize=2)
+def _load_tensors(path: str) -> Tensors:
+    return to_tensors(Dataset.load(path))
+
+
+def _ablation_task(task: tuple[str, str, dict[str, Any], int, int]) -> dict[str, Any]:
+    """Trains and tests one (variant, seed); returns its record."""
+    group, label, overrides, seed, steps = task
+    fields = {k: v for k, v in overrides.items() if k not in ("k", "hands")}
+    data = {**BASE_DATA, **{k: v for k, v in overrides.items() if k in BASE_DATA}}
+    hands, h, c = _load_tensors(f"data/discard_train_k{data['k']}.npz")
+    n = data["hands"]
+    train = (hands[:n], h[:n], c[:n])
+    steps_per_epoch = math.ceil(n / BASE_CONFIG.batch_size)
+    config = dataclasses.replace(
+        BASE_CONFIG, seed=seed, epochs=math.ceil(steps / steps_per_epoch), **fields
+    )
+    start = time.time()
+    model, history = train_model(
+        config, train, _load_tensors("data/discard_val_exact.npz"), verbose=False
+    )
+    seconds = time.time() - start
+    best = min(history, key=lambda epoch: epoch["mse"])
+    return {
+        "group": group,
+        "label": label,
+        "seed": seed,
+        "steps": steps,
+        "config": vars(config),
+        "data": data,
+        "params": sum(p.numel() for p in model.parameters()),
+        "best_epoch": int(best["epoch"]),
+        "epochs": config.epochs,
+        "seconds": seconds,
+        "test": evaluate(model, _load_tensors("data/discard_test_exact.npz")),
+    }
+
+
+def _init_ablation_worker(threads: int) -> None:
+    torch.set_num_threads(threads)
+
+
+def run_ablation(
+    path: str,
+    steps: int,
+    seeds: int,
+    procs: int,
+    threads: int,
+    groups: Sequence[str] | None = None,
+) -> None:
+    """
+    Runs every variant (of the chosen groups, plus the base) for each
+    seed, appending one JSON record per run to `path`.  Runs that are
+    already in the file are skipped, so an interrupted study can be
+    resumed.
+    """
+    done = set()
+    if os.path.exists(path):
+        with open(path) as results_file:
+            for line in results_file:
+                record = json.loads(line)
+                done.add((record["label"], record["seed"], record["steps"]))
+    tasks = [
+        (group, label, overrides, seed, steps)
+        for group, label, overrides in ablation_variants()
+        if groups is None or group in groups or group == "base"
+        for seed in range(seeds)
+        if (label, seed, steps) not in done
+    ]
+    print(f"{len(tasks)} runs to do ({len(done)} already done)", flush=True)
+    start = time.time()
+    with multiprocessing.Pool(
+        procs, _init_ablation_worker, (threads,)
+    ) as pool, open(path, "a") as results_file:
+        for i, record in enumerate(pool.imap_unordered(_ablation_task, tasks), 1):
+            results_file.write(json.dumps(record) + "\n")
+            results_file.flush()
+            print(
+                f"[{i}/{len(tasks)} {time.time() - start:.0f}s] {record['label']}"
+                f" seed {record['seed']}: test rmse"
+                f" {math.sqrt(record['test']['mse']):.4f}",
+                flush=True,
+            )
+
+
+def _mean_sd(values: Sequence[float]) -> tuple[float, float]:
+    mean = sum(values) / len(values)
+    var = sum((v - mean) ** 2 for v in values) / max(len(values) - 1, 1)
+    return mean, math.sqrt(var)
+
+
+def ablation_report(path: str) -> str:
+    """
+    Summarises a results file as markdown tables, one per group.  For
+    each variant, over the seeds: test RMSE in points (the square root of
+    the mean of the two seats' MSE), regret (points per deal, averaged
+    over the seats), percentage of optimal choices, and training time.
+    `change` is the paired change in RMSE from the base run, by seed.
+    """
+    runs: dict[str, list[dict[str, Any]]] = {}
+    groups: dict[str, str] = {}
+    with open(path) as results_file:
+        for line in results_file:
+            record = json.loads(line)
+            runs.setdefault(record["label"], []).append(record)
+            groups[record["label"]] = record["group"]
+
+    def rmse(record: dict[str, Any]) -> float:
+        return math.sqrt(record["test"]["mse"])
+
+    base_rmse = {r["seed"]: rmse(r) for r in runs.get("base", [])}
+
+    def row(label: str) -> str:
+        records = runs[label]
+        mean, sd = _mean_sd([rmse(r) for r in records])
+        regret = sum(
+            (r["test"]["dealer_regret"] + r["test"]["nondealer_regret"]) / 2
+            for r in records
+        ) / len(records)
+        optimal = sum(
+            (r["test"]["dealer_optimal"] + r["test"]["nondealer_optimal"]) / 2
+            for r in records
+        ) / len(records)
+        seconds = sum(r["seconds"] for r in records) / len(records)
+        paired = [rmse(r) - base_rmse[r["seed"]] for r in records if r["seed"] in base_rmse]
+        change = (
+            f"{sum(paired) / len(paired):+.4f}" if paired and label != "base" else ""
+        )
+        return (
+            f"| {label} | {records[0]['params']:,} | {mean:.4f} ± {sd:.4f} |"
+            f" {change} | {regret:.4f} | {100 * optimal:.1f} | {seconds:.0f} |"
+        )
+
+    header = (
+        "| variant | params | test RMSE (pts) | change | regret | optimal % | train s |\n"
+        "|---|---|---|---|---|---|---|"
+    )
+    lines = []
+    for group in dict.fromkeys(g for g in groups.values() if g != "base"):
+        lines += [f"### {group}", "", header]
+        lines += [row("base")] if "base" in runs else []
+        lines += [row(label) for label in runs if groups[label] == group]
+        lines.append("")
+    # the size study as a grid of RMSE
+    size_records = [r for label in runs for r in runs[label] if r["group"] in ("size", "base")]
+    if size_records:
+        widths = sorted({r["config"]["width"] for r in size_records})
+        lines += ["### size grid: test RMSE (pts), rows are depth, columns are width", ""]
+        lines += ["| depth | " + " | ".join(map(str, widths)) + " |"]
+        lines += ["|---" * (len(widths) + 1) + "|"]
+        for depth in sorted({r["config"]["depth"] for r in size_records}):
+            cells = []
+            for width in widths:
+                cell = [
+                    rmse(r)
+                    for r in size_records
+                    if r["config"]["depth"] == depth and r["config"]["width"] == width
+                ]
+                cells.append(f"{_mean_sd(cell)[0]:.4f}" if cell else "")
+            lines.append(f"| {depth} | " + " | ".join(cells) + " |")
+        lines.append("")
+    return "\n".join(lines)
 
 
 # ------------------------------------------------------------
@@ -877,6 +1206,18 @@ def run_head_to_head(args: argparse.Namespace) -> None:
     )
 
 
+def run_ablate(args: argparse.Namespace) -> None:
+    """Runs the ablation study, then prints its report."""
+    groups = args.groups.split(",") if args.groups else None
+    run_ablation(args.out, args.steps, args.seeds, args.procs, args.threads, groups)
+    print(ablation_report(args.out))
+
+
+def run_ablate_report(args: argparse.Namespace) -> None:
+    """Prints the report of an ablation results file."""
+    print(ablation_report(args.results))
+
+
 def run_train(args: argparse.Namespace) -> None:
     """Trains a discard value network on a generated dataset."""
     torch.set_num_threads(args.threads)
@@ -938,6 +1279,19 @@ def main() -> None:
     train.add_argument("--out", help="file to save the model to")
     train.add_argument("--results", help="file to write the results to (JSON)")
     train.set_defaults(func=run_train)
+
+    ablate = commands.add_parser("ablate", help=run_ablate.__doc__)
+    ablate.add_argument("--out", default="data/ablation.jsonl")
+    ablate.add_argument("--steps", type=int, default=1500, help="gradient steps per run")
+    ablate.add_argument("--seeds", type=int, default=3)
+    ablate.add_argument("--procs", type=int, default=4, help="runs in parallel")
+    ablate.add_argument("--threads", type=int, default=2, help="threads per run")
+    ablate.add_argument("--groups", help="comma-separated groups (default: all)")
+    ablate.set_defaults(func=run_ablate)
+
+    report = commands.add_parser("ablate-report", help=run_ablate_report.__doc__)
+    report.add_argument("--results", default="data/ablation.jsonl")
+    report.set_defaults(func=run_ablate_report)
 
     match = commands.add_parser("head-to-head", help=run_head_to_head.__doc__)
     match.add_argument("--a", required=True, help="player spec, see make_player")
