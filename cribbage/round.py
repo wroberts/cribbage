@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
 from cribbage.cards import Card, card_tostring, make_deck, split_card
 from cribbage.pegging import Go, PegState, Play
 from cribbage.player import CribbagePlayer, DiscardView
@@ -359,7 +360,9 @@ class Round:
                     " ".join([card_tostring(c) for c in sorted(cards)]),
                 )
                 print("Starter card is ", card_tostring(starter_card))
-            points = score_hand(list(cards), starter_card, crib=is_crib, verbose=verbose)
+            points = score_hand(
+                list(cards), starter_card, crib=is_crib, verbose=verbose
+            )
             if verbose:
                 print(
                     f"Player {player_idx + 1}'s {'crib' if is_crib else 'hand'} scores",

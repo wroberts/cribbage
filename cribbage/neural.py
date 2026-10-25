@@ -14,15 +14,18 @@ for inspiration.
 import random
 from collections.abc import Iterable
 from typing import Any
+
 from cribbage.cards import Card, Hand, split_card
 
 try:
     from cribbage._cribbage_score import is_legal_play
 except ImportError:
     from cribbage.cribbage_score import is_legal_play
+
+import numpy as np
+
 from cribbage.game import Game
 from cribbage.player import CribbagePlayer
-import numpy as np
 
 # an (s,a,r,s2) tuple, as stored in the replay memory of a Q-learner; the
 # final state s2 is None when the action ended the episode
@@ -46,7 +49,9 @@ def one_hot(vec: np.ndarray, start_offset: int, value: int) -> None:
     vec[start_offset + value] = 1
 
 
-def encode_categories(vec: np.ndarray, start_offset: int, values: Iterable[int]) -> None:
+def encode_categories(
+    vec: np.ndarray, start_offset: int, values: Iterable[int]
+) -> None:
     """
     One-hot encoding of multiple values (in `values`) into `vec`.
 

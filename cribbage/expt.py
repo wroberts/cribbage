@@ -11,6 +11,10 @@ import functools
 import itertools
 import random
 from collections.abc import Iterator
+
+import numpy as np
+
+from cribbage.cards import Card, Hand
 from cribbage.dqlearning import DQLearner
 from cribbage.game import compare_players
 from cribbage.netbuilder import (
@@ -26,11 +30,9 @@ from cribbage.neural import (
     record_both_player_states,
     record_player1_states,
 )
-from cribbage.cards import Card, Hand
 from cribbage.player import CribbagePlayer
 from cribbage.randomplayer import RandomCribbagePlayer
 from cribbage.utils import doubled, numpy_memoize, random_skip
-import numpy as np
 
 
 def random_discard_sars_gen(random_seed: int | None = None) -> Iterator[Sars]:

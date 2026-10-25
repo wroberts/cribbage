@@ -182,6 +182,7 @@ def test_encoding_ignores_suit_relabelling():
     relabelled = np.array([relabel_suits(hand, [2, 3, 1, 0]) for hand in hands])
     one = encode_hands(torch.from_numpy(hands).long())
     two = encode_hands(torch.from_numpy(relabelled).long())
+
     # relabelling suits can reorder cards within the sorted hand, so the
     # splits come in a different order: compare the sorted rows
     def canonical_rows(x):
@@ -256,7 +257,9 @@ def test_make_player_and_match(tmp_path):
 
 def test_standardisation_uses_training_statistics():
     train = to_tensors(generate_dataset("train", num=300, k=5, seed=2, workers=1))
-    config = TrainConfig(width=8, depth=1, standardize_inputs=True, standardize_targets=True)
+    config = TrainConfig(
+        width=8, depth=1, standardize_inputs=True, standardize_targets=True
+    )
     model = config.make_net()
     from cribbage.discard_model import fit_standardisation
 
@@ -264,7 +267,9 @@ def test_standardisation_uses_training_statistics():
     features = encode_hands(train[0][:300]).reshape(-1, NUM_FEATURES)
     assert model.in_mean is not None and model.out_mean is not None
     assert torch.allclose(model.in_mean, features.mean(dim=0), atol=1e-5)
-    assert torch.allclose(model.out_mean, torch.stack([train[1].mean(), train[2].mean()]))
+    assert torch.allclose(
+        model.out_mean, torch.stack([train[1].mean(), train[2].mean()])
+    )
     # an untrained network predicts about the mean of each target
     with torch.no_grad():
         out = model(encode_hands(train[0][:100]))
@@ -281,5 +286,3 @@ def test_dropped_features_do_not_matter():
     assert torch.equal(model(features), model(changed))
     changed[..., 27] = 1 - changed[..., 27]  # suited is kept
     assert not torch.equal(model(features), model(changed))
-
-

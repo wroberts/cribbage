@@ -75,6 +75,8 @@ def test_make_deals():
     assert isinstance(deals, Deals)
     assert deals.kept.shape == (100, 2, 4) and deals.thrown.shape == (100, 2, 2)
     for i in range(100):
-        cards = np.concatenate([deals.kept[i].ravel(), deals.thrown[i].ravel(), [deals.starter[i]]])
+        cards = np.concatenate(
+            [deals.kept[i].ravel(), deals.thrown[i].ravel(), [deals.starter[i]]]
+        )
         assert len(set(cards.tolist())) == 13
     assert (make_deals(100, 3).kept == deals.kept).all()

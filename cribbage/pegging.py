@@ -88,7 +88,15 @@ class Sequence:
       and how much; set when the sequence is closed
     """
 
-    __slots__ = ("events", "cards", "count", "last", "go", "closed_by", "closing_points")
+    __slots__ = (
+        "events",
+        "cards",
+        "count",
+        "last",
+        "go",
+        "closed_by",
+        "closing_points",
+    )
 
     def __init__(self) -> None:
         self.events: list[SequenceEvent]
@@ -283,7 +291,9 @@ class PegState:
         self.done = False
 
     @classmethod
-    def start(cls, hands: SequenceType[SequenceType[Card]], dealer_idx: int) -> PegState:
+    def start(
+        cls, hands: SequenceType[SequenceType[Card]], dealer_idx: int
+    ) -> PegState:
         """The state at the start of a round's play: the non-dealer leads."""
         state = cls([list(hands[0]), list(hands[1])], 1 - dealer_idx)
         state.advance()

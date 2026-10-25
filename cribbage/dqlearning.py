@@ -29,7 +29,9 @@ import itertools
 import random
 from collections.abc import Callable, Iterator
 from typing import Any
+
 import numpy as np
+
 from cribbage.netbuilder import Model, NetworkWrapper, build
 from cribbage.neural import Sars
 
@@ -211,9 +213,7 @@ class DQLearner:
         """
         self.init_sars_epsilon_value = value
 
-    def sample_sars_fn(
-        self, func: Callable[[Model, float], Iterator[Sars]]
-    ) -> None:
+    def sample_sars_fn(self, func: Callable[[Model, float], Iterator[Sars]]) -> None:
         """
         This sets a function which is used to add (s,a,r,s) tuples to the
         replay memory when the train() function is running.  The

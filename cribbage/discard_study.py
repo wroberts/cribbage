@@ -51,7 +51,6 @@ from cribbage.discard_model import (
     train_model,
 )
 
-
 # ------------------------------------------------------------
 #  How many Monte Carlo samples do we need?
 
@@ -211,7 +210,6 @@ def print_k_study(
             f"{r['nondealer_regret']:10.4f} {r['nondealer_regret_se']:6.4f}"
             f" {100 * r['nondealer_optimal']:6.1f}"
         )
-
 
 
 # ------------------------------------------------------------
@@ -432,7 +430,6 @@ def ablation_report(path: str) -> str:
             lines.append(f"| {depth} | " + " | ".join(cells) + " |")
         lines.append("")
     return "\n".join(lines)
-
 
 
 # ------------------------------------------------------------

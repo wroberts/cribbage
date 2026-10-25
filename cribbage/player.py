@@ -6,6 +6,7 @@ player.py
 
 Abstract base class for a cribbage player.
 """
+
 from __future__ import annotations
 
 import random

@@ -26,6 +26,7 @@ from cribbage.discard_model import (
 )
 from cribbage.discard_study import ablation_report, ablation_variants, k_study
 
+
 def test_k_study_smoke():
     hands = deal_hands(3, np.random.default_rng(0))
     labels = [exact_labels(list(hand)) for hand in hands]
@@ -71,10 +72,22 @@ def test_ablation_variants_are_well_formed():
 
 def test_ablation_report(tmp_path):
     def record(label, group, seed, mse, width=256):
-        test = dict(mse=mse, dealer_regret=0.01, nondealer_regret=0.03,
-                    dealer_optimal=0.9, nondealer_optimal=0.8)
-        return dict(label=label, group=group, seed=seed, params=1000, seconds=2.0,
-                    test=test, config=dict(width=width, depth=3))
+        test = dict(
+            mse=mse,
+            dealer_regret=0.01,
+            nondealer_regret=0.03,
+            dealer_optimal=0.9,
+            nondealer_optimal=0.8,
+        )
+        return dict(
+            label=label,
+            group=group,
+            seed=seed,
+            params=1000,
+            seconds=2.0,
+            test=test,
+            config=dict(width=width, depth=3),
+        )
 
     rows = [record("base", "base", s, 0.04) for s in range(2)]
     rows += [record("32x3", "size", s, 0.09, width=32) for s in range(2)]

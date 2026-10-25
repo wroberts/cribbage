@@ -7,19 +7,13 @@ c_cribbage_score.py
 A module to deal with scoring cribbage hands and plays.
 """
 
-from collections import Counter
 import itertools
 import math
+from collections import Counter
 from collections.abc import Sequence
 from itertools import pairwise
-from .cards import (
-    CARD_FACES,
-    CARD_VALUES,
-    Card,
-    Hand,
-    cards_worth,
-    split_card,
-)
+
+from .cards import CARD_FACES, CARD_VALUES, Card, Hand, cards_worth, split_card
 
 # the longest possible play: a count of 31 cannot be exceeded
 MAX_PLAY_LENGTH = 13

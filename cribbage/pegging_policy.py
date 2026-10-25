@@ -76,7 +76,11 @@ class Greedy2PeggingPolicy(PeggingPolicy):
             if n and not view.opp_said_go:
                 room = 31 - view.count - WORTH[card]
                 scores = sorted(
-                    (score_play([*view.seq, card, x]) for x in pool if WORTH[x] <= room),
+                    (
+                        score_play([*view.seq, card, x])
+                        for x in pool
+                        if WORTH[x] <= room
+                    ),
                     reverse=True,
                 )
                 reply = (

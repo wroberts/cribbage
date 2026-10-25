@@ -144,13 +144,15 @@ class Labels:
 
     @classmethod
     def concat(cls, parts: Sequence[Labels]) -> Labels:
-        return cls(*(np.concatenate([getattr(p, f) for p in parts]) for f in
-                     ("state", "cand", "value", "mask")))
+        return cls(
+            *(
+                np.concatenate([getattr(p, f) for p in parts])
+                for f in ("state", "cand", "value", "mask")
+            )
+        )
 
 
-def label_deals(
-    deals: Deals, worlds: int, explore: float, seed: str
-) -> Labels:
+def label_deals(deals: Deals, worlds: int, explore: float, seed: str) -> Labels:
     """Plays every deal out with the teacher on both sides, recording decisions."""
     teacher = PimcRolloutPeggingPolicy(worlds)
     teacher.reseed(seed)
@@ -325,7 +327,8 @@ def train_net(
             val_mask = val_data["mask"]
             stats["mse"] = float(
                 (
-                    (centred(pred, val_mask) - centred(val_data["value"], val_mask)) ** 2
+                    (centred(pred, val_mask) - centred(val_data["value"], val_mask))
+                    ** 2
                 ).sum()
                 / val_mask.sum()
             )
@@ -343,7 +346,8 @@ def train_net(
 def save_net(model: PegNet, path: str) -> None:
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     torch.save(
-        {"width": model.width, "depth": model.depth, "state_dict": model.state_dict()}, path
+        {"width": model.width, "depth": model.depth, "state_dict": model.state_dict()},
+        path,
     )
 
 
@@ -374,7 +378,9 @@ class NetPeggingPolicy(PeggingPolicy):
         return cls(load_net(path))
 
     def scores(self, state: np.ndarray, cands: np.ndarray) -> np.ndarray:
-        x = np.concatenate([np.broadcast_to(state, (len(cands), len(state))), cands], axis=1)
+        x = np.concatenate(
+            [np.broadcast_to(state, (len(cands), len(state))), cands], axis=1
+        )
         for i, (w, b) in enumerate(self.weights):
             x = x @ w + b
             if i < len(self.weights) - 1:
@@ -517,7 +523,13 @@ def run_train(args: argparse.Namespace) -> None:
     torch.set_num_threads(args.threads)
     labels = Labels.load(args.labels)
     model, stats = train_net(
-        labels, args.width, args.depth, args.epochs, args.batch_size, args.lr, seed=args.seed
+        labels,
+        args.width,
+        args.depth,
+        args.epochs,
+        args.batch_size,
+        args.lr,
+        seed=args.seed,
     )
     save_net(model, args.out)
     print(f"saved {args.out}; final validation: {stats}")
@@ -547,7 +559,9 @@ def main() -> None:
 
     gen = commands.add_parser("generate", help=run_generate.__doc__)
     gen.add_argument("--hands", type=int, default=20000)
-    gen.add_argument("--worlds", type=int, default=100, help="teacher worlds per decision")
+    gen.add_argument(
+        "--worlds", type=int, default=100, help="teacher worlds per decision"
+    )
     gen.add_argument("--explore", type=float, default=0.25)
     gen.add_argument("--discard", default=discard)
     # evaluation uses seed 0 deals, so training deals must differ

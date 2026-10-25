@@ -26,14 +26,12 @@ from __future__ import annotations
 
 import math
 import random
-from collections.abc import Sequence
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from cribbage.cards import WORTH, Card, cards_worth, face
 from cribbage.pegging import PegState, PegView
 from cribbage.pegging_policy import PeggingPolicy
 from cribbage.scoring import score_play
-
 
 # ------------------------------------------------------------
 #  What a player sees, and sampling the rest
@@ -185,8 +183,6 @@ class Solver:
             child.play(idx)
             values[idx] = child.margin() - state.margin() + self.value(child)
         return values
-
-
 
 
 # ------------------------------------------------------------

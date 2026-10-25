@@ -59,9 +59,7 @@ class BenchPlayer(PolicyPlayer):
     an oracle policy the opponent's hand (`peek`, set by the harness).
     """
 
-    def __init__(
-        self, discard_spec: str, pegging_policy: PeggingPolicy
-    ) -> None:
+    def __init__(self, discard_spec: str, pegging_policy: PeggingPolicy) -> None:
         super().__init__(make_discard_policy(discard_spec), pegging_policy)
         # reads the opponent's hand, for the oracle (set by the harness)
         self.peek: Callable[[], Sequence[Card]] | None = None
@@ -167,9 +165,7 @@ def play_pegging(
     """
     game = Game(list(players))
     game.target_score = 10**9
-    rnd = Round.from_deal(
-        game, list(players), Deal.from_kept(1, kept, thrown, starter)
-    )
+    rnd = Round.from_deal(game, list(players), Deal.from_kept(1, kept, thrown, starter))
     for seat, player in enumerate(players):
         if player.pegging_policy.needs_oracle:
             player.peek = _hand_reader(rnd, 1 - seat)

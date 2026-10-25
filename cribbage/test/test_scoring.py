@@ -23,7 +23,6 @@ from cribbage._cribbage_score import score_hand as c_score_hand
 from cribbage._cribbage_score import card_worth as c_card_worth
 from cribbage._cribbage_score import cards_worth as c_cards_worth
 
-
 # set by explore_score_hand, for poking at from an interactive session
 hand: list[int]
 draw: int

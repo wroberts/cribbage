@@ -59,9 +59,7 @@ def test_expected_hand_matches_exhaustive_values():
     def mean(keep):
         return sum(score_hand(keep, draw=s) for s in starters) / len(starters)
 
-    best = max(
-        (mean([hand[i] for i in keep]), keep) for keep in KEEP_COMBINATIONS
-    )[0]
+    best = max((mean([hand[i] for i in keep]), keep) for keep in KEEP_COMBINATIONS)[0]
     first, second = ExpectedHandDiscardPolicy(num_samples=2000).choose(view)
     kept = [c for c in hand if c not in (first, second)]
     assert mean(kept) >= best - 0.5

@@ -76,6 +76,7 @@ NUM_KEEPS = len(KEEP_COMBINATIONS)
 # ------------------------------------------------------------
 #  Hands, candidate discards
 
+
 def deal_hands(num: int, rng: np.random.Generator) -> np.ndarray:
     """Returns a (num, 6) array of random dealt hands, each sorted."""
     return np.array(

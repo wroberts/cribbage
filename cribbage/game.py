@@ -11,6 +11,7 @@ import math
 import multiprocessing
 import random
 from collections.abc import Callable, Sequence
+
 from cribbage.player import CribbagePlayer
 from cribbage.round import Round
 

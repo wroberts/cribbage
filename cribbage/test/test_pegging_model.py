@@ -106,7 +106,9 @@ def test_regrets_and_training_reduce_error(tmp_path):
     policy = NetPeggingPolicy.load(path)
     state, cands, _ = encode(make_view([9, 4, 3], [8], starter=40))
     with torch.no_grad():
-        expected = model(torch.from_numpy(state)[None], torch.from_numpy(cands)[None])[0]
+        expected = model(torch.from_numpy(state)[None], torch.from_numpy(cands)[None])[
+            0
+        ]
     assert np.allclose(policy.scores(state, cands), expected.numpy(), atol=1e-5)
 
 

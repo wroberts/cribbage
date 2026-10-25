@@ -18,11 +18,13 @@ import sys
 import time
 from collections.abc import Callable, Iterable, Iterator
 from typing import Any
-from cribbage.utils import grouped, mkdir_p, open_atomic
+
 import lasagne
 import numpy as np
 import theano
 import theano.tensor as T
+
+from cribbage.utils import grouped, mkdir_p, open_atomic
 
 # logging
 logging.basicConfig(
