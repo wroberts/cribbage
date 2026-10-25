@@ -10,15 +10,20 @@ events from a count of zero up to 31 or until neither player can play.
 (go, 31, last card) without the `Game` and `CribbagePlayer` machinery, so
 it is cheap to copy, replay and search.  Players are numbered 0 and 1.
 Cards are 0..51, so a hand never repeats a card.
+
+What a player may see of the play is a `PegView`: the same history, but
+from the player's own seat (they are player 0 and their opponent is
+player 1) and without the opponent's hand.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence as SequenceType
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
+from functools import cached_property
 from typing import Any, ClassVar
 
-from cribbage.cards import WORTH, Card
+from cribbage.cards import WORTH, Card, unseen_cards
 from cribbage.scoring import score_play
 
 
@@ -143,6 +148,12 @@ class Sequence:
     def said_go(self, player: int) -> bool:
         return bool(self.go >> player & 1)
 
+    def flipped(self) -> Sequence:
+        """A copy with the two players' places swapped."""
+        events = [replace(event, player=1 - event.player) for event in self.events]
+        closed_by = None if self.closed_by is None else 1 - self.closed_by
+        return Sequence.from_events(events, closed_by, self.closing_points)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "events": [e.to_dict() for e in self.events],
@@ -154,6 +165,89 @@ class Sequence:
     def from_dict(cls, data: dict[str, Any]) -> Sequence:
         events = [SequenceEvent.from_dict(e) for e in data["events"]]
         return cls.from_events(events, data["closed_by"], data["closing_points"])
+
+
+@dataclass(frozen=True)
+class PegView:
+    """
+    What a player sees when asked to play a card, from their own seat:
+    they are player 0 in `sequences` and their opponent is player 1.
+    The sequences are shared with the engine's own record, so they must
+    not be changed.
+
+    - `hand`: the cards the player holds
+    - `legal`: those of `hand` that may be played now
+    - `sequences`: the sequences so far, public to both players; the last
+      one is open
+    - `discards`: the two cards the player threw into the crib
+    - `starter`: the cut card
+    - `is_dealer`: whether the player is the dealer (the crib is theirs)
+    - `score`, `opp_score`: the game scores of the player and their opponent
+    - `opp_hand`: the opponent's hand; set only by a harness, for an oracle
+    """
+
+    hand: tuple[Card, ...]
+    legal: tuple[Card, ...]
+    sequences: tuple[Sequence, ...]
+    discards: tuple[Card, ...]
+    starter: Card
+    is_dealer: bool
+    score: int
+    opp_score: int
+    opp_hand: tuple[Card, ...] | None = None
+
+    @property
+    def sequence(self) -> Sequence:
+        """The current sequence."""
+        return self.sequences[-1]
+
+    @property
+    def seq(self) -> list[Card]:
+        """The cards played in the current sequence."""
+        return self.sequences[-1].cards
+
+    @property
+    def count(self) -> int:
+        """The count of the current sequence."""
+        return self.sequences[-1].count
+
+    @property
+    def opp_said_go(self) -> bool:
+        """Whether the opponent has said go in the current sequence."""
+        return self.sequences[-1].said_go(1)
+
+    @cached_property
+    def played(self) -> frozenset[Card]:
+        """The cards played so far in the round (the starter is not one)."""
+        return frozenset(card for seq in self.sequences for card in seq.cards)
+
+    @cached_property
+    def opp_cards_left(self) -> int:
+        """How many cards the opponent still holds (each keeps four)."""
+        plays = sum(
+            1
+            for seq in self.sequences
+            for event in seq.events
+            if isinstance(event, Play) and event.player == 1
+        )
+        return 4 - plays
+
+    def unseen(self) -> list[Card]:
+        """Cards that may be in the opponent's hand or in the crib."""
+        return unseen_cards(self.played, self.hand, self.discards, (self.starter,))
+
+    @cached_property
+    def opp_plays(self) -> list[tuple[tuple[Card, ...], Card]]:
+        """(the sequence so far, the card) for each of the opponent's plays."""
+        plays = []
+        for seq in self.sequences:
+            for i, event in enumerate(seq.events):
+                if isinstance(event, Play) and event.player == 1:
+                    before = tuple(
+                        e.card for e in seq.events[:i] if isinstance(e, Play)
+                    )
+                    plays.append((before, event.card))
+        return plays
 
 
 class PegState:
@@ -196,32 +290,16 @@ class PegState:
         return state
 
     @classmethod
-    def from_cards(
-        cls,
-        hands: SequenceType[SequenceType[Card]],
-        turn: int,
-        seq: SequenceType[Card] = (),
-        is_go: bool = False,
-        last: int | None = None,
-    ) -> PegState:
+    def from_view(cls, view: PegView, opp_hand: SequenceType[Card]) -> PegState:
         """
-        A state in the middle of a sequence, known only by its cards: the
-        player to move is `turn`, `last` played the last card (by default
-        whoever's turn it was before) and, if `is_go`, the other player has
-        said go.  Who played the earlier cards is not known, so the state
-        does not record events.
+        The state a player sees in `view`, if the opponent holds `opp_hand`.
+        The player to move is player 0.  The state keeps the cards, count
+        and go flags of the current sequence, but not its events, and does
+        not record further ones.
         """
-        if last is None:
-            last = turn if is_go else 1 - turn
-        state = cls([list(hands[0]), list(hands[1])], turn, record=False)
-        current = state.sequences[-1]
-        current.cards.extend(seq)
-        current.count = sum(WORTH[card] for card in seq)
-        if seq:
-            current.last = last
-        if is_go:
-            current.go |= 1 << (1 - turn)
-        return state
+        current = view.sequences[-1].copy()
+        current.events = []
+        return cls([list(view.hand), list(opp_hand)], 0, [current], record=False)
 
     def copy(self) -> PegState:
         other = PegState.__new__(PegState)
@@ -263,6 +341,39 @@ class PegState:
     def history(self) -> list[dict[str, Any]]:
         """The sequences in a form that can be JSON encoded."""
         return [seq.to_dict() for seq in self.sequences]
+
+    def view(
+        self,
+        seat: int,
+        discards: SequenceType[Card],
+        starter: Card,
+        is_dealer: bool,
+        score: int,
+        opp_score: int,
+    ) -> PegView:
+        """
+        What the player in `seat` sees now.  The state must be recording.
+        The sequences are relabelled so that `seat` is player 0.
+        """
+        assert self.record
+        hand = self.hands[seat]
+        room = 31 - self.sequences[-1].count
+        legal = tuple(card for card in hand if WORTH[card] <= room)
+        closed, current = self.sequences[:-1], self.sequences[-1]
+        if seat == 0:
+            sequences = (*closed, current.copy())
+        else:
+            sequences = (*(s.flipped() for s in closed), current.flipped())
+        return PegView(
+            tuple(hand),
+            legal,
+            sequences,
+            tuple(discards),
+            starter,
+            is_dealer,
+            score,
+            opp_score,
+        )
 
     def margin(self) -> int:
         """Points scored so far by player 0, less those of player 1."""

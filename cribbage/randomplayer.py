@@ -8,8 +8,9 @@ A CribbagePlayer that always makes a random move.
 """
 
 import random
-from cribbage.cards import Card, Hand
-from cribbage.player import CribbagePlayer
+from cribbage.cards import Card
+from cribbage.pegging import PegView
+from cribbage.player import CribbagePlayer, DiscardView
 
 
 class RandomCribbagePlayer(CribbagePlayer):
@@ -21,59 +22,11 @@ class RandomCribbagePlayer(CribbagePlayer):
         """Constructor."""
         super().__init__()
 
-    def discard(
-        self,
-        is_dealer: bool,
-        hand: Hand,
-        player_score: int,
-        opponent_score: int,
-    ) -> list[int]:
-        """
-        Asks the player to select two cards from `hand` for discarding to
-        the crib.
+    def discard(self, view: DiscardView) -> tuple[Card, Card]:
+        """Discards two random cards."""
+        first, second = random.sample(view.hand, 2)
+        return first, second
 
-        Return is a list of two indices into the hand array.
-
-        Arguments:
-        - `is_dealer`: a flag to indicate whether the given player is
-          currently the dealer or not
-        - `hand`: an array of 6 card values
-        - `player_score`: the score of the current player
-        - `opponent_score`: the score of the current player's opponent
-        """
-        return random.sample(range(6), 2)
-
-    def play_card(
-        self,
-        is_dealer: bool,
-        hand: Hand,
-        played_cards: set[Card],
-        is_go: bool,
-        linear_play: list[Card],
-        player_score: int,
-        opponent_score: int,
-        legal_moves: list[int],
-    ) -> int:
-        """
-        Asks the player to select one card from `hand` to play during a
-        cribbage round.
-
-        Return an index into the hand array.
-
-        Arguments:
-        - `is_dealer`: a flag to indicate whether the given player is
-          currently the dealer or not
-        - `hand`: an array of 1 to 4 card values
-        - `played_cards`: a set of card values, containing all cards
-          seen so far in this round (including the starter card)
-        - `is_go`: a flag to indicate if the play is currently in go or not
-        - `linear_play`: the array of card values that have been
-          played in this round by both players, zippered into a single
-          list
-        - `player_score`: the score of the current player
-        - `opponent_score`: the score of the current player's opponent
-        - `legal_moves`: a list of indices into `hand` indicating
-          which cards from the hand may be played legally at this
-          point in the game
-        """
-        return random.choice(legal_moves)
+    def play_card(self, view: PegView) -> Card:
+        """Plays a random legal card."""
+        return random.choice(view.legal)

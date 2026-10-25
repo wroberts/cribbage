@@ -12,8 +12,9 @@ import random
 
 import numpy as np
 
-from cribbage.cards import KEEP_COMBINATIONS, Card, Hand, make_deck
-from cribbage.player import CribbagePlayer
+from cribbage.cards import KEEP_COMBINATIONS, Card, make_deck
+from cribbage.pegging import PegView
+from cribbage.player import CribbagePlayer, DiscardView
 from cribbage.scoring import score_hand, score_play
 
 
@@ -34,28 +35,15 @@ class SimpleCribbagePlayer(CribbagePlayer):
         self.num_discard_samples = num_discard_samples
         self.estimate_playcard = estimate_playcard
 
-    def discard(
-        self,
-        is_dealer: bool,
-        hand: Hand,
-        player_score: int,
-        opponent_score: int,
-    ) -> list[int]:
+    def discard(self, view: DiscardView) -> tuple[Card, Card]:
         """
-        Asks the player to select two cards from `hand` for discarding to
-        the crib.
-
-        Return is a list of two indices into the hand array.
-
-        Arguments:
-        - `is_dealer`: a flag to indicate whether the given player is
-          currently the dealer or not
-        - `hand`: an array of 6 card values
-        - `player_score`: the score of the current player
-        - `opponent_score`: the score of the current player's opponent
+        Discards the two cards that leave the hand with the best average
+        score over random starter cards (or at random, if not estimating).
         """
+        hand = list(view.hand)
         if not self.estimate_discard:
-            return random.sample(range(6), 2)
+            first, second = random.sample(hand, 2)
+            return first, second
         deck = sorted(set(make_deck()) - set(hand))
         npdeck = np.array(deck)
         nphand = np.array(hand)
@@ -70,50 +58,13 @@ class SimpleCribbagePlayer(CribbagePlayer):
             results[tuple(sorted(keep))] = sum(samples) / len(samples)
         # get the best hand
         best_hand = max((v, k) for (k, v) in results.items())[1]
-        # convert back into indices into hand
-        discard_values = set(hand) - set(best_hand)
-        # return indices to discard
-        return [idx for idx, card in enumerate(hand) if card in discard_values]
+        first, second = (card for card in hand if card not in best_hand)
+        return first, second
 
-    def play_card(
-        self,
-        is_dealer: bool,
-        hand: Hand,
-        played_cards: set[Card],
-        is_go: bool,
-        linear_play: list[Card],
-        player_score: int,
-        opponent_score: int,
-        legal_moves: list[int],
-    ) -> int:
-        """
-        Asks the player to select one card from `hand` to play during a
-        cribbage round.
-
-        Return an index into the hand array.
-
-        Arguments:
-        - `is_dealer`: a flag to indicate whether the given player is
-          currently the dealer or not
-        - `hand`: an array of 1 to 4 card values
-        - `played_cards`: a set of card values, containing all cards
-          seen so far in this round (including the starter card)
-        - `is_go`: a flag to indicate if the play is currently in go or not
-        - `linear_play`: the array of card values that have been
-          played in this round by both players, zippered into a single
-          list
-        - `player_score`: the score of the current player
-        - `opponent_score`: the score of the current player's opponent
-        - `legal_moves`: a list of indices into `hand` indicating
-          which cards from the hand may be played legally at this
-          point in the game
-        """
+    def play_card(self, view: PegView) -> Card:
+        """Plays the card that scores most right now (at random, if not estimating)."""
         if not self.estimate_playcard:
-            return random.choice(legal_moves)
-        choices = [hand[x] for x in legal_moves]
-        results = {}
-        for choice in choices:
-            results[choice] = score_play(linear_play + [choice])
+            return random.choice(view.legal)
+        results = {card: score_play([*view.seq, card]) for card in view.legal}
         max_value = max(results.values())
-        best_choices = [k for (k, v) in results.items() if v == max_value]
-        return hand.index(random.choice(best_choices))
+        return random.choice([k for (k, v) in results.items() if v == max_value])

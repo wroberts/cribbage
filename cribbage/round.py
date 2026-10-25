@@ -10,20 +10,66 @@ two CribbagePlayers.
 
 from __future__ import annotations
 
-import random
+from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
-from cribbage.cards import Card, Hand, card_tostring, make_deck, split_card
-from cribbage.player import CribbagePlayer
-from cribbage.scoring import (
-    cards_worth,
-    get_legal_play_idxs,
-    is_legal_play,
-    score_hand,
-    score_play,
-)
+from cribbage.cards import Card, card_tostring, make_deck, split_card
+from cribbage.pegging import Go, PegState, Play
+from cribbage.player import CribbagePlayer, DiscardView
+from cribbage.scoring import score_hand
 
 if TYPE_CHECKING:
     from cribbage.game import Game
+
+
+@dataclass(frozen=True)
+class Deal:
+    """
+    The cards of one round, and where they went.  Players are indexed by
+    seat, 0 and 1.
+
+    - `dealer`: the seat of the dealer
+    - `dealt`: the six cards dealt to each player
+    - `discards`: the two cards each player threw into the crib
+    - `starter`: the cut card
+    """
+
+    dealer: int
+    dealt: tuple[tuple[Card, ...], tuple[Card, ...]]
+    discards: tuple[tuple[Card, ...], tuple[Card, ...]]
+    starter: Card
+
+    @classmethod
+    def from_kept(
+        cls,
+        dealer: int,
+        kept: Sequence[Sequence[Card]],
+        discards: Sequence[Sequence[Card]],
+        starter: Card,
+    ) -> Deal:
+        """A deal from the cards each player kept and threw (kept ones first)."""
+        keep = [tuple(int(c) for c in kept[seat]) for seat in (0, 1)]
+        throw = [tuple(int(c) for c in discards[seat]) for seat in (0, 1)]
+        return cls(
+            dealer,
+            (keep[0] + throw[0], keep[1] + throw[1]),
+            (throw[0], throw[1]),
+            int(starter),
+        )
+
+    @property
+    def kept(self) -> tuple[tuple[Card, ...], tuple[Card, ...]]:
+        """The four cards each player kept, in the order dealt."""
+        keep0, keep1 = (
+            tuple(c for c in self.dealt[seat] if c not in self.discards[seat])
+            for seat in (0, 1)
+        )
+        return keep0, keep1
+
+    @property
+    def crib(self) -> list[Card]:
+        """The four cards of the crib."""
+        return [*self.discards[0], *self.discards[1]]
 
 
 class Round:
@@ -32,48 +78,35 @@ class Round:
     """
 
     def __init__(
-        self, game: Game, players: list[CribbagePlayer], dealer_idx: int
+        self, game: Game, players: Sequence[CribbagePlayer], dealer_idx: int
     ) -> None:
         """
         Constructor.
 
         Arguments:
+        - `game`:
         - `players`:
         - `dealer_idx`:
         """
         self.game = game
-        self.players = players
+        self.players = list(players)
         self.dealer_idx = dealer_idx
-        # the deck of the current game round
-        self.deck: list[Card] = []
-        # the hands of the two players during the current game round
-        self.hands: list[Hand] = []
-        # copy of self.hands directly after the deal
-        self.dealt_hands: list[Hand] = []
-        # copy of self.hands directly after discarding, before play
-        self.kept_hands: list[Hand] = []
-        # the crib of the current game round
-        self.crib: Hand = []
-        # the card value of the "starter" or "cut" card for the
-        # current game round
-        self.starter_card: Card = -1
-        # the player whose turn it currently is to play a card
-        self.turn_idx = 0
-        # the array of cards that have been played already during the
-        # current game round by the two players, linearised into
-        # a single list, based on the time that the cards were played
-        self.linear_play: list[Card] = []
-        # during a round, we keep track of the last_player
-        self.last_player: int | None = None
-        # the set of all cards that have been "seen" by both players
-        # during this round, used for counting cards
-        self.played_cards: set[Card] = set()
-        # a flag that indicates whether the current sequence of the
-        # current game round has gone to "Go" or not
-        self.is_go = False
-        # a flag that indicates whether the last player hit 31 or not
-        # during the current sequence of the current game round
-        self.flag_31 = False
+        # the cards of the round, once they are dealt and discarded
+        self.cards: Deal | None = None
+        # the state of the pegging, once it has started
+        self.peg: PegState | None = None
+
+    @classmethod
+    def from_deal(
+        cls, game: Game, players: Sequence[CribbagePlayer], cards: Deal
+    ) -> Round:
+        """
+        A round with the given cards, already dealt and discarded: `play`
+        and `show` may be called next (`nibs` for his nibs).
+        """
+        rnd = cls(game, players, cards.dealer)
+        rnd.cards = cards
+        return rnd
 
     def deal(self, verbose: bool = False) -> bool:
         """
@@ -97,66 +130,69 @@ class Round:
         """
         if self.game.over:
             return False
+        rng = self.game.rng
         # create a new shuffled deck
-        self.deck = make_deck()
-        random.shuffle(self.deck)
+        deck = make_deck()
+        rng.shuffle(deck)
         # deal out 6 cards to each player
-        nondealer_hand = self.deck[:12][::2]
-        dealer_hand = self.deck[:12][1::2]
-        self.deck = self.deck[12:]
+        nondealer_hand = tuple(deck[:12][::2])
+        dealer_hand = tuple(deck[:12][1::2])
+        deck = deck[12:]
         # self.dealer_idx indicates the player who is dealer
-        self.hands = (
-            [nondealer_hand, dealer_hand]
+        dealt = (
+            (nondealer_hand, dealer_hand)
             if self.dealer_idx
-            else [dealer_hand, nondealer_hand]
+            else (dealer_hand, nondealer_hand)
         )
         if verbose:
             print("Dealing cards")
-            self.print_state()
-        # copy self.hands after dealing
-        self.dealt_hands = [x[:] for x in self.hands]
+            self.print_state(dealt)
         # ask players to select cards to discard to crib
-        self.crib = []
+        discards = []
         for player_idx, player in enumerate(self.players):
-            discard_idxs = player.discard(
-                is_dealer=self.dealer_idx == player_idx,
-                hand=self.dealt_hands[player_idx],
-                player_score=self.game.scores[player_idx],
-                opponent_score=self.game.scores[int(not player_idx)],
+            chosen = tuple(
+                player.discard(
+                    DiscardView(
+                        hand=dealt[player_idx],
+                        is_dealer=self.dealer_idx == player_idx,
+                        score=self.game.scores[player_idx],
+                        opp_score=self.game.scores[int(not player_idx)],
+                    )
+                )
             )
             # sanity checking
-            assert len(set(discard_idxs)) == 2
-            assert all(0 <= i < 6 for i in discard_idxs)
-            discard_set = set(discard_idxs)
-            discards = [
-                c for i, c in enumerate(self.hands[player_idx]) if i in discard_set
-            ]
+            assert len(set(chosen)) == 2
+            assert all(c in dealt[player_idx] for c in chosen)
             if verbose:
                 print(
                     f"Player {player_idx + 1} discards:",
-                    " ".join(card_tostring(c) for c in sorted(discards)),
+                    " ".join(card_tostring(c) for c in sorted(chosen)),
                 )
-            self.crib.extend(discards)
-            self.hands[player_idx] = [
-                c for i, c in enumerate(self.hands[player_idx]) if i not in discard_set
-            ]
-        # copy self.hands after discarding
-        self.kept_hands = [x[:] for x in self.hands]
-        if verbose:
-            self.print_state()
+            discards.append(chosen)
         # randomly cut a card from the deck to serve as the "starter"
-        self.starter_card = random.choice(self.deck)
-        # check for "his nibs"
-        starter_value = split_card(self.starter_card)[0]
+        self.cards = Deal(
+            self.dealer_idx, dealt, (discards[0], discards[1]), rng.choice(deck)
+        )
         if verbose:
-            print("Starter card is ", card_tostring(self.starter_card))
+            self.print_state(self.cards.kept)
+        return self.nibs(verbose=verbose)
+
+    def nibs(self, verbose: bool = False) -> bool:
+        """
+        Reveals the starter; if it is a Jack, the dealer scores two points
+        for "his heels".
+
+        Returns True if the game is not over afterwards.
+        """
+        assert self.cards is not None
+        starter_value = split_card(self.cards.starter)[0]
+        if verbose:
+            print("Starter card is ", card_tostring(self.cards.starter))
         if starter_value == 10:
             if verbose:
                 print("Dealer gets two points for his nibs")
             if not self.game.award_points(self.dealer_idx, 2, verbose=verbose):
                 return False
-        # add the starter to the set of played cards
-        self.played_cards.add(self.starter_card)
         return True
 
     def play(self, verbose: bool = False) -> bool:
@@ -209,141 +245,68 @@ class Round:
         Arguments:
         - `verbose`:
         """
-        # start with non-dealer player
-        self.turn_idx = int(not self.dealer_idx)
-        # a game is composed of sequences
-        # ------
-        # set up a new sequence
-        # ------
-        # players take turns laying one card face up on the table
-        # without the count going over 31
-        self.linear_play = []
-        # a flag that indicates whether this sequence has gone to "Go" or
-        # not
-        self.is_go = False
-        # a flag that indicates whether the last player hit 31 or not
-        self.flag_31 = False
-        # keep track of the last player in this sequence
-        self.last_player = None
+        assert self.cards is not None
+        cards = self.cards
+        # the non-dealer leads
+        peg = self.peg = PegState.start(cards.kept, self.dealer_idx)
+        printed = 0
 
-        # loop forever
-        while True:
-            # determine which plays the player can legally make
-            legal_moves = get_legal_play_idxs(
-                self.hands[self.turn_idx], self.linear_play
-            )
-
-            # a sequence is over if the game is in "Go" and the player
-            # has no legal moves, or if the player has previously hit
-            # 31
-            if (self.is_go and not legal_moves) or self.flag_31:
-                # then last_player gets awarded 1 or 2 points, and we restart the sequence
-                assert self.last_player is not None
-                if self.flag_31:
-                    if not self.game.award_points(self.last_player, 2, verbose=verbose):
-                        return False
+        def report() -> None:
+            nonlocal printed
+            for event in peg.events[printed:]:
+                if isinstance(event, Go):
+                    print(f"Player {event.player + 1} says go")
                 else:
-                    if not self.game.award_points(self.last_player, 1, verbose=verbose):
-                        return False
-                # restart the sequence
+                    assert isinstance(event, Play)
+                    print(
+                        f"Player {event.player + 1} plays:",
+                        card_tostring(event.card),
+                        "  Count:",
+                        event.count,
+                    )
+            printed = len(peg.events)
+
+        while not peg.done:
+            seat = peg.turn
+            view = peg.view(
+                seat,
+                cards.discards[seat],
+                cards.starter,
+                self.dealer_idx == seat,
+                self.game.scores[seat],
+                self.game.scores[int(not seat)],
+            )
+            card = self.players[seat].play_card(view)
+            # sanity checking
+            assert card in view.legal
+            idx = peg.hands[seat].index(card)
+
+            # make the move, and score it
+            play_points = peg.place(idx)
+            if verbose:
+                report()
+                if play_points:
+                    print(f"Player {seat + 1} scores:", play_points)
+            if not self.game.award_points(seat, play_points, verbose=verbose):
+                return False
+
+            # resolve go calls and the end of the sequence, scoring the
+            # last card or 31
+            closed = peg.advance()
+            if verbose:
+                report()
+            if closed is not None:
                 if verbose:
                     print("Sequence is over")
-                self.linear_play = []
-                self.is_go = False
-                self.flag_31 = False
-
-                # the round is over if no player has cards left
-                if sum(map(len, self.hands)) == 0:
-                    if verbose:
-                        print("Round is over")
-                        self.print_state()
-                    # notify the players that the round is over
-                    for player in self.players:
-                        player.round_over()
-                    # exit the loop
-                    break
-
-                # restart with the opponent of the player who played the last
-                # card
-                self.turn_idx = int(not self.last_player)
-                self.last_player = None
-
-                continue
-
-            # if there are no legal moves that this player can play,
-            # and the game is not yet in "Go"
-            if not legal_moves:
-                # then we call 'Go' and make it the other player's
-                # turn
-                if verbose:
-                    print(f"Player {self.turn_idx + 1} says go")
-                self.turn_idx = int(not self.turn_idx)
-                self.is_go = True
-                continue
-
-            # ask the player to choose
-            play_idx = self.players[self.turn_idx].play_card(
-                is_dealer=self.dealer_idx == self.turn_idx,
-                hand=self.hands[self.turn_idx],
-                played_cards=self.played_cards,
-                is_go=self.is_go,
-                linear_play=self.linear_play,
-                player_score=self.game.scores[self.turn_idx],
-                opponent_score=self.game.scores[int(not self.turn_idx)],
-                legal_moves=legal_moves,
-            )
-
-            # sanity checking
-            assert 0 <= play_idx < len(self.hands[self.turn_idx])
-            play_card = self.hands[self.turn_idx][play_idx]
-            assert is_legal_play(play_card, self.linear_play)
-
-            # add the played card to the set of played cards
-            self.played_cards.add(play_card)
-
-            # record the last player to make a move
-            self.last_player = self.turn_idx
-
-            # make the move
-            del self.hands[self.turn_idx][play_idx]
-            self.linear_play.append(play_card)
-            if verbose:
-                print(
-                    f"Player {self.turn_idx + 1} plays:",
-                    card_tostring(play_card),
-                    end="",
-                )
-                print("  Count:", cards_worth(self.linear_play))
-                self.print_state()
-
-            # if the move makes the count hit 31, set the 31 flag
-            if cards_worth(self.linear_play) == 31:
-                if verbose:
-                    print(f"Player {self.turn_idx + 1} hit 31")
-                self.flag_31 = True
-
-            # if the opponent player has no more cards left, toggle
-            # the "Go" flag
-            if not self.hands[int(not self.turn_idx)]:
-                if verbose:
-                    print(f"Player {int(not self.turn_idx) + 1} says go")
-                self.is_go = True
-
-            # score the move for player_1 if it's a 15, pair, or run
-            play_score = score_play(self.linear_play, verbose=verbose)
-            if play_score:
-                if verbose:
-                    print(f"Player {self.turn_idx + 1} scores:", play_score)
-                if not self.game.award_points(
-                    self.turn_idx, play_score, verbose=verbose
-                ):
+                if not self.game.award_points(*closed, verbose=verbose):
                     return False
 
-            # players take turns (except when one player is in "Go",
-            # or this player has hit 31)
-            if not self.is_go and not self.flag_31:
-                self.turn_idx = int(not self.turn_idx)
-
+        if verbose:
+            print("Round is over")
+            self.print_state()
+        # notify the players that the round is over
+        for player in self.players:
+            player.round_over()
         return True
 
     def show(self, verbose: bool = False) -> bool:
@@ -380,30 +343,34 @@ class Round:
         Arguments:
         - `verbose`:
         """
+        assert self.cards is not None
+        kept_hands = self.cards.kept
+        starter_card = self.cards.starter
+        crib = self.cards.crib
         # score the non-dealer player's hand
         nondealer_idx = int(not self.dealer_idx)
-        nondealer_hand = self.kept_hands[nondealer_idx]
+        nondealer_hand = list(kept_hands[nondealer_idx])
         if verbose:
             print(
                 f"Scoring player {nondealer_idx + 1}:",
                 " ".join([card_tostring(c) for c in sorted(nondealer_hand)]),
             )
-            print("Starter card is ", card_tostring(self.starter_card))
-        hand_score = score_hand(nondealer_hand, self.starter_card, verbose=verbose)
+            print("Starter card is ", card_tostring(starter_card))
+        hand_score = score_hand(nondealer_hand, starter_card, verbose=verbose)
         if verbose:
             print(f"Player {nondealer_idx + 1}'s hand scores", hand_score)
         if not self.game.award_points(nondealer_idx, hand_score, verbose=verbose):
             return False
 
         # score the dealer's hand
-        dealer_hand = self.kept_hands[self.dealer_idx]
+        dealer_hand = list(kept_hands[self.dealer_idx])
         if verbose:
             print(
                 f"Scoring player {self.dealer_idx + 1}:",
                 " ".join([card_tostring(c) for c in sorted(dealer_hand)]),
             )
-            print("Starter card is ", card_tostring(self.starter_card))
-        hand_score = score_hand(dealer_hand, self.starter_card, verbose=verbose)
+            print("Starter card is ", card_tostring(starter_card))
+        hand_score = score_hand(dealer_hand, starter_card, verbose=verbose)
         if verbose:
             print(f"Player {self.dealer_idx + 1}'s hand scores", hand_score)
         if not self.game.award_points(self.dealer_idx, hand_score, verbose=verbose):
@@ -412,11 +379,11 @@ class Round:
         # score the dealer's crib
         if verbose:
             print(
-                "Scoring crib:", " ".join([card_tostring(c) for c in sorted(self.crib)])
+                "Scoring crib:", " ".join([card_tostring(c) for c in sorted(crib)])
             )
-            print("Starter card is ", card_tostring(self.starter_card))
+            print("Starter card is ", card_tostring(starter_card))
         hand_score = score_hand(
-            self.crib, self.starter_card, crib=True, verbose=verbose
+            crib, starter_card, crib=True, verbose=verbose
         )
         if verbose:
             print(f"Player {self.dealer_idx + 1}'s crib scores,", hand_score)
@@ -425,23 +392,33 @@ class Round:
 
         return True
 
-    def print_state(self) -> None:
-        """Print a representation of the current round state to stdout."""
+    def print_state(self, hands: Sequence[Sequence[Card]] | None = None) -> None:
+        """
+        Print a representation of the current round state to stdout: the
+        given hands, or else those still held in the pegging, or else those
+        kept.
+        """
+        if hands is None:
+            if self.peg is not None:
+                hands = self.peg.hands
+            elif self.cards is not None:
+                hands = self.cards.kept
+        crib = self.cards.crib if self.cards is not None else []
         for idx in range(2):
             print(
                 f"Player {idx + 1}{'(D)' if idx == self.dealer_idx else '   '}  ",
                 end="",
             )
-            if self.hands:
+            if hands:
                 print(
-                    f"{' '.join([card_tostring(c) for c in sorted(self.hands[idx])]):17}",
+                    f"{' '.join([card_tostring(c) for c in sorted(hands[idx])]):17}",
                     end="",
                 )
             print(f"  {self.game.scores[idx]:3} Points", end="")
-            if self.crib and idx == self.dealer_idx:
+            if crib and idx == self.dealer_idx:
                 print(
                     "  Crib",
-                    " ".join([card_tostring(c) for c in sorted(self.crib)]),
+                    " ".join([card_tostring(c) for c in sorted(crib)]),
                     end="",
                 )
             print()

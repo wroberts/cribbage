@@ -11,6 +11,7 @@ import json
 import numpy as np
 import torch
 from cribbage.cards import splits, unseen_cards
+from cribbage.player import DiscardView
 from cribbage.cribbage_score import score_hand
 from cribbage.discard_expt_2026 import (
     BASE_CONFIG,
@@ -250,11 +251,11 @@ def test_learned_player_discards_the_best_split():
     player = LearnedDiscardPlayer(model)
     for is_dealer in (True, False):
         for hand in deal_hands(5, np.random.default_rng(6)).tolist():
-            discard = player.discard(is_dealer, hand, 0, 0)
-            assert len(set(discard)) == 2 and all(0 <= i < 6 for i in discard)
+            discard = player.discard(DiscardView(tuple(hand), is_dealer, 0, 0))
+            assert len(set(discard)) == 2 and set(discard) <= set(hand)
             features = encode_hands(torch.tensor([hand]))
             best = int(predict_values(model, features, is_dealer).argmax())
-            assert discard == DISCARD_IDX[best].tolist()
+            assert list(discard) == [hand[i] for i in DISCARD_IDX[best].tolist()]
 
 
 def test_make_player_and_match(tmp_path):

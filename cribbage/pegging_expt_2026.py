@@ -50,12 +50,12 @@ import os
 import random
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, replace
 
 import numpy as np
 import torch
 
-from cribbage.cards import WORTH, Card, cards_worth, face, unseen_cards
+from cribbage.cards import WORTH, Card, cards_worth, face
 from cribbage.discard_expt_2026 import (
     DISCARD_IDX,
     KEEP_IDX,
@@ -65,40 +65,14 @@ from cribbage.discard_expt_2026 import (
     predict_values,
 )
 from cribbage.game import Game, compare_players
-from cribbage.pegging import PegState
-from cribbage.player import CribbagePlayer
-from cribbage.round import Round
+from cribbage.pegging import PegState, PegView
+from cribbage.player import CribbagePlayer, DiscardView
+from cribbage.round import Deal, Round
 from cribbage.scoring import score_play
 
 
 # ------------------------------------------------------------
 #  What a player sees, and sampling the rest
-
-
-@dataclass
-class PegObs:
-    """Everything a pegging policy may use at one decision."""
-
-    hand: list[Card]
-    seq: list[Card]
-    played: set[Card]
-    is_go: bool
-    legal: list[int]
-    discards: tuple[Card, ...]
-    is_dealer: bool
-    # (sequence so far, card) for each opponent play whose context is known
-    opp_plays: list[tuple[tuple[Card, ...], Card]] = field(default_factory=list)
-    # the opponent's actual hand; set only for the oracle
-    opp_hand: list[Card] | None = None
-
-    @property
-    def num_opp(self) -> int:
-        """Cards left in the opponent's hand (4 less their plays so far)."""
-        return 9 - len(self.played) - len(self.hand)
-
-    def unseen(self) -> list[Card]:
-        """Cards that may be in the opponent's hand or in the crib."""
-        return unseen_cards(self.played, self.hand, self.discards)
 
 
 def distinct_moves(state: PegState) -> dict[int, int]:
@@ -115,34 +89,34 @@ def distinct_moves(state: PegState) -> dict[int, int]:
 
 class WorldSampler:
     """
-    Draws worlds consistent with an observation: the opponent's hand is
-    sampled from the unseen cards (the searcher is player 0).  Cards the
-    opponent cannot hold are excluded: when they said go, any card that
-    would have been playable, and with `opp_aware`, any card a greedy
-    opponent would have played in preference at an earlier decision.
+    Draws worlds consistent with a view: the opponent's hand is sampled
+    from the unseen cards (the searcher is player 0).  Cards the opponent
+    cannot hold are excluded: when they said go, any card that would have
+    been playable, and with `opp_aware`, any card a greedy opponent would
+    have played in preference at an earlier decision.
     """
 
-    def __init__(self, obs: PegObs, opp_aware: bool = False) -> None:
-        self.obs = obs
-        self.num_opp = obs.num_opp
-        pool = obs.unseen()
-        if obs.is_go and self.num_opp:
+    def __init__(self, view: PegView, opp_aware: bool = False) -> None:
+        self.view = view
+        self.num_opp = view.opp_cards_left
+        pool = view.unseen()
+        if view.opp_said_go and self.num_opp:
             # the opponent said go, so none of their cards fits
-            room = 31 - cards_worth(obs.seq)
+            room = 31 - view.count
             pool = [c for c in pool if WORTH[c] > room]
         self.excluded: set[Card] = set()
         if opp_aware:
-            self.excluded = self._greedy_excluded(obs, obs.unseen())
+            self.excluded = self._greedy_excluded(view, view.unseen())
         narrowed = [c for c in pool if c not in self.excluded]
         # fall back if the inferences contradict each other
         self.pool = narrowed if len(narrowed) >= self.num_opp else pool
         if len(self.pool) < self.num_opp:
-            self.pool = obs.unseen()
+            self.pool = view.unseen()
 
     @staticmethod
-    def _greedy_excluded(obs: PegObs, pool: list[Card]) -> set[Card]:
+    def _greedy_excluded(view: PegView, pool: list[Card]) -> set[Card]:
         excluded: set[Card] = set()
-        for context, card in obs.opp_plays:
+        for context, card in view.opp_plays:
             room = 31 - cards_worth(context)
             chosen = score_play([*context, card])
             for c in pool:
@@ -152,8 +126,7 @@ class WorldSampler:
 
     def build(self, opp_hand: Sequence[Card]) -> PegState:
         """The world in which the opponent holds `opp_hand`."""
-        obs = self.obs
-        return PegState.from_cards([obs.hand, opp_hand], 0, obs.seq, obs.is_go)
+        return PegState.from_view(self.view, opp_hand)
 
     def sample(self, rng: random.Random) -> PegState:
         return self.build(rng.sample(self.pool, self.num_opp))
@@ -269,10 +242,10 @@ class PegPolicy:
     def reseed(self, seed: int | str) -> None:
         self.rng = random.Random(seed)
 
-    def choose(self, obs: PegObs) -> int:
+    def choose(self, view: PegView) -> Card:
         raise NotImplementedError()
 
-    def argmax(self, values: dict[int, float]) -> int:
+    def argmax(self, values: dict[Card, float]) -> Card:
         """The key with the highest value; ties broken at random."""
         top = max(values.values())
         best = [k for k, v in values.items() if v == top]
@@ -280,20 +253,20 @@ class PegPolicy:
 
 
 class FirstPeg(PegPolicy):
-    def choose(self, obs: PegObs) -> int:
-        return obs.legal[0]
+    def choose(self, view: PegView) -> Card:
+        return view.legal[0]
 
 
 class RandomPeg(PegPolicy):
-    def choose(self, obs: PegObs) -> int:
-        return self.rng.choice(obs.legal)
+    def choose(self, view: PegView) -> Card:
+        return self.rng.choice(view.legal)
 
 
 class GreedyPeg(PegPolicy):
     """Simple's rule: the card with the best immediate score."""
 
-    def choose(self, obs: PegObs) -> int:
-        values = {i: float(score_play([*obs.seq, obs.hand[i]])) for i in obs.legal}
+    def choose(self, view: PegView) -> Card:
+        values = {c: float(score_play([*view.seq, c])) for c in view.legal}
         return self.argmax(values)
 
 
@@ -304,21 +277,20 @@ class Greedy2Peg(PegPolicy):
     best) is theirs to play with probability C(U-1-k, n-1) / C(U, n).
     """
 
-    def choose(self, obs: PegObs) -> int:
-        if len(obs.legal) == 1:
-            return obs.legal[0]
-        pool = obs.unseen()
-        n = obs.num_opp
+    def choose(self, view: PegView) -> Card:
+        if len(view.legal) == 1:
+            return view.legal[0]
+        pool = view.unseen()
+        n = view.opp_cards_left
         total = math.comb(len(pool), n) if n else 1
-        values: dict[int, float] = {}
-        for i in obs.legal:
-            card = obs.hand[i]
-            immediate = score_play([*obs.seq, card])
+        values: dict[Card, float] = {}
+        for card in view.legal:
+            immediate = score_play([*view.seq, card])
             reply = 0.0
-            if n and not obs.is_go:
-                room = 31 - cards_worth(obs.seq) - WORTH[card]
+            if n and not view.opp_said_go:
+                room = 31 - view.count - WORTH[card]
                 scores = sorted(
-                    (score_play([*obs.seq, card, x]) for x in pool if WORTH[x] <= room),
+                    (score_play([*view.seq, card, x]) for x in pool if WORTH[x] <= room),
                     reverse=True,
                 )
                 reply = (
@@ -328,7 +300,7 @@ class Greedy2Peg(PegPolicy):
                     )
                     / total
                 )
-            values[i] = immediate - reply
+            values[card] = immediate - reply
         return self.argmax(values)
 
 
@@ -341,9 +313,9 @@ class PimcRollout(PegPolicy):
         self.rollouts = rollouts
         self.opp_aware = opp_aware
 
-    def values(self, obs: PegObs) -> dict[int, float]:
-        """Mean rollout margin of each distinct legal card (by hand index)."""
-        sampler = WorldSampler(obs, self.opp_aware)
+    def values(self, view: PegView) -> dict[Card, float]:
+        """Mean rollout margin of each distinct legal card."""
+        sampler = WorldSampler(view, self.opp_aware)
         totals: dict[int, float] = {}
         for _ in range(self.worlds):
             world = sampler.sample(self.rng)
@@ -354,12 +326,12 @@ class PimcRollout(PegPolicy):
                     rollout(child, greedy_move, self.rng)
                     totals[idx] = totals.get(idx, 0.0) + child.margin()
         runs = self.worlds * self.rollouts
-        return {idx: total / runs for idx, total in totals.items()}
+        return {view.hand[idx]: total / runs for idx, total in totals.items()}
 
-    def choose(self, obs: PegObs) -> int:
-        if len(obs.legal) == 1:
-            return obs.legal[0]
-        return self.argmax(self.values(obs))
+    def choose(self, view: PegView) -> Card:
+        if len(view.legal) == 1:
+            return view.legal[0]
+        return self.argmax(self.values(view))
 
 
 class PimcSolve(PegPolicy):
@@ -371,15 +343,16 @@ class PimcSolve(PegPolicy):
         self.opp_aware = opp_aware
         self.solver = Solver()
 
-    def choose(self, obs: PegObs) -> int:
-        if len(obs.legal) == 1:
-            return obs.legal[0]
-        sampler = WorldSampler(obs, self.opp_aware)
-        totals: dict[int, float] = {}
+    def choose(self, view: PegView) -> Card:
+        if len(view.legal) == 1:
+            return view.legal[0]
+        sampler = WorldSampler(view, self.opp_aware)
+        totals: dict[Card, float] = {}
         for _ in range(self.worlds):
             world = sampler.sample(self.rng)
             for idx, value in self.solver.move_values(world).items():
-                totals[idx] = totals.get(idx, 0.0) + value
+                card = view.hand[idx]
+                totals[card] = totals.get(card, 0.0) + value
         return self.argmax(totals)
 
 
@@ -392,12 +365,13 @@ class OraclePeg(PegPolicy):
         super().__init__()
         self.solver = Solver()
 
-    def choose(self, obs: PegObs) -> int:
-        if len(obs.legal) == 1:
-            return obs.legal[0]
-        assert obs.opp_hand is not None
-        world = WorldSampler(obs).build(obs.opp_hand)
-        return self.argmax(dict(self.solver.move_values(world)))
+    def choose(self, view: PegView) -> Card:
+        if len(view.legal) == 1:
+            return view.legal[0]
+        assert view.opp_hand is not None
+        world = WorldSampler(view).build(view.opp_hand)
+        values = self.solver.move_values(world)
+        return self.argmax({view.hand[idx]: float(v) for idx, v in values.items()})
 
 
 class _Node:
@@ -432,10 +406,10 @@ class Ismcts(PegPolicy):
         self.explore = explore
         self.opp_aware = opp_aware
 
-    def choose(self, obs: PegObs) -> int:
-        if len(obs.legal) == 1:
-            return obs.legal[0]
-        sampler = WorldSampler(obs, self.opp_aware)
+    def choose(self, view: PegView) -> Card:
+        if len(view.legal) == 1:
+            return view.legal[0]
+        sampler = WorldSampler(view, self.opp_aware)
         root = _Node()
         root_moves: dict[int, int] = {}
         for _ in range(self.iterations):
@@ -443,7 +417,9 @@ class Ismcts(PegPolicy):
             if not root_moves:
                 root_moves = distinct_moves(world)
             self._iterate(root, world)
-        best = {root_moves[f]: float(c.visits) for f, c in root.children.items()}
+        best = {
+            view.hand[root_moves[f]]: float(c.visits) for f, c in root.children.items()
+        }
         return self.argmax(best)
 
     def _iterate(self, root: _Node, state: PegState) -> None:
@@ -531,77 +507,29 @@ def make_policy(spec: str) -> PegPolicy:
 
 
 class PegPlayer(CribbagePlayer):
-    """
-    Discards with another player and pegs with a `PegPolicy`.  Remembers
-    its own discards (which `play_card` is not told) and reconstructs the
-    opponent's earlier plays from the sequences it sees.
-    """
+    """Discards with another player and pegs with a `PegPolicy`."""
 
     def __init__(self, discarder: CribbagePlayer, policy: PegPolicy) -> None:
         super().__init__()
         self.discarder = discarder
         self.policy = policy
         # reads the opponent's hand, for the oracle (set by the harness)
-        self.peek: Callable[[], list[Card]] | None = None
+        self.peek: Callable[[], Sequence[Card]] | None = None
         self.seconds = 0.0
         self.decisions = 0
-        self.begin_round(())
 
-    def begin_round(self, discards: Sequence[Card]) -> None:
-        self.discards = tuple(discards)
-        self.opp_plays: list[tuple[tuple[Card, ...], Card]] = []
-        # the sequence as it stood after this player's last play
-        self.after_mine: list[Card] = []
+    def discard(self, view: DiscardView) -> tuple[Card, Card]:
+        return self.discarder.discard(view)
 
-    def discard(
-        self,
-        is_dealer: bool,
-        hand: list[Card],
-        player_score: int,
-        opponent_score: int,
-    ) -> list[int]:
-        idxs = self.discarder.discard(is_dealer, hand, player_score, opponent_score)
-        self.begin_round([hand[i] for i in idxs])
-        return idxs
-
-    def play_card(
-        self,
-        is_dealer: bool,
-        hand: list[Card],
-        played_cards: set[Card],
-        is_go: bool,
-        linear_play: list[Card],
-        player_score: int,
-        opponent_score: int,
-        legal_moves: list[int],
-    ) -> int:
-        # whatever follows our last play, up to now, was played by the
-        # opponent; if the sequence has since ended, their order is lost
-        mine = self.after_mine
-        if linear_play[: len(mine)] == mine:
-            for i in range(len(mine), len(linear_play)):
-                self.opp_plays.append((tuple(linear_play[:i]), linear_play[i]))
-        obs = PegObs(
-            hand,
-            linear_play,
-            played_cards,
-            is_go,
-            legal_moves,
-            self.discards,
-            is_dealer,
-            self.opp_plays,
-        )
+    def play_card(self, view: PegView) -> Card:
         if self.policy.needs_oracle:
             assert self.peek is not None
-            obs.opp_hand = list(self.peek())
+            view = replace(view, opp_hand=tuple(self.peek()))
         start = time.perf_counter()
-        idx = self.policy.choose(obs)
+        card = self.policy.choose(view)
         self.seconds += time.perf_counter() - start
         self.decisions += 1
-        self.after_mine = [*linear_play, hand[idx]]
-        if cards_worth(self.after_mine) == 31:
-            self.after_mine = []
-        return idx
+        return card
 
 
 def make_peg_player(spec: str, discarder: CribbagePlayer | None = None) -> PegPlayer:
@@ -671,8 +599,12 @@ def make_deals(num: int, seed: int, discard: str = "random") -> Deals:
 #  Pegging-only matches
 
 
-def _hand_reader(rnd: Round, seat: int) -> Callable[[], list[Card]]:
-    return lambda: rnd.hands[seat]
+def _hand_reader(rnd: Round, seat: int) -> Callable[[], Sequence[Card]]:
+    def read() -> Sequence[Card]:
+        assert rnd.peg is not None
+        return rnd.peg.hands[seat]
+
+    return read
 
 
 def play_pegging(
@@ -688,11 +620,10 @@ def play_pegging(
     """
     game = Game(list(players))
     game.target_score = 10**9
-    rnd = Round(game, list(players), dealer_idx=1)
-    rnd.hands = [[int(c) for c in kept[0]], [int(c) for c in kept[1]]]
-    rnd.played_cards = {int(starter)}
+    rnd = Round.from_deal(
+        game, list(players), Deal.from_kept(1, kept, thrown, starter)
+    )
     for seat, player in enumerate(players):
-        player.begin_round([int(c) for c in thrown[seat]])
         if player.policy.needs_oracle:
             player.peek = _hand_reader(rnd, 1 - seat)
     rnd.play()

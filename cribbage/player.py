@@ -6,7 +6,28 @@ player.py
 
 Abstract base class for a cribbage player.
 """
-from cribbage.cards import Card, Hand
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from cribbage.cards import Card
+from cribbage.pegging import PegView
+
+
+@dataclass(frozen=True)
+class DiscardView:
+    """
+    What a player sees when asked to discard.
+
+    - `hand`: the six cards dealt to the player
+    - `is_dealer`: whether the player is the dealer (the crib is theirs)
+    - `score`, `opp_score`: the game scores of the player and their opponent
+    """
+
+    hand: tuple[Card, ...]
+    is_dealer: bool
+    score: int
+    opp_score: int
 
 
 class CribbagePlayer:
@@ -18,60 +39,17 @@ class CribbagePlayer:
         """Constructor."""
         pass
 
-    def discard(
-        self,
-        is_dealer: bool,
-        hand: Hand,
-        player_score: int,
-        opponent_score: int,
-    ) -> list[int]:
+    def discard(self, view: DiscardView) -> tuple[Card, Card]:
         """
-        Asks the player to select two cards from `hand` for discarding to
-        the crib.
-
-        Return is a list of two indices into the hand array.
-
-        Arguments:
-        - `is_dealer`: a flag to indicate whether the given player is
-          currently the dealer or not
-        - `hand`: an array of 6 card values
-        - `player_score`: the score of the current player
-        - `opponent_score`: the score of the current player's opponent
+        Asks the player to select two cards from `view.hand` for discarding
+        to the crib.  Returns the two cards.
         """
         raise NotImplementedError()
 
-    def play_card(
-        self,
-        is_dealer: bool,
-        hand: Hand,
-        played_cards: set[Card],
-        is_go: bool,
-        linear_play: list[Card],
-        player_score: int,
-        opponent_score: int,
-        legal_moves: list[int],
-    ) -> int:
+    def play_card(self, view: PegView) -> Card:
         """
-        Asks the player to select one card from `hand` to play during a
-        cribbage round.
-
-        Return an index into the hand array.
-
-        Arguments:
-        - `is_dealer`: a flag to indicate whether the given player is
-          currently the dealer or not
-        - `hand`: an array of 1 to 4 card values
-        - `played_cards`: a set of card values, containing all cards
-          seen so far in this round (including the starter card)
-        - `is_go`: a flag to indicate if the play is currently in go or not
-        - `linear_play`: the array of card values that have been
-          played in this round by both players, zippered into a single
-          list
-        - `player_score`: the score of the current player
-        - `opponent_score`: the score of the current player's opponent
-        - `legal_moves`: a list of indices into `hand` indicating
-          which cards from the hand may be played legally at this
-          point in the game
+        Asks the player to select one card from `view.legal` to play during
+        the pegging.  Returns the card.
         """
         raise NotImplementedError()
 

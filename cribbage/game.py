@@ -8,6 +8,7 @@ An object representing a game of cribbage between two CribbagePlayers.
 """
 
 import random
+from collections.abc import Sequence
 from cribbage.player import CribbagePlayer
 from cribbage.round import Round
 
@@ -18,20 +19,25 @@ class Game:
     CribbagePlayers.
     """
 
-    def __init__(self, players: list[CribbagePlayer]) -> None:
+    def __init__(
+        self, players: Sequence[CribbagePlayer], rng: random.Random | None = None
+    ) -> None:
         """
         Constructor.
 
         Arguments:
         - `players`: a list of two CribbagePlayer objects
+        - `rng`: the source of the game's randomness (the shuffles, cuts and
+          who deals first); by default one seeded from the `random` module
         """
-        self.players = players
+        self.players = list(players)
+        self.rng = rng if rng is not None else random.Random(random.getrandbits(64))
         # scores start at zero
         self.scores = [0, 0]
         # The players cut for first deal, and the person who cuts the
         # lowest card deals.
         # Randomly pick one player to start.
-        self.dealer_idx = random.randrange(2)
+        self.dealer_idx = self.rng.randrange(2)
         self.target_score = 121
         # a flag to cache the game state
         self.over = False

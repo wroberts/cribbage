@@ -39,11 +39,10 @@ import numpy as np
 import torch
 from torch import nn
 
-from cribbage.cards import WORTH, Card, cards_worth, face
-from cribbage.pegging import PegState
+from cribbage.cards import WORTH, Card, face
+from cribbage.pegging import PegState, PegView
 from cribbage.pegging_expt_2026 import (
     Deals,
-    PegObs,
     PegPolicy,
     PimcRollout,
     WorldSampler,
@@ -66,46 +65,45 @@ CAND_DIM = 13 + 1 + 1 + 1
 #  Features
 
 
-def candidate_cards(obs: PegObs) -> list[int]:
-    """Hand indices of the legal cards, one per face (equal faces play alike)."""
+def candidate_cards(view: PegView) -> list[Card]:
+    """The legal cards, one per face (equal faces play alike)."""
     seen: set[int] = set()
-    idxs = []
-    for i in obs.legal:
-        f = face(obs.hand[i])
+    cards = []
+    for card in view.legal:
+        f = face(card)
         if f not in seen:
             seen.add(f)
-            idxs.append(i)
-    return idxs
+            cards.append(card)
+    return cards
 
 
-def encode(obs: PegObs) -> tuple[np.ndarray, np.ndarray, list[int]]:
+def encode(view: PegView) -> tuple[np.ndarray, np.ndarray, list[Card]]:
     """
     Features of a decision: the state (STATE_DIM,), one row per candidate
-    (k, CAND_DIM), and the hand index of each candidate.
+    (k, CAND_DIM), and the card of each candidate.
     """
     state = np.zeros(STATE_DIM, dtype=np.float32)
-    for card in obs.hand:
+    for card in view.hand:
         state[face(card)] += 1
-    for card in obs.unseen():
+    for card in view.unseen():
         state[13 + face(card)] += 0.25
-    count = cards_worth(obs.seq)
+    count = view.count
     state[26] = count / 31
-    state[27] = len(obs.seq) / 8
-    for back, card in enumerate(obs.seq[-3:][::-1]):
+    state[27] = len(view.seq) / 8
+    for back, card in enumerate(view.seq[-3:][::-1]):
         state[28 + 13 * back + face(card)] = 1
-    state[67] = obs.is_go
-    state[68] = obs.is_dealer
-    state[69 + obs.num_opp] = 1
-    state[74 + len(obs.hand) - 1] = 1
-    idxs = candidate_cards(obs)
-    cands = np.zeros((len(idxs), CAND_DIM), dtype=np.float32)
-    for row, i in enumerate(idxs):
-        card = obs.hand[i]
+    state[67] = view.opp_said_go
+    state[68] = view.is_dealer
+    state[69 + view.opp_cards_left] = 1
+    state[74 + len(view.hand) - 1] = 1
+    cards = candidate_cards(view)
+    cands = np.zeros((len(cards), CAND_DIM), dtype=np.float32)
+    for row, card in enumerate(cards):
         cands[row, face(card)] = 1
-        cands[row, 13] = score_play([*obs.seq, card]) / 6
+        cands[row, 13] = score_play([*view.seq, card]) / 6
         cands[row, 14] = (count + WORTH[card]) / 31
         cands[row, 15] = count + WORTH[card] == 31
-    return state, cands, idxs
+    return state, cands, cards
 
 
 # ------------------------------------------------------------
@@ -152,33 +150,28 @@ def label_deals(
     for i in range(len(deals)):
         hands = [[int(c) for c in deals.kept[i, s]] for s in (0, 1)]
         thrown = [tuple(int(c) for c in deals.thrown[i, s]) for s in (0, 1)]
-        played = {int(deals.starter[i])}
+        starter = int(deals.starter[i])
         game = PegState.start(hands, 1)
         while not game.done:
             seat = game.turn
-            legal = game.legal()
-            if len(legal) == 1:
-                idx = legal[0]
+            view = game.view(seat, thrown[seat], starter, seat == 1, 0, 0)
+            if len(view.legal) == 1:
+                card = view.legal[0]
             else:
-                obs = PegObs(
-                    game.hands[seat][:], game.seq[:], set(played), game.is_go,
-                    legal, thrown[seat], seat == 1,
-                )
-                teacher_values = teacher.values(obs)
+                teacher_values = teacher.values(view)
                 if len(teacher_values) > 1:
-                    state, cand, idxs = encode(obs)
-                    k = len(idxs)
+                    state, cand, cards = encode(view)
+                    k = len(cards)
                     pad = MAX_CANDIDATES - k
                     states.append(state)
                     cands.append(np.pad(cand, ((0, pad), (0, 0))))
-                    values.append(np.pad([teacher_values[j] for j in idxs], (0, pad)))
+                    values.append(np.pad([teacher_values[c] for c in cards], (0, pad)))
                     masks.append(np.arange(MAX_CANDIDATES) < k)
                 if rng.random() < explore:
-                    idx = rng.choice(legal)
+                    card = rng.choice(view.legal)
                 else:
-                    idx = teacher.argmax(teacher_values)
-            played.add(game.hands[seat][idx])
-            game.play(idx)
+                    card = teacher.argmax(teacher_values)
+            game.play_card(card)
     return Labels(
         np.array(states, dtype=np.float32).reshape(-1, STATE_DIM),
         np.array(cands, dtype=np.float32).reshape(-1, MAX_CANDIDATES, CAND_DIM),
@@ -379,12 +372,12 @@ class NetPeg(PegPolicy):
                 x = np.maximum(x, 0)
         return x[:, 0]
 
-    def choose(self, obs: PegObs) -> int:
-        if len(obs.legal) == 1:
-            return obs.legal[0]
-        state, cands, idxs = encode(obs)
+    def choose(self, view: PegView) -> Card:
+        if len(view.legal) == 1:
+            return view.legal[0]
+        state, cands, cards = encode(view)
         scores = self.scores(state, cands)
-        return self.argmax({idx: float(s) for idx, s in zip(idxs, scores)})
+        return self.argmax({card: float(s) for card, s in zip(cards, scores)})
 
 
 # ------------------------------------------------------------
@@ -482,12 +475,12 @@ class PimcNet(PegPolicy):
         self.worlds = worlds
         self.net = net
 
-    def values(self, obs: PegObs) -> dict[int, float]:
-        """Mean margin of each distinct legal card (by hand index)."""
-        sampler = WorldSampler(obs)
-        unseen = obs.unseen()
+    def values(self, view: PegView) -> dict[Card, float]:
+        """Mean margin of each distinct legal card."""
+        sampler = WorldSampler(view)
+        unseen = view.unseen()
         totals: dict[int, float] = {}
-        dealer_seat = 0 if obs.is_dealer else 1
+        dealer_seat = 0 if view.is_dealer else 1
         for _ in range(self.worlds):
             world = sampler.sample(self.rng)
             # the opponent's discards are among the cards it does not hold
@@ -495,8 +488,8 @@ class PimcNet(PegPolicy):
             ctx = NetRollout(
                 self.net,
                 world.hands,
-                obs.played,
-                [obs.discards, self.rng.sample(others, 2)],
+                set(view.played) | {view.starter},
+                [view.discards, self.rng.sample(others, 2)],
                 dealer_seat,
             )
             for idx in distinct_moves(world).values():
@@ -504,12 +497,12 @@ class PimcNet(PegPolicy):
                 child.play(idx)
                 rollout(child, ctx.move, self.rng)
                 totals[idx] = totals.get(idx, 0.0) + child.margin()
-        return {idx: total / self.worlds for idx, total in totals.items()}
+        return {view.hand[idx]: total / self.worlds for idx, total in totals.items()}
 
-    def choose(self, obs: PegObs) -> int:
-        if len(obs.legal) == 1:
-            return obs.legal[0]
-        return self.argmax(self.values(obs))
+    def choose(self, view: PegView) -> Card:
+        if len(view.legal) == 1:
+            return view.legal[0]
+        return self.argmax(self.values(view))
 
 
 # ------------------------------------------------------------

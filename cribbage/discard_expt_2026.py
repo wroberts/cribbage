@@ -73,7 +73,7 @@ from torch import nn
 
 from cribbage.cards import KEEP_COMBINATIONS, Card, splits, unseen_cards
 from cribbage.game import compare_players
-from cribbage.player import CribbagePlayer
+from cribbage.player import CribbagePlayer, DiscardView
 from cribbage.randomplayer import RandomCribbagePlayer
 from cribbage.scoring import score_hand
 from cribbage.simpleplayer import SimpleCribbagePlayer
@@ -1097,18 +1097,13 @@ class LearnedDiscardPlayer(RandomCribbagePlayer):
         super().__init__()
         self.model = model.eval()
 
-    def discard(
-        self,
-        is_dealer: bool,
-        hand: list[Card],
-        player_score: int,
-        opponent_score: int,
-    ) -> list[int]:
+    def discard(self, view: DiscardView) -> tuple[Card, Card]:
         """Throws the two cards of the split the model values most."""
         with torch.no_grad():
-            features = encode_hands(torch.tensor([hand]))
-            best = int(predict_values(self.model, features, is_dealer).argmax())
-        return DISCARD_IDX[best].tolist()
+            features = encode_hands(torch.tensor([view.hand]))
+            best = int(predict_values(self.model, features, view.is_dealer).argmax())
+        first, second = (view.hand[i] for i in DISCARD_IDX[best].tolist())
+        return first, second
 
 
 def make_player(spec: str) -> CribbagePlayer:

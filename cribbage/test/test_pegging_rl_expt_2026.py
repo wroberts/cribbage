@@ -12,12 +12,11 @@ import numpy as np
 import torch
 from cribbage.pegging import PegState
 from cribbage.pegging_expt_2026 import (
-    PegObs,
     make_deals,
     make_policy,
-    play_pegging,
     run_pegging,
 )
+from cribbage.test.helpers import make_view
 from cribbage.pegging_rl_expt_2026 import (
     CAND_DIM,
     MAX_CANDIDATES,
@@ -39,23 +38,21 @@ from cribbage.pegging_rl_expt_2026 import (
 )
 
 
-def make_obs(hand, seq, played, is_go=False, is_dealer=False, discards=()):
-    return PegObs(hand, seq, played, is_go, list(range(len(hand))), discards, is_dealer)
-
-
 def test_encode_shapes_and_suit_invariance():
     # a ten, a five and a pair of fours; the count is 12
-    obs = make_obs([9, 4, 3, 16], [8, 2], {8, 2, 20, 9, 4, 3, 16})
-    state, cands, idxs = encode(obs)
+    view = make_view([9, 4, 3, 16], [8, 2], starter=20)
+    state, cands, cards = encode(view)
     assert state.shape == (STATE_DIM,) and cands.shape == (3, CAND_DIM)
     # the two fours are one candidate
-    assert idxs == [0, 1, 2]
-    assert candidate_cards(obs) == idxs
+    assert cards == [9, 4, 3]
+    assert candidate_cards(view) == cards
+
+    def swap(c):
+        return c % 13 + 13 * ((c // 13 + 1) % 4)
+
     # relabelling suits changes nothing
-    swapped = make_obs(
-        [c % 13 + 13 * ((c // 13 + 1) % 4) for c in obs.hand],
-        [c % 13 + 13 * ((c // 13 + 1) % 4) for c in obs.seq],
-        {c % 13 + 13 * ((c // 13 + 1) % 4) for c in obs.played},
+    swapped = make_view(
+        [swap(c) for c in view.hand], [swap(c) for c in view.seq], starter=swap(20)
     )
     state2, cands2, _ = encode(swapped)
     assert np.allclose(state, state2) and np.allclose(cands, cands2)
@@ -110,7 +107,7 @@ def test_regrets_and_training_reduce_error(tmp_path):
         model(data["state"], data["cand"]), reloaded(data["state"], data["cand"])
     )
     policy = NetPeg.load(path)
-    state, cands, _ = encode(make_obs([9, 4, 3], [8], {8, 9, 4, 3, 40}))
+    state, cands, _ = encode(make_view([9, 4, 3], [8], starter=40))
     with torch.no_grad():
         expected = model(torch.from_numpy(state)[None], torch.from_numpy(cands)[None])[0]
     assert np.allclose(policy.scores(state, cands), expected.numpy(), atol=1e-5)
@@ -138,22 +135,15 @@ def test_rollout_features_match_encode():
         dealer = trial % 2
         ctx = NetRollout(net, hands, {starter}, discards, dealer)
         state = PegState.start(hands, dealer)
-        played = {starter}
         while not state.done:
             seat = state.turn
-            legal = state.legal()
-            obs = PegObs(
-                state.hands[seat][:], state.seq[:], set(played), state.is_go,
-                legal, tuple(discards[seat]), seat == dealer,
-            )
-            want_state, want_cands, want_idxs = encode(obs)
-            got_state, got_cands, got_idxs = ctx.features(state, legal)
-            assert got_idxs == want_idxs
+            view = state.view(seat, discards[seat], starter, seat == dealer, 0, 0)
+            want_state, want_cands, want_cards = encode(view)
+            got_state, got_cands, got_idxs = ctx.features(state, state.legal())
+            assert [state.hands[seat][i] for i in got_idxs] == want_cards
             assert np.allclose(got_state, want_state)
             assert np.allclose(got_cands, want_cands)
-            idx = rng.choice(legal)
-            played.add(state.hands[seat][idx])
-            state.play(idx)
+            state.play_card(rng.choice(view.legal))
 
 
 def test_pimc_net_plays_pegging(tmp_path):

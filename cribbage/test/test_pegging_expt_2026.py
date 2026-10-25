@@ -7,15 +7,15 @@ Test the pegging_expt_2026 module.
 """
 
 import random
+from dataclasses import replace
 
 import numpy as np
 import pytest
-from cribbage.cards import WORTH, cards_worth
+from cribbage.cards import WORTH
 from cribbage.game import Game
 from cribbage.player import CribbagePlayer
 from cribbage.pegging_expt_2026 import (
     Deals,
-    PegObs,
     PegPlayer,
     PegPolicy,
     Solver,
@@ -32,7 +32,7 @@ from cribbage.pegging_expt_2026 import (
 )
 from cribbage.pegging import PegState
 from cribbage.randomplayer import RandomCribbagePlayer
-from cribbage.round import Round
+from cribbage.test.helpers import make_round
 
 ALL_SPECS = [
     "first",
@@ -67,26 +67,22 @@ def brute_force(state):
 
 
 def test_state_matches_round():
-    """PegState scores and sequences plays exactly as Round.play does."""
+    """The points Round awards for the play are those PegState adds up."""
     rng = random.Random(1)
     for trial in range(300):
         hands, starter = random_deal(rng)
         dealer = trial % 2
         players: list[CribbagePlayer] = [RandomCribbagePlayer(), RandomCribbagePlayer()]
-        game = Game(players)
-        game.target_score = 10**9
-        rnd = Round(game, players, dealer)
-        rnd.hands = [h[:] for h in hands]
-        rnd.played_cards = {starter}
+        rnd = make_round(players, hands, starter, dealer)
         # record who played what, by wrapping the players' choices
         log = []
         for seat, player in enumerate(players):
             original = player.play_card
 
-            def spy(*args, original=original, seat=seat, **kwargs):
-                idx = original(*args, **kwargs)
-                log.append((seat, kwargs["hand"][idx]))
-                return idx
+            def spy(view, original=original, seat=seat):
+                card = original(view)
+                log.append((seat, card))
+                return card
 
             player.play_card = spy  # type: ignore[method-assign]
         random.seed(trial)
@@ -95,10 +91,11 @@ def test_state_matches_round():
         for seat, card in log:
             assert not state.done
             assert state.turn == seat
-            state.play(state.hands[seat].index(card))
+            state.play_card(card)
         assert state.done
-        assert state.points == game.scores
+        assert state.points == rnd.game.scores
         assert all(type(p) is int for p in state.points)
+        assert rnd.peg is not None and rnd.peg.history() == state.history()
 
 
 def test_solver_matches_brute_force():
@@ -135,22 +132,22 @@ class Recorder(PegPolicy):
         self.game, self.seat = game, seat
         self.opp_aware, self.records = opp_aware, records
 
-    def choose(self, obs):
-        sampler = WorldSampler(obs, self.opp_aware)
-        world = sampler.build(obs.opp_hand)
+    def choose(self, view):
+        sampler = WorldSampler(view, self.opp_aware)
+        world = sampler.build(view.opp_hand)
         # a world with the true hand, played out by first-legal moves
         rollout(world, first_move, self.rng)
         scores = self.game.scores
         self.records.append(
             (
-                set(obs.opp_hand) <= set(sampler.pool),
-                len(obs.opp_hand) == sampler.num_opp,
+                set(view.opp_hand) <= set(sampler.pool),
+                len(view.opp_hand) == sampler.num_opp,
                 world.margin(),
                 scores[self.seat] - scores[1 - self.seat],
                 self.seat,
             )
         )
-        return obs.legal[0]
+        return view.legal[0]
 
 
 @pytest.mark.parametrize("opp_greedy", [False, True])
@@ -177,13 +174,9 @@ def test_sampler_world_is_consistent(opp_greedy):
         p1.policy.reseed(trial)
         players: list[CribbagePlayer] = [p0, p1]
         game.players = players
-        rnd = Round(game, players, dealer_idx=trial % 2)
-        rnd.hands = [h[:] for h in hands]
-        rnd.played_cards = {starter}
-        p0.begin_round([])
-        p1.begin_round([])
-        p0.peek = lambda: rnd.hands[1]
-        p1.peek = lambda: rnd.hands[0]
+        rnd = make_round(players, hands, starter, trial % 2, game)
+        p0.peek = lambda: rnd.peg.hands[1]  # type: ignore[union-attr]
+        p1.peek = lambda: rnd.peg.hands[0]  # type: ignore[union-attr]
         rnd.play()
         final = game.scores[0] - game.scores[1]
         for ok_pool, ok_size, predicted, margin_then, seat in records:
@@ -239,27 +232,27 @@ def test_oracle_picks_a_best_move():
     for _ in range(40):
         hands, starter = random_deal(rng)
         state = PegState.start(hands, 1)
-        legal = state.legal()
-        obs = PegObs(
-            state.hands[0][:], [], {starter}, False, legal, (), False,
-            opp_hand=state.hands[1][:],
+        view = replace(
+            state.view(0, (), starter, False, 0, 0), opp_hand=tuple(state.hands[1])
         )
-        policy = make_policy("oracle")
-        idx = policy.choose(obs)
+        card = make_policy("oracle").choose(view)
         values = solver.move_values(state)
-        assert values[idx] == max(values.values())
+        assert values[state.hands[0].index(card)] == max(values.values())
 
 
 def test_sampler_respects_go():
-    # count 29 with a go called: any opponent card is too big to play
-    seq = [9, 10, 4 + 13]  # 10, J, 5 -> 25 ... then a 4 makes 29
-    seq = [9, 10, 3 + 13 * 2 + 0, 8 + 13]  # 10, J, 4, 9 -> 33? keep it legal below
-    seq = [9, 10, 8]  # 10 + 10 + 9 = 29
-    obs = PegObs([0], seq, {40, *seq}, True, [0], (), False)
-    sampler = WorldSampler(obs)
-    assert cards_worth(seq) == 29
+    # the count is 29 and the opponent has said go: all they hold is too big
+    # to play.  Player 0 holds 0S 9S AS 2S and player 1 JS QH KH JH; the
+    # sequence so far is 0S JS 9S
+    state = PegState.start([[9, 8, 0, 1], [10, 24, 25, 23]], 1)
+    for card in (9, 10, 8):
+        state.play_card(card)
+    assert state.count == 29 and state.is_go
+    view = state.view(0, [40, 41], 42, False, 0, 0)
+    sampler = WorldSampler(view)
     assert all(WORTH[c] > 2 for c in sampler.pool)
-    assert sampler.num_opp == 9 - len(obs.played) - 1
+    assert sampler.num_opp == 3
+    assert set(state.hands[1]) <= set(sampler.pool)
 
 
 def test_make_deals():
@@ -279,6 +272,9 @@ def test_make_policy_rejects_nonsense():
 
 
 def test_greedy_move_prefers_scoring_card():
-    # the count is 10; holding a five (15 for two) and a nine, play the five
-    state = PegState.from_cards([[4, 8], [0, 1]], 0, seq=[9])
+    # player 1 leads a ten (0S), so the count is 10; player 0 holds 5S and
+    # 9S: the five makes fifteen for two points, so play the five
+    state = PegState.start([[4, 8], [9, 1]], 0)
+    state.play_card(9)
+    assert state.turn == 0
     assert state.hands[0][greedy_move(state, random.Random(0))] == 4
