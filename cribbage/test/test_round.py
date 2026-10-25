@@ -11,12 +11,12 @@ import random
 import pytest
 from cribbage.cards import string_tocard
 from cribbage.game import Game
-from cribbage.pegging import Go, Play
+from cribbage.pegging import Go, PegState, Play
 from cribbage.player import CribbagePlayer
-from cribbage.randomplayer import RandomCribbagePlayer
+from cribbage.specs import make_player
 from cribbage.round import Deal, Round
 from cribbage.scoring import score_hand
-from cribbage.test.helpers import make_round
+from cribbage.test.helpers import make_round, random_deal
 
 
 class ScriptedPlayer(CribbagePlayer):
@@ -231,7 +231,7 @@ def test_discarding_a_card_not_held_is_refused():
 def test_the_same_rng_gives_the_same_game():
     def play(seed):
         random.seed(0)
-        players: list[CribbagePlayer] = [RandomCribbagePlayer(), RandomCribbagePlayer()]
+        players: list[CribbagePlayer] = [make_player("random"), make_player("random")]
         game = Game(players, rng=random.Random(seed))
         rnd = Round(game, players, game.dealer_idx)
         rnd.deal()
@@ -254,9 +254,41 @@ def test_kept_hands_keep_the_order_dealt():
 
 def test_random_games_always_finish():
     for seed in range(20):
-        players: list[CribbagePlayer] = [RandomCribbagePlayer(), RandomCribbagePlayer()]
+        players: list[CribbagePlayer] = [make_player("random"), make_player("random")]
         game = Game(players, rng=random.Random(seed))
         random.seed(seed)
         game.play()
         assert game.over and game.winner in (0, 1)
         assert game.scores[game.winner] >= 121
+
+
+def test_state_matches_round():
+    """The points Round awards for the play are those PegState adds up."""
+    rng = random.Random(1)
+    for trial in range(300):
+        hands, starter = random_deal(rng)
+        dealer = trial % 2
+        players: list[CribbagePlayer] = [make_player("random"), make_player("random")]
+        rnd = make_round(players, hands, starter, dealer)
+        # record who played what, by wrapping the players' choices
+        log = []
+        for seat, player in enumerate(players):
+            original = player.play_card
+
+            def spy(view, original=original, seat=seat):
+                card = original(view)
+                log.append((seat, card))
+                return card
+
+            player.play_card = spy  # type: ignore[method-assign]
+        random.seed(trial)
+        rnd.play()
+        state = PegState.start(hands, dealer)
+        for seat, card in log:
+            assert not state.done
+            assert state.turn == seat
+            state.play_card(card)
+        assert state.done
+        assert state.points == rnd.game.scores
+        assert all(type(p) is int for p in state.points)
+        assert rnd.peg is not None and rnd.peg.history() == state.history()

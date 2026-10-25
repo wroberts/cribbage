@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
 """
-pegging_rl_expt_2026.py
+pegging_model.py
 
 Can a small network learn to peg as well as a search?
 
 Step 1 of the plan, which is supervised regression on search values, in
-the manner of `discard_expt_2026`:
+the manner of `discard_model`:
 
 - `generate` plays out pegging on fixed deals.  At each decision with
   more than one distinct legal card, the teacher (`pimc-roll`, W sampled
@@ -17,7 +17,7 @@ the manner of `discard_expt_2026`:
   the mover's information (their hand, the unseen cards by face, the
   sequence so far) and the candidate.  Only differences between the
   candidates of a decision matter, so the loss is on mean-centred values.
-- `evaluate` plays the network (`net:PATH` in `pegging_expt_2026` specs)
+- `evaluate` plays the network (`net:PATH` in `specs` specs)
   against the ladder with duplicate deals.
 
 All features are by card face, so they are invariant to suits.  Inference
@@ -41,15 +41,13 @@ from torch import nn
 
 from cribbage.cards import WORTH, Card, distinct_by_face, face
 from cribbage.pegging import PegState, PegView
-from cribbage.pegging_expt_2026 import (
-    Deals,
-    PegPolicy,
-    PimcRollout,
+from cribbage.pegging_bench import Deals, make_deals, run_pegging
+from cribbage.pegging_policy import PeggingPolicy
+from cribbage.pegging_search import (
+    PimcRolloutPeggingPolicy,
     WorldSampler,
     distinct_moves,
-    make_deals,
     rollout,
-    run_pegging,
 )
 from cribbage.scoring import score_play
 
@@ -154,7 +152,7 @@ def label_deals(
     deals: Deals, worlds: int, explore: float, seed: str
 ) -> Labels:
     """Plays every deal out with the teacher on both sides, recording decisions."""
-    teacher = PimcRollout(worlds)
+    teacher = PimcRolloutPeggingPolicy(worlds)
     teacher.reseed(seed)
     rng = random.Random(seed)
     states, cands, values, masks = [], [], [], []
@@ -360,7 +358,7 @@ def load_net(path: str) -> PegNet:
 #  The policy
 
 
-class NetPeg(PegPolicy):
+class NetPeggingPolicy(PeggingPolicy):
     """Plays the candidate the network scores highest; inference is plain numpy."""
 
     def __init__(self, model: PegNet) -> None:
@@ -372,7 +370,7 @@ class NetPeg(PegPolicy):
         ]
 
     @classmethod
-    def load(cls, path: str) -> NetPeg:
+    def load(cls, path: str) -> NetPeggingPolicy:
         return cls(load_net(path))
 
     def scores(self, state: np.ndarray, cands: np.ndarray) -> np.ndarray:
@@ -406,7 +404,7 @@ class NetRollout:
 
     def __init__(
         self,
-        net: NetPeg,
+        net: NetPeggingPolicy,
         root_hands: Sequence[Sequence[Card]],
         played: set[Card],
         discards: Sequence[Sequence[Card]],
@@ -457,13 +455,13 @@ class NetRollout:
         return best[0] if len(best) == 1 else rng.choice(best)
 
 
-class PimcNet(PegPolicy):
+class PimcNetPeggingPolicy(PeggingPolicy):
     """
     PIMC like `pimc-roll`, but rollouts are played out by a trained
     network, which also plays the opponent.  Spec: `pimc-net:W:PATH`.
     """
 
-    def __init__(self, worlds: int, net: NetPeg) -> None:
+    def __init__(self, worlds: int, net: NetPeggingPolicy) -> None:
         super().__init__()
         self.worlds = worlds
         self.net = net

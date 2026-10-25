@@ -1,56 +1,32 @@
 #!/usr/bin/env python
 
 """
-test_pegging_expt_2026.py
+test_pegging_search.py
 
-Test the pegging_expt_2026 module.
+Test the pegging search: the exact solver, world sampling, and the
+policies built on them.
 """
 
 import random
 from dataclasses import replace
 
-import numpy as np
 import pytest
 from cribbage.cards import WORTH
 from cribbage.game import Game
-from cribbage.player import CribbagePlayer
-from cribbage.pegging_expt_2026 import (
-    Deals,
-    PegPlayer,
-    PegPolicy,
+from cribbage.pegging import PegState
+from cribbage.pegging_bench import BenchPlayer, make_bench_player
+from cribbage.pegging_policy import PeggingPolicy
+from cribbage.pegging_search import (
     Solver,
     WorldSampler,
     distinct_moves,
     first_move,
     greedy_move,
-    make_deals,
-    make_peg_player,
-    make_policy,
-    play_pegging,
     rollout,
-    run_pegging,
 )
-from cribbage.pegging import PegState
-from cribbage.randomplayer import RandomCribbagePlayer
-from cribbage.test.helpers import make_round
-
-ALL_SPECS = [
-    "first",
-    "random",
-    "greedy",
-    "greedy2",
-    "pimc-roll:3:2",
-    "pimc-solve:3",
-    "pimc-solve:3/opp",
-    "ismcts:30",
-    "ismcts:30/opp",
-    "oracle",
-]
-
-
-def random_deal(rng):
-    cards = rng.sample(range(52), 9)
-    return [cards[:4], cards[4:8]], cards[8]
+from cribbage.player import CribbagePlayer
+from cribbage.specs import make_pegging_policy, make_player
+from cribbage.test.helpers import make_round, random_deal
 
 
 def brute_force(state):
@@ -64,38 +40,6 @@ def brute_force(state):
         child.play(idx)
         values.append(child.margin() - before + brute_force(child))
     return max(values) if state.turn == 0 else min(values)
-
-
-def test_state_matches_round():
-    """The points Round awards for the play are those PegState adds up."""
-    rng = random.Random(1)
-    for trial in range(300):
-        hands, starter = random_deal(rng)
-        dealer = trial % 2
-        players: list[CribbagePlayer] = [RandomCribbagePlayer(), RandomCribbagePlayer()]
-        rnd = make_round(players, hands, starter, dealer)
-        # record who played what, by wrapping the players' choices
-        log = []
-        for seat, player in enumerate(players):
-            original = player.play_card
-
-            def spy(view, original=original, seat=seat):
-                card = original(view)
-                log.append((seat, card))
-                return card
-
-            player.play_card = spy  # type: ignore[method-assign]
-        random.seed(trial)
-        rnd.play()
-        state = PegState.start(hands, dealer)
-        for seat, card in log:
-            assert not state.done
-            assert state.turn == seat
-            state.play_card(card)
-        assert state.done
-        assert state.points == rnd.game.scores
-        assert all(type(p) is int for p in state.points)
-        assert rnd.peg is not None and rnd.peg.history() == state.history()
 
 
 def test_solver_matches_brute_force():
@@ -122,7 +66,7 @@ def test_distinct_moves_merge_faces():
     assert len(distinct_moves(state)) == 3
 
 
-class Recorder(PegPolicy):
+class Recorder(PeggingPolicy):
     """Plays the first legal card, recording what the sampler could know."""
 
     needs_oracle = True
@@ -162,16 +106,16 @@ def test_sampler_world_is_consistent(opp_greedy):
     seen = 0
     for trial in range(200):
         hands, starter = random_deal(rng)
-        game = Game([RandomCribbagePlayer(), RandomCribbagePlayer()])
+        game = Game([make_player("random"), make_player("random")])
         game.target_score = 10**9
         records: list[tuple[bool, bool, int, int, int]] = []
         spec = "greedy" if opp_greedy else "first"
         # seat 0 records and plays first-legal; seat 1 is the opponent
-        p0 = PegPlayer(RandomCribbagePlayer(), Recorder(game, 0, opp_greedy, records))
-        p1 = make_peg_player(spec)
+        p0 = BenchPlayer("random", Recorder(game, 0, opp_greedy, records))
+        p1 = make_bench_player(spec)
         if not opp_greedy:
-            p1 = PegPlayer(RandomCribbagePlayer(), Recorder(game, 1, False, records))
-        p1.policy.reseed(trial)
+            p1 = BenchPlayer("random", Recorder(game, 1, False, records))
+        p1.pegging_policy.reseed(trial)
         players: list[CribbagePlayer] = [p0, p1]
         game.players = players
         rnd = make_round(players, hands, starter, trial % 2, game)
@@ -188,44 +132,6 @@ def test_sampler_world_is_consistent(opp_greedy):
     assert seen > 500
 
 
-def test_policies_return_legal_moves():
-    rng = random.Random(4)
-    for spec in ALL_SPECS:
-        policy_players = [make_peg_player(spec), make_peg_player("random")]
-        for trial in range(15):
-            hands, starter = random_deal(rng)
-            for p in policy_players:
-                p.policy.reseed(trial)
-            kept = [hands[0], hands[1]]
-            thrown = [[0, 1], [2, 3]]
-            points = play_pegging(policy_players, kept, thrown, starter)
-            assert all(type(p) is int for p in points)
-
-
-def test_policies_reproducible():
-    deals = make_deals(30, 0)
-    for spec in ["pimc-roll:3", "pimc-solve:3", "ismcts:20/opp"]:
-        a = run_pegging(spec, "greedy", deals, seed=5)
-        b = run_pegging(spec, "greedy", deals, seed=5)
-        assert (a.pair_margin == b.pair_margin).all()
-
-
-def test_duplicate_deals_cancel_for_deterministic_players():
-    deals = make_deals(50, 1)
-    result = run_pegging("first", "first", deals)
-    assert (result.pair_margin == 0).all()
-    # the seats are not symmetric: the dealer does better
-    nd, dealer = result.role_margins()
-    assert dealer > nd
-
-
-def test_workers_do_not_change_results():
-    deals = make_deals(40, 2)
-    one = run_pegging("pimc-roll:2", "greedy", deals, seed=1, workers=1)
-    two = run_pegging("pimc-roll:2", "greedy", deals, seed=1, workers=2)
-    assert (one.pair_margin == two.pair_margin).all()
-
-
 def test_oracle_picks_a_best_move():
     rng = random.Random(6)
     solver = Solver()
@@ -235,7 +141,7 @@ def test_oracle_picks_a_best_move():
         view = replace(
             state.view(0, (), starter, False, 0, 0), opp_hand=tuple(state.hands[1])
         )
-        card = make_policy("oracle").choose(view)
+        card = make_pegging_policy("oracle").choose(view)
         values = solver.move_values(state)
         assert values[state.hands[0].index(card)] == max(values.values())
 
@@ -253,22 +159,6 @@ def test_sampler_respects_go():
     assert all(WORTH[c] > 2 for c in sampler.pool)
     assert sampler.num_opp == 3
     assert set(state.hands[1]) <= set(sampler.pool)
-
-
-def test_make_deals():
-    deals = make_deals(100, 3)
-    assert isinstance(deals, Deals)
-    assert deals.kept.shape == (100, 2, 4) and deals.thrown.shape == (100, 2, 2)
-    for i in range(100):
-        cards = np.concatenate([deals.kept[i].ravel(), deals.thrown[i].ravel(), [deals.starter[i]]])
-        assert len(set(cards.tolist())) == 13
-    assert (make_deals(100, 3).kept == deals.kept).all()
-
-
-def test_make_policy_rejects_nonsense():
-    for spec in ["nope", "greedy:3", "random/opp", "pimc-solve", "ismcts:5/foo"]:
-        with pytest.raises(ValueError):
-            make_policy(spec)
 
 
 def test_greedy_move_prefers_scoring_card():

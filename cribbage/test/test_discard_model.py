@@ -1,31 +1,27 @@
 #!/usr/bin/env python
 
 """
-test_discard_expt_2026.py
+test_discard_model.py
 
-Test the discard_expt_2026 module.
+Test the discard_model module.
 """
-
-import json
 
 import numpy as np
 import torch
 from cribbage.cards import splits, unseen_cards
 from cribbage.player import DiscardView
+from cribbage.specs import make_player
 from cribbage.cribbage_score import score_hand
-from cribbage.discard_expt_2026 import (
-    BASE_CONFIG,
+from cribbage.discard_model import (
     NUM_FEATURES,
     NUM_KEEPS,
     SPLITS,
     Dataset,
     DISCARD_IDX,
     DiscardNet,
-    LearnedDiscardPlayer,
+    NetDiscardPolicy,
     TrainConfig,
     UniformThrows,
-    ablation_report,
-    ablation_variants,
     candidate_values,
     canonical_keys,
     choice_stats,
@@ -37,9 +33,7 @@ from cribbage.discard_expt_2026 import (
     generate_dataset,
     h_only_stats,
     hand_values,
-    k_study,
     load_model,
-    make_player,
     play_match,
     predict_values,
     sample_split_hands,
@@ -103,15 +97,6 @@ def test_candidate_values_sign():
     h, c = np.array([4.0, 2.0]), np.array([1.0, 3.0])
     assert list(candidate_values(h, c, True)) == [5.0, 5.0]
     assert list(candidate_values(h, c, False)) == [3.0, -1.0]
-
-
-def test_k_study_smoke():
-    hands = deal_hands(3, np.random.default_rng(0))
-    labels = [exact_labels(list(hand)) for hand in hands]
-    results = k_study(hands, labels, ks=[1, 5], reps=2, seed=0)
-    assert set(results) == {"H only", "random", "K=1", "K=5"}
-    for row in results.values():
-        assert row["dealer_regret"] >= 0 and row["nondealer_regret"] >= 0
 
 
 def relabel_suits(hand, perm):
@@ -245,13 +230,13 @@ def test_train_smoke(tmp_path):
     assert h_only_stats(to_tensors(val))["dealer_regret"] >= 0
 
 
-def test_learned_player_discards_the_best_split():
+def test_net_policy_discards_the_best_split():
     torch.manual_seed(0)
     model = DiscardNet(two_head=True, width=8, depth=2)
-    player = LearnedDiscardPlayer(model)
+    policy = NetDiscardPolicy(model)
     for is_dealer in (True, False):
         for hand in deal_hands(5, np.random.default_rng(6)).tolist():
-            discard = player.discard(DiscardView(tuple(hand), is_dealer, 0, 0))
+            discard = policy.choose(DiscardView(tuple(hand), is_dealer, 0, 0))
             assert len(set(discard)) == 2 and set(discard) <= set(hand)
             features = encode_hands(torch.tensor([hand]))
             best = int(predict_values(model, features, is_dealer).argmax())
@@ -262,43 +247,19 @@ def test_make_player_and_match(tmp_path):
     model = DiscardNet(two_head=True, width=8, depth=2)
     path = str(tmp_path / "model.pt")
     save_model(model, TrainConfig(True, width=8, depth=2), path)
-    assert isinstance(make_player(f"model:{path}"), LearnedDiscardPlayer)
+    player = make_player(f"model:{path}")
+    assert isinstance(player.discard_policy, NetDiscardPolicy)
     for spec in ("random", "simple", "simple-discard"):
         make_player(spec)
     wins, games = play_match(f"model:{path}", "random", games=6, seed=0, workers=1)
     assert games == 6 and 0 <= wins <= 6
 
 
-def test_ablation_options_train_and_round_trip(tmp_path):
-    train = to_tensors(generate_dataset("train", num=300, k=5, seed=1, workers=1))
-    val = to_tensors(generate_dataset("val", num=100, k=5, seed=1, workers=1))
-    variants = [
-        dict(init="he"),
-        dict(schedule="constant"),
-        dict(standardize_inputs=True),
-        dict(standardize_targets=True),
-        dict(standardize_inputs=True, standardize_targets=True, two_head=False),
-        dict(drop=("nobs", "flush", "suited")),
-    ]
-    for i, extra in enumerate(variants):
-        config = TrainConfig(width=8, depth=2, epochs=1, batch_size=64, **extra)
-        model, _ = train_model(config, train, val, False)
-        path = str(tmp_path / f"model{i}.pt")
-        save_model(model, config, path)
-        features = encode_hands(val[0][:5])
-        with torch.no_grad():
-            assert torch.allclose(
-                predict_values(model, features, False),
-                predict_values(load_model(path), features, False),
-                atol=1e-6,
-            ), extra
-
-
 def test_standardisation_uses_training_statistics():
     train = to_tensors(generate_dataset("train", num=300, k=5, seed=2, workers=1))
     config = TrainConfig(width=8, depth=1, standardize_inputs=True, standardize_targets=True)
     model = config.make_net()
-    from cribbage.discard_expt_2026 import fit_standardisation
+    from cribbage.discard_model import fit_standardisation
 
     fit_standardisation(model, train)
     features = encode_hands(train[0][:300]).reshape(-1, NUM_FEATURES)
@@ -322,28 +283,3 @@ def test_dropped_features_do_not_matter():
     assert not torch.equal(model(features), model(changed))
 
 
-def test_ablation_variants_are_well_formed():
-    variants = ablation_variants()
-    labels = [label for _, label, _ in variants]
-    assert len(set(labels)) == len(labels) and labels[0] == "base"
-    fields = set(vars(BASE_CONFIG)) | {"k", "hands"}
-    for _, _, overrides in variants:
-        assert set(overrides) <= fields
-
-
-def test_ablation_report(tmp_path):
-    def record(label, group, seed, mse, width=256):
-        test = dict(mse=mse, dealer_regret=0.01, nondealer_regret=0.03,
-                    dealer_optimal=0.9, nondealer_optimal=0.8)
-        return dict(label=label, group=group, seed=seed, params=1000, seconds=2.0,
-                    test=test, config=dict(width=width, depth=3))
-
-    rows = [record("base", "base", s, 0.04) for s in range(2)]
-    rows += [record("32x3", "size", s, 0.09, width=32) for s in range(2)]
-    path = tmp_path / "results.jsonl"
-    path.write_text("\n".join(json.dumps(r) for r in rows))
-    report = ablation_report(str(path))
-    assert "### size" in report and "| 32x3 |" in report
-    # rmse goes from 0.2 to 0.3
-    assert "+0.1000" in report and "0.2000 ± 0.0000" in report
-    assert "size grid" in report

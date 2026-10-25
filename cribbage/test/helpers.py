@@ -72,3 +72,9 @@ def make_round(
         list(players),
         Deal.from_kept(dealer, kept, [spare[:2], spare[2:4]], starter),
     )
+
+
+def random_deal(rng):
+    """Two four-card hands and a starter, all different."""
+    cards = rng.sample(range(52), 9)
+    return [cards[:4], cards[4:8]], cards[8]

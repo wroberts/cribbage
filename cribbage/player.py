@@ -8,10 +8,16 @@ Abstract base class for a cribbage player.
 """
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from cribbage.cards import Card
 from cribbage.pegging import PegView
+
+if TYPE_CHECKING:
+    from cribbage.discard_policy import DiscardPolicy
+    from cribbage.pegging_policy import PeggingPolicy
 
 
 @dataclass(frozen=True)
@@ -68,3 +74,36 @@ class CribbagePlayer:
         - `has_won`:
         """
         pass
+
+
+class Policy:
+    """A rule for making one kind of choice, with its own random generator."""
+
+    def __init__(self) -> None:
+        # seeded from the global generator, so `random.seed` makes it reproducible
+        self.rng = random.Random(random.getrandbits(64))
+
+    def reseed(self, seed: int | str) -> None:
+        self.rng = random.Random(seed)
+
+
+class PolicyPlayer(CribbagePlayer):
+    """A player that discards with a `DiscardPolicy` and pegs with a `PeggingPolicy`."""
+
+    def __init__(
+        self, discard_policy: DiscardPolicy, pegging_policy: PeggingPolicy
+    ) -> None:
+        super().__init__()
+        self.discard_policy = discard_policy
+        self.pegging_policy = pegging_policy
+
+    def reseed(self, seed: int | str) -> None:
+        """Reseeds both policies, for reproducible games."""
+        self.discard_policy.reseed(f"{seed}/discard")
+        self.pegging_policy.reseed(f"{seed}/pegging")
+
+    def discard(self, view: DiscardView) -> tuple[Card, Card]:
+        return self.discard_policy.choose(view)
+
+    def play_card(self, view: PegView) -> Card:
+        return self.pegging_policy.choose(view)

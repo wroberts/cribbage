@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 """
-test_pegging_rl_expt_2026.py
+test_pegging_model.py
 
-Test the pegging_rl_expt_2026 module.
+Test the pegging_model module.
 """
 
 import random
@@ -12,20 +12,17 @@ import numpy as np
 import torch
 from cribbage.cards import distinct_by_face
 from cribbage.pegging import PegState
-from cribbage.pegging_expt_2026 import (
-    make_deals,
-    make_policy,
-    run_pegging,
-)
+from cribbage.pegging_bench import make_deals, run_pegging
+from cribbage.specs import make_pegging_policy
 from cribbage.test.helpers import make_view
-from cribbage.pegging_rl_expt_2026 import (
+from cribbage.pegging_model import (
     CAND_DIM,
     MAX_CANDIDATES,
     STATE_DIM,
     Labels,
-    NetPeg,
+    NetPeggingPolicy,
     NetRollout,
-    PimcNet,
+    PimcNetPeggingPolicy,
     PegNet,
     centred,
     encode,
@@ -106,7 +103,7 @@ def test_regrets_and_training_reduce_error(tmp_path):
     assert torch.allclose(
         model(data["state"], data["cand"]), reloaded(data["state"], data["cand"])
     )
-    policy = NetPeg.load(path)
+    policy = NetPeggingPolicy.load(path)
     state, cands, _ = encode(make_view([9, 4, 3], [8], starter=40))
     with torch.no_grad():
         expected = model(torch.from_numpy(state)[None], torch.from_numpy(cands)[None])[0]
@@ -116,7 +113,7 @@ def test_regrets_and_training_reduce_error(tmp_path):
 def test_net_spec_plays_pegging(tmp_path):
     path = str(tmp_path / "net.pt")
     save_net(PegNet(16, 2), path)
-    assert isinstance(make_policy(f"net:{path}"), NetPeg)
+    assert isinstance(make_pegging_policy(f"net:{path}"), NetPeggingPolicy)
     deals = make_deals(20, 8)
     result = run_pegging(f"net:{path}", "greedy", deals, seed=1)
     assert len(result.pair_margin) == 20
@@ -126,7 +123,7 @@ def test_net_spec_plays_pegging(tmp_path):
 def test_rollout_features_match_encode():
     """The rollout's fast features equal encode() on the mover's own view."""
     rng = random.Random(9)
-    net = NetPeg(PegNet(8, 1))
+    net = NetPeggingPolicy(PegNet(8, 1))
     for trial in range(60):
         cards = rng.sample(range(52), 13)
         hands = [cards[:4], cards[4:8]]
@@ -149,8 +146,8 @@ def test_rollout_features_match_encode():
 def test_pimc_net_plays_pegging(tmp_path):
     path = str(tmp_path / "net.pt")
     save_net(PegNet(16, 2), path)
-    policy = make_policy(f"pimc-net:3:{path}")
-    assert isinstance(policy, PimcNet)
+    policy = make_pegging_policy(f"pimc-net:3:{path}")
+    assert isinstance(policy, PimcNetPeggingPolicy)
     deals = make_deals(10, 9)
     result = run_pegging(f"pimc-net:3:{path}", "greedy", deals, seed=1)
     assert len(result.pair_margin) == 10
