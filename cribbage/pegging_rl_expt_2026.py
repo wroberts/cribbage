@@ -39,7 +39,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from cribbage.cards import cards_worth
+from cribbage.cards import Card, cards_worth
 from cribbage.pegging_expt_2026 import (
     WORTH,
     Deals,
@@ -47,7 +47,10 @@ from cribbage.pegging_expt_2026 import (
     PegPolicy,
     PegState,
     PimcRollout,
+    WorldSampler,
+    distinct_moves,
     make_deals,
+    rollout,
     run_pegging,
     score_play,
 )
@@ -383,6 +386,131 @@ class NetPeg(PegPolicy):
         state, cands, idxs = encode(obs)
         scores = self.scores(state, cands)
         return self.argmax({idx: float(s) for idx, s in zip(idxs, scores)})
+
+
+# ------------------------------------------------------------
+#  Search with the network as the rollout policy
+
+
+class NetRollout:
+    """
+    Plays out a sampled world with a network, each side seeing only what
+    its own player would.  The world's cards are fixed at its root, so what
+    a mover has not seen is its faces not in the root hands or played
+    cards (`unplayed`), plus the other player's current hand, less the
+    mover's own discards.
+    """
+
+    def __init__(
+        self,
+        net: NetPeg,
+        root_hands: Sequence[Sequence[Card]],
+        played: set[Card],
+        discards: Sequence[Sequence[Card]],
+        dealer_seat: int,
+    ) -> None:
+        self.net = net
+        faces = np.full(13, 4.0, dtype=np.float32)
+        for card in [*played, *root_hands[0], *root_hands[1]]:
+            faces[card % 13] -= 1
+        self.unplayed = faces
+        self.discard_faces = np.zeros((2, 13), dtype=np.float32)
+        for seat in (0, 1):
+            for card in discards[seat]:
+                self.discard_faces[seat, card % 13] += 1
+        self.dealer_seat = dealer_seat
+
+    def features(
+        self, state: PegState, legal: list[int]
+    ) -> tuple[np.ndarray, np.ndarray, list[int]]:
+        """What `encode` gives for the player to move."""
+        seat = state.turn
+        hand = state.hands[seat]
+        other = state.hands[1 - seat]
+        vec = np.zeros(STATE_DIM, dtype=np.float32)
+        unseen = self.unplayed - self.discard_faces[seat]
+        for card in other:
+            unseen[card % 13] += 1
+        for card in hand:
+            vec[card % 13] += 1
+        vec[13:26] = unseen * 0.25
+        seq = state.seq
+        vec[26] = state.count / 31
+        vec[27] = len(seq) / 8
+        for back, card in enumerate(seq[-3:][::-1]):
+            vec[28 + 13 * back + card % 13] = 1
+        vec[67] = state.is_go
+        vec[68] = seat == self.dealer_seat
+        vec[69 + len(other)] = 1
+        vec[74 + len(hand) - 1] = 1
+        seen: set[int] = set()
+        idxs = []
+        for i in legal:
+            if hand[i] % 13 not in seen:
+                seen.add(hand[i] % 13)
+                idxs.append(i)
+        cands = np.zeros((len(idxs), CAND_DIM), dtype=np.float32)
+        for row, i in enumerate(idxs):
+            card = hand[i]
+            cands[row, card % 13] = 1
+            seq.append(card)
+            cands[row, 13] = score_play(seq) / 6
+            seq.pop()
+            cands[row, 14] = (state.count + WORTH[card]) / 31
+            cands[row, 15] = state.count + WORTH[card] == 31
+        return vec, cands, idxs
+
+    def move(self, state: PegState, rng: random.Random) -> int:
+        """The hand index of the network's favourite legal card."""
+        legal = state.legal()
+        if len(legal) == 1:
+            return legal[0]
+        vec, cands, idxs = self.features(state, legal)
+        scores = self.net.scores(vec, cands)
+        top = scores.max()
+        best = [idxs[r] for r in range(len(idxs)) if scores[r] >= top - 1e-6]
+        return best[0] if len(best) == 1 else rng.choice(best)
+
+
+class PimcNet(PegPolicy):
+    """
+    PIMC like `pimc-roll`, but rollouts are played out by a trained
+    network, which also plays the opponent.  Spec: `pimc-net:W:PATH`.
+    """
+
+    def __init__(self, worlds: int, net: NetPeg) -> None:
+        super().__init__()
+        self.worlds = worlds
+        self.net = net
+
+    def values(self, obs: PegObs) -> dict[int, float]:
+        """Mean margin of each distinct legal card (by hand index)."""
+        sampler = WorldSampler(obs)
+        unseen = obs.unseen()
+        totals: dict[int, float] = {}
+        dealer_seat = 0 if obs.is_dealer else 1
+        for _ in range(self.worlds):
+            world = sampler.sample(self.rng)
+            # the opponent's discards are among the cards it does not hold
+            others = [c for c in unseen if c not in world.hands[1]]
+            ctx = NetRollout(
+                self.net,
+                world.hands,
+                obs.played,
+                [obs.discards, self.rng.sample(others, 2)],
+                dealer_seat,
+            )
+            for idx in distinct_moves(world).values():
+                child = world.copy()
+                child.play(idx)
+                rollout(child, ctx.move, self.rng)
+                totals[idx] = totals.get(idx, 0.0) + child.margin()
+        return {idx: total / self.worlds for idx, total in totals.items()}
+
+    def choose(self, obs: PegObs) -> int:
+        if len(obs.legal) == 1:
+            return obs.legal[0]
+        return self.argmax(self.values(obs))
 
 
 # ------------------------------------------------------------

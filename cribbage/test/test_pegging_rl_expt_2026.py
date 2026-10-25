@@ -6,15 +6,26 @@ test_pegging_rl_expt_2026.py
 Test the pegging_rl_expt_2026 module.
 """
 
+import random
+
 import numpy as np
 import torch
-from cribbage.pegging_expt_2026 import PegObs, make_deals, make_policy, run_pegging
+from cribbage.pegging_expt_2026 import (
+    PegObs,
+    PegState,
+    make_deals,
+    make_policy,
+    play_pegging,
+    run_pegging,
+)
 from cribbage.pegging_rl_expt_2026 import (
     CAND_DIM,
     MAX_CANDIDATES,
     STATE_DIM,
     Labels,
     NetPeg,
+    NetRollout,
+    PimcNet,
     PegNet,
     candidate_cards,
     centred,
@@ -113,3 +124,43 @@ def test_net_spec_plays_pegging(tmp_path):
     result = run_pegging(f"net:{path}", "greedy", deals, seed=1)
     assert len(result.pair_margin) == 20
     assert all(type(p) is int for p in (int(result.a_nd[0]), int(result.b_d[0])))
+
+
+def test_rollout_features_match_encode():
+    """The rollout's fast features equal encode() on the mover's own view."""
+    rng = random.Random(9)
+    net = NetPeg(PegNet(8, 1))
+    for trial in range(60):
+        cards = rng.sample(range(52), 13)
+        hands = [cards[:4], cards[4:8]]
+        discards = [cards[8:10], cards[10:12]]
+        starter = cards[12]
+        dealer = trial % 2
+        ctx = NetRollout(net, hands, {starter}, discards, dealer)
+        state = PegState.start(hands, dealer)
+        played = {starter}
+        while not state.done:
+            seat = state.turn
+            legal = state.legal()
+            obs = PegObs(
+                state.hands[seat][:], state.seq[:], set(played), state.is_go,
+                legal, tuple(discards[seat]), seat == dealer,
+            )
+            want_state, want_cands, want_idxs = encode(obs)
+            got_state, got_cands, got_idxs = ctx.features(state, legal)
+            assert got_idxs == want_idxs
+            assert np.allclose(got_state, want_state)
+            assert np.allclose(got_cands, want_cands)
+            idx = rng.choice(legal)
+            played.add(state.hands[seat][idx])
+            state.play(idx)
+
+
+def test_pimc_net_plays_pegging(tmp_path):
+    path = str(tmp_path / "net.pt")
+    save_net(PegNet(16, 2), path)
+    policy = make_policy(f"pimc-net:3:{path}")
+    assert isinstance(policy, PimcNet)
+    deals = make_deals(10, 9)
+    result = run_pegging(f"pimc-net:3:{path}", "greedy", deals, seed=1)
+    assert len(result.pair_margin) == 10

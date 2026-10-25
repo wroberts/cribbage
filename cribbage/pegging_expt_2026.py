@@ -601,6 +601,12 @@ def make_policy(spec: str) -> PegPolicy:
         from cribbage.pegging_rl_expt_2026 import NetPeg
 
         return NetPeg.load(spec[len("net:") :])
+    if spec.startswith("pimc-net:"):
+        # pimc-net:WORLDS:PATH, rollouts played by a network (see above)
+        from cribbage.pegging_rl_expt_2026 import NetPeg, PimcNet
+
+        worlds, _, path = spec[len("pimc-net:") :].partition(":")
+        return PimcNet(int(worlds), NetPeg.load(path))
     base, *flags = spec.split("/")
     if set(flags) - {"opp"}:
         raise ValueError(f"unknown flag in {spec!r}")
@@ -901,7 +907,7 @@ def run_pegging(
     if workers > 1:
         # forked workers that use torch deadlock once the parent has, so
         # policies that load a network get fresh processes
-        method = "spawn" if "net:" in spec_a + spec_b else None
+        method = "spawn" if "net:" in spec_a + spec_b else None  # also pimc-net:
         with multiprocessing.get_context(method).Pool(workers) as pool:
             parts = pool.map(_peg_chunk, tasks)
     else:
