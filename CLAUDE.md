@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Type check: `mypy cribbage` (config in `pyproject.toml`; all non-test functions must be annotated; Theano/Lasagne objects are typed `Any`)
 - Single test: `py.test cribbage/test/test_scoring.py::<test_name>`
 
-There is no lint config. The codebase is Python 3 only (`requires-python >= 3.11`; CI in `.github/workflows/ci.yml` runs 3.11–3.15), so use modern idioms: f-strings, `super()`, `//` for integer division. Scores must stay plain `int`s (no floats or numpy ints); `test_scoring.py` checks this for both scorers.
+There is no lint config. The codebase is Python 3 only (`requires-python >= 3.11`; CI in `.github/workflows/ci.yml` runs 3.11–3.14 (3.15 is off until torch publishes wheels)), so use modern idioms: f-strings, `super()`, `//` for integer division. Scores must stay plain `int`s (no floats or numpy ints); `test_scoring.py` checks this for both scorers.
 
 ## Architecture
 
