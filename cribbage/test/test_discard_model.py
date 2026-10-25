@@ -140,9 +140,8 @@ def test_sample_split_hands_stay_in_split():
 
 
 def test_generate_dataset_is_deterministic_and_correct(tmp_path):
-    kwargs = dict(split="val", num=30, k=10, seed=7)
-    one = generate_dataset(workers=1, **kwargs)
-    two = generate_dataset(workers=2, **kwargs)
+    one = generate_dataset("val", num=30, k=10, seed=7, workers=1)
+    two = generate_dataset("val", num=30, k=10, seed=7, workers=2)
     for a, b in ((one.hands, two.hands), (one.h, two.h), (one.c, two.c)):
         assert np.array_equal(a, b)
     assert one.hands.shape == (30, 6) and one.h.shape == one.c.shape == (30, 15)
@@ -263,6 +262,7 @@ def test_standardisation_uses_training_statistics():
 
     fit_standardisation(model, train)
     features = encode_hands(train[0][:300]).reshape(-1, NUM_FEATURES)
+    assert model.in_mean is not None and model.out_mean is not None
     assert torch.allclose(model.in_mean, features.mean(dim=0), atol=1e-5)
     assert torch.allclose(model.out_mean, torch.stack([train[1].mean(), train[2].mean()]))
     # an untrained network predicts about the mean of each target

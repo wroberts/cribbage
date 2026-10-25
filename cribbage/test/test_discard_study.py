@@ -7,6 +7,7 @@ Test the discard_study module.
 """
 
 import json
+from typing import Any
 
 import numpy as np
 import torch
@@ -37,7 +38,7 @@ def test_k_study_smoke():
 def test_ablation_options_train_and_round_trip(tmp_path):
     train = to_tensors(generate_dataset("train", num=300, k=5, seed=1, workers=1))
     val = to_tensors(generate_dataset("val", num=100, k=5, seed=1, workers=1))
-    variants = [
+    variants: list[dict[str, Any]] = [
         dict(init="he"),
         dict(schedule="constant"),
         dict(standardize_inputs=True),
