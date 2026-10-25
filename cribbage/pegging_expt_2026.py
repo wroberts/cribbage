@@ -449,9 +449,8 @@ class PimcRollout(PegPolicy):
         self.rollouts = rollouts
         self.opp_aware = opp_aware
 
-    def choose(self, obs: PegObs) -> int:
-        if len(obs.legal) == 1:
-            return obs.legal[0]
+    def values(self, obs: PegObs) -> dict[int, float]:
+        """Mean rollout margin of each distinct legal card (by hand index)."""
         sampler = WorldSampler(obs, self.opp_aware)
         totals: dict[int, float] = {}
         for _ in range(self.worlds):
@@ -462,7 +461,13 @@ class PimcRollout(PegPolicy):
                     child.play(idx)
                     rollout(child, greedy_move, self.rng)
                     totals[idx] = totals.get(idx, 0.0) + child.margin()
-        return self.argmax(totals)
+        runs = self.worlds * self.rollouts
+        return {idx: total / runs for idx, total in totals.items()}
+
+    def choose(self, obs: PegObs) -> int:
+        if len(obs.legal) == 1:
+            return obs.legal[0]
+        return self.argmax(self.values(obs))
 
 
 class PimcSolve(PegPolicy):
@@ -591,6 +596,11 @@ def make_policy(spec: str) -> PegPolicy:
     Builds a pegging policy from its name, e.g. `greedy`, `pimc-roll:20:2`,
     `pimc-solve:50/opp`, `ismcts:400`, `oracle`.
     """
+    if spec.startswith("net:"):
+        # a network trained by pegging_rl_expt_2026 (the path may contain "/")
+        from cribbage.pegging_rl_expt_2026 import NetPeg
+
+        return NetPeg.load(spec[len("net:") :])
     base, *flags = spec.split("/")
     if set(flags) - {"opp"}:
         raise ValueError(f"unknown flag in {spec!r}")
@@ -889,7 +899,10 @@ def run_pegging(
         for lo in range(0, len(deals), size)
     ]
     if workers > 1:
-        with multiprocessing.Pool(workers) as pool:
+        # forked workers that use torch deadlock once the parent has, so
+        # policies that load a network get fresh processes
+        method = "spawn" if "net:" in spec_a + spec_b else None
+        with multiprocessing.get_context(method).Pool(workers) as pool:
             parts = pool.map(_peg_chunk, tasks)
     else:
         parts = [_peg_chunk(t) for t in tasks]
