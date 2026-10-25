@@ -1,7 +1,5 @@
 *.o
 *.pyc
-*.xcodeproj/*
-!*.xcodeproj/project.pbxproj
 *~
 .DS_Store
 /.cache/
@@ -11,7 +9,6 @@
 /cribbage/_cribbage_score.so
 /models
 /data
-/test_c_scoring/cribbage
 build/
 /cribbage/*.so
 *.egg-info/

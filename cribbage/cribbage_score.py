@@ -11,16 +11,15 @@ from collections import Counter
 import itertools
 import math
 from collections.abc import Sequence
+from itertools import pairwise
 from .cards import (
     CARD_FACES,
     CARD_VALUES,
     Card,
     Hand,
-    card_worth,
     cards_worth,
     split_card,
 )
-from .utils import pairwise
 
 # the longest possible play: a count of 31 cannot be exceeded
 MAX_PLAY_LENGTH = 13
@@ -140,33 +139,6 @@ def score_hand(
     if verbose:
         print("score", score)
     return score
-
-
-def is_legal_play(card: Card, linear_play: Sequence[Card]) -> bool:
-    """
-    Tests whether the given card value is a legal play in a game of
-    cribbage, assuming that the cards in `linear_play` have previously
-    been played during the same round.
-
-    Arguments:
-    - `card`:
-    - `linear_play`:
-    """
-    lp_score = cards_worth(linear_play)
-    c_score = card_worth(card)
-    return lp_score + c_score <= 31
-
-
-def get_legal_play_idxs(hand: Sequence[Card], linear_play: Sequence[Card]) -> list[int]:
-    """
-    Faster version of is_legal_play for finding legal plays in a hand.
-
-    Arguments:
-    - `hand`:
-    - `linear_play`:
-    """
-    lp_score = cards_worth(linear_play)
-    return [idx for idx, card in enumerate(hand) if card_worth(card) + lp_score <= 31]
 
 
 def score_play(linear_play: Sequence[Card], verbose: bool = False) -> int:

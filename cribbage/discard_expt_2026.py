@@ -72,7 +72,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from cribbage.cards import KEEP_COMBINATIONS, Card, splits, unseen_cards
-from cribbage.game import compare_players
+from cribbage.game import compare_players, count_wins, win_ci
 from cribbage.player import CribbagePlayer, DiscardView
 from cribbage.randomplayer import RandomCribbagePlayer
 from cribbage.scoring import score_hand
@@ -1136,16 +1136,10 @@ def play_match(
     spec_a: str, spec_b: str, games: int, seed: int, workers: int
 ) -> tuple[int, int]:
     """
-    Plays `games` games of a against b, spread over `workers` processes
-    in fixed-size chunks (so the result does not depend on `workers`).
-    The dealer of each game is random.  Returns a's wins and the number of
-    games.
+    Plays `games` games of a against b (see `count_wins`).  The dealer of
+    each game is random.  Returns a's wins and the number of games.
     """
-    chunk = 100
-    sizes = [chunk] * (games // chunk) + ([games % chunk] if games % chunk else [])
-    tasks = [(spec_a, spec_b, n, seed * 100000 + i) for i, n in enumerate(sizes)]
-    with multiprocessing.Pool(workers) as pool:
-        return sum(pool.imap_unordered(_play_games, tasks)), games
+    return count_wins(_play_games, spec_a, spec_b, games, seed, workers), games
 
 
 # ------------------------------------------------------------
@@ -1177,7 +1171,7 @@ def run_head_to_head(args: argparse.Namespace) -> None:
     start = time.time()
     wins, games = play_match(args.a, args.b, args.games, args.seed, args.workers)
     rate = wins / games
-    half_width = 1.96 * (rate * (1 - rate) / games) ** 0.5
+    half_width = win_ci(rate, games)
     print(
         f"{args.a} beat {args.b} in {wins}/{games} games: "
         f"{100 * rate:.1f}% +/- {100 * half_width:.1f}% (95% CI),"

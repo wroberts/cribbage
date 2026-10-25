@@ -7,8 +7,10 @@ game.py
 An object representing a game of cribbage between two CribbagePlayers.
 """
 
+import math
+import multiprocessing
 import random
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from cribbage.player import CribbagePlayer
 from cribbage.round import Round
 
@@ -144,3 +146,32 @@ def compare_players(players: list[CribbagePlayer], num_games: int = 1000) -> lis
         assert game.winner is not None
         stats[game.winner] += 1
     return stats
+
+
+def win_ci(rate: float, games: int) -> float:
+    """The half-width of the 95% confidence interval of a win rate."""
+    return 1.96 * math.sqrt(rate * (1 - rate) / games)
+
+
+def count_wins(
+    worker: Callable[[tuple[str, str, int, int]], int],
+    spec_a: str,
+    spec_b: str,
+    games: int,
+    seed: int,
+    workers: int,
+) -> int:
+    """
+    The number of `games` won by the player `spec_a` against `spec_b`.  The
+    games are split into chunks of 100, each played by `worker` given
+    `(spec_a, spec_b, number of games, seed)` and returning a's wins; the
+    chunks are spread over `workers` processes, so the result does not
+    depend on `workers`.
+    """
+    chunk = 100
+    sizes = [chunk] * (games // chunk) + ([games % chunk] if games % chunk else [])
+    tasks = [(spec_a, spec_b, n, seed * 100000 + i) for i, n in enumerate(sizes)]
+    if workers > 1:
+        with multiprocessing.Pool(workers) as pool:
+            return sum(pool.map(worker, tasks))
+    return sum(worker(task) for task in tasks)

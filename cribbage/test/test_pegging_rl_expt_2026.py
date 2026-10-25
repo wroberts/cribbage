@@ -10,6 +10,7 @@ import random
 
 import numpy as np
 import torch
+from cribbage.cards import distinct_by_face
 from cribbage.pegging import PegState
 from cribbage.pegging_expt_2026 import (
     make_deals,
@@ -26,7 +27,6 @@ from cribbage.pegging_rl_expt_2026 import (
     NetRollout,
     PimcNet,
     PegNet,
-    candidate_cards,
     centred,
     encode,
     generate_labels,
@@ -45,7 +45,7 @@ def test_encode_shapes_and_suit_invariance():
     assert state.shape == (STATE_DIM,) and cands.shape == (3, CAND_DIM)
     # the two fours are one candidate
     assert cards == [9, 4, 3]
-    assert candidate_cards(view) == cards
+    assert distinct_by_face(view.legal) == cards
 
     def swap(c):
         return c % 13 + 13 * ((c // 13 + 1) % 4)

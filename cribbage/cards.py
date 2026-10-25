@@ -74,6 +74,14 @@ def unseen_cards(*known: Iterable[Card]) -> list[Card]:
     return [card for card in range(52) if card not in seen]
 
 
+def distinct_by_face(cards: Iterable[Card]) -> list[Card]:
+    """The first card of each face, in order (equal faces play alike)."""
+    firsts: dict[int, Card] = {}
+    for card in cards:
+        firsts.setdefault(card % 13, card)
+    return list(firsts.values())
+
+
 def splits(hand: Sequence[Card]) -> list[tuple[list[Card], list[Card]]]:
     """
     Returns the 15 (keep, discard) splits of a 6-card hand, in the order
@@ -86,11 +94,6 @@ def splits(hand: Sequence[Card]) -> list[tuple[list[Card], list[Card]]]:
         )
         for keep_idxs in KEEP_COMBINATIONS
     ]
-
-
-def make_random_hand() -> Hand:
-    """Create a random 4-card cribbage hand."""
-    return random.sample(make_deck(), 4)
 
 
 def make_random_hand_and_draw() -> tuple[Hand, Card]:

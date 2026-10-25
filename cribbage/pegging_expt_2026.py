@@ -64,7 +64,7 @@ from cribbage.discard_expt_2026 import (
     make_player,
     predict_values,
 )
-from cribbage.game import Game, compare_players
+from cribbage.game import Game, compare_players, count_wins, win_ci
 from cribbage.pegging import PegState, PegView
 from cribbage.player import CribbagePlayer, DiscardView
 from cribbage.round import Deal, Round
@@ -138,10 +138,6 @@ class WorldSampler:
 
 def first_move(state: PegState, rng: random.Random) -> int:
     return state.legal()[0]
-
-
-def random_move(state: PegState, rng: random.Random) -> int:
-    return rng.choice(state.legal())
 
 
 def greedy_move(state: PegState, rng: random.Random) -> int:
@@ -775,20 +771,8 @@ def _match_chunk(task: tuple[str, str, int, int]) -> int:
 
 
 def play_match(spec_a: str, spec_b: str, games: int, seed: int, workers: int) -> float:
-    """A's win rate over `games` full games (chunked, so independent of `workers`)."""
-    chunk = 100
-    sizes = [chunk] * (games // chunk) + ([games % chunk] if games % chunk else [])
-    tasks = [(spec_a, spec_b, n, seed * 100000 + i) for i, n in enumerate(sizes)]
-    if workers > 1:
-        with multiprocessing.Pool(workers) as pool:
-            wins = sum(pool.map(_match_chunk, tasks))
-    else:
-        wins = sum(_match_chunk(t) for t in tasks)
-    return wins / games
-
-
-def win_ci(rate: float, games: int) -> float:
-    return 1.96 * math.sqrt(rate * (1 - rate) / games)
+    """A's win rate over `games` full games (see `count_wins`)."""
+    return count_wins(_match_chunk, spec_a, spec_b, games, seed, workers) / games
 
 
 # ------------------------------------------------------------

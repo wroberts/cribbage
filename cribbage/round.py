@@ -344,52 +344,29 @@ class Round:
         - `verbose`:
         """
         assert self.cards is not None
-        kept_hands = self.cards.kept
         starter_card = self.cards.starter
-        crib = self.cards.crib
-        # score the non-dealer player's hand
+        kept_hands = self.cards.kept
+        # the non-dealer's hand, then the dealer's hand and the dealer's crib
         nondealer_idx = int(not self.dealer_idx)
-        nondealer_hand = list(kept_hands[nondealer_idx])
-        if verbose:
-            print(
-                f"Scoring player {nondealer_idx + 1}:",
-                " ".join([card_tostring(c) for c in sorted(nondealer_hand)]),
-            )
-            print("Starter card is ", card_tostring(starter_card))
-        hand_score = score_hand(nondealer_hand, starter_card, verbose=verbose)
-        if verbose:
-            print(f"Player {nondealer_idx + 1}'s hand scores", hand_score)
-        if not self.game.award_points(nondealer_idx, hand_score, verbose=verbose):
-            return False
-
-        # score the dealer's hand
-        dealer_hand = list(kept_hands[self.dealer_idx])
-        if verbose:
-            print(
-                f"Scoring player {self.dealer_idx + 1}:",
-                " ".join([card_tostring(c) for c in sorted(dealer_hand)]),
-            )
-            print("Starter card is ", card_tostring(starter_card))
-        hand_score = score_hand(dealer_hand, starter_card, verbose=verbose)
-        if verbose:
-            print(f"Player {self.dealer_idx + 1}'s hand scores", hand_score)
-        if not self.game.award_points(self.dealer_idx, hand_score, verbose=verbose):
-            return False
-
-        # score the dealer's crib
-        if verbose:
-            print(
-                "Scoring crib:", " ".join([card_tostring(c) for c in sorted(crib)])
-            )
-            print("Starter card is ", card_tostring(starter_card))
-        hand_score = score_hand(
-            crib, starter_card, crib=True, verbose=verbose
-        )
-        if verbose:
-            print(f"Player {self.dealer_idx + 1}'s crib scores,", hand_score)
-        if not self.game.award_points(self.dealer_idx, hand_score, verbose=verbose):
-            return False
-
+        for player_idx, cards, is_crib in (
+            (nondealer_idx, kept_hands[nondealer_idx], False),
+            (self.dealer_idx, kept_hands[self.dealer_idx], False),
+            (self.dealer_idx, self.cards.crib, True),
+        ):
+            if verbose:
+                print(
+                    "Scoring crib:" if is_crib else f"Scoring player {player_idx + 1}:",
+                    " ".join([card_tostring(c) for c in sorted(cards)]),
+                )
+                print("Starter card is ", card_tostring(starter_card))
+            points = score_hand(list(cards), starter_card, crib=is_crib, verbose=verbose)
+            if verbose:
+                print(
+                    f"Player {player_idx + 1}'s {'crib' if is_crib else 'hand'} scores",
+                    points,
+                )
+            if not self.game.award_points(player_idx, points, verbose=verbose):
+                return False
         return True
 
     def print_state(self, hands: Sequence[Sequence[Card]] | None = None) -> None:

@@ -39,7 +39,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from cribbage.cards import WORTH, Card, face
+from cribbage.cards import WORTH, Card, distinct_by_face, face
 from cribbage.pegging import PegState, PegView
 from cribbage.pegging_expt_2026 import (
     Deals,
@@ -65,45 +65,56 @@ CAND_DIM = 13 + 1 + 1 + 1
 #  Features
 
 
-def candidate_cards(view: PegView) -> list[Card]:
-    """The legal cards, one per face (equal faces play alike)."""
-    seen: set[int] = set()
-    cards = []
-    for card in view.legal:
-        f = face(card)
-        if f not in seen:
-            seen.add(f)
-            cards.append(card)
-    return cards
-
-
-def encode(view: PegView) -> tuple[np.ndarray, np.ndarray, list[Card]]:
+def featurise(
+    hand: Sequence[Card],
+    legal: Sequence[Card],
+    seq: Sequence[Card],
+    count: int,
+    unseen_faces: np.ndarray,
+    opp_said_go: bool,
+    is_dealer: bool,
+    opp_cards_left: int,
+) -> tuple[np.ndarray, np.ndarray, list[Card]]:
     """
     Features of a decision: the state (STATE_DIM,), one row per candidate
-    (k, CAND_DIM), and the card of each candidate.
+    (k, CAND_DIM), and the card of each candidate.  The candidates are the
+    legal cards, one per face (equal faces play alike).
     """
     state = np.zeros(STATE_DIM, dtype=np.float32)
-    for card in view.hand:
+    for card in hand:
         state[face(card)] += 1
-    for card in view.unseen():
-        state[13 + face(card)] += 0.25
-    count = view.count
+    state[13:26] = unseen_faces * 0.25
     state[26] = count / 31
-    state[27] = len(view.seq) / 8
-    for back, card in enumerate(view.seq[-3:][::-1]):
+    state[27] = len(seq) / 8
+    for back, card in enumerate(seq[-3:][::-1]):
         state[28 + 13 * back + face(card)] = 1
-    state[67] = view.opp_said_go
-    state[68] = view.is_dealer
-    state[69 + view.opp_cards_left] = 1
-    state[74 + len(view.hand) - 1] = 1
-    cards = candidate_cards(view)
+    state[67] = opp_said_go
+    state[68] = is_dealer
+    state[69 + opp_cards_left] = 1
+    state[74 + len(hand) - 1] = 1
+    cards = distinct_by_face(legal)
     cands = np.zeros((len(cards), CAND_DIM), dtype=np.float32)
     for row, card in enumerate(cards):
         cands[row, face(card)] = 1
-        cands[row, 13] = score_play([*view.seq, card]) / 6
+        cands[row, 13] = score_play([*seq, card]) / 6
         cands[row, 14] = (count + WORTH[card]) / 31
         cands[row, 15] = count + WORTH[card] == 31
     return state, cands, cards
+
+
+def encode(view: PegView) -> tuple[np.ndarray, np.ndarray, list[Card]]:
+    """Features of the decision a player sees (see `featurise`)."""
+    unseen_faces = np.bincount([face(c) for c in view.unseen()], minlength=13)
+    return featurise(
+        view.hand,
+        view.legal,
+        view.seq,
+        view.count,
+        unseen_faces,
+        view.opp_said_go,
+        view.is_dealer,
+        view.opp_cards_left,
+    )
 
 
 # ------------------------------------------------------------
@@ -415,42 +426,24 @@ class NetRollout:
     def features(
         self, state: PegState, legal: list[int]
     ) -> tuple[np.ndarray, np.ndarray, list[int]]:
-        """What `encode` gives for the player to move."""
+        """What `encode` gives for the player to move, with hand indices."""
         seat = state.turn
         hand = state.hands[seat]
         other = state.hands[1 - seat]
-        vec = np.zeros(STATE_DIM, dtype=np.float32)
         unseen = self.unplayed - self.discard_faces[seat]
         for card in other:
             unseen[face(card)] += 1
-        for card in hand:
-            vec[face(card)] += 1
-        vec[13:26] = unseen * 0.25
-        seq = state.seq
-        vec[26] = state.count / 31
-        vec[27] = len(seq) / 8
-        for back, card in enumerate(seq[-3:][::-1]):
-            vec[28 + 13 * back + face(card)] = 1
-        vec[67] = state.is_go
-        vec[68] = seat == self.dealer_seat
-        vec[69 + len(other)] = 1
-        vec[74 + len(hand) - 1] = 1
-        seen: set[int] = set()
-        idxs = []
-        for i in legal:
-            if face(hand[i]) not in seen:
-                seen.add(face(hand[i]))
-                idxs.append(i)
-        cands = np.zeros((len(idxs), CAND_DIM), dtype=np.float32)
-        for row, i in enumerate(idxs):
-            card = hand[i]
-            cands[row, face(card)] = 1
-            seq.append(card)
-            cands[row, 13] = score_play(seq) / 6
-            seq.pop()
-            cands[row, 14] = (state.count + WORTH[card]) / 31
-            cands[row, 15] = state.count + WORTH[card] == 31
-        return vec, cands, idxs
+        vec, cands, cards = featurise(
+            hand,
+            [hand[i] for i in legal],
+            state.seq,
+            state.count,
+            unseen,
+            state.is_go,
+            seat == self.dealer_seat,
+            len(other),
+        )
+        return vec, cands, [hand.index(card) for card in cards]
 
     def move(self, state: PegState, rng: random.Random) -> int:
         """The hand index of the network's favourite legal card."""
