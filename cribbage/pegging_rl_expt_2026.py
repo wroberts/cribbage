@@ -39,21 +39,20 @@ import numpy as np
 import torch
 from torch import nn
 
-from cribbage.cards import Card, cards_worth
+from cribbage.cards import WORTH, Card, cards_worth, face
+from cribbage.pegging import PegState
 from cribbage.pegging_expt_2026 import (
-    WORTH,
     Deals,
     PegObs,
     PegPolicy,
-    PegState,
     PimcRollout,
     WorldSampler,
     distinct_moves,
     make_deals,
     rollout,
     run_pegging,
-    score_play,
 )
+from cribbage.scoring import score_play
 
 MAX_CANDIDATES = 4
 # state: hand faces, unseen faces, count, sequence length, last three
@@ -72,9 +71,9 @@ def candidate_cards(obs: PegObs) -> list[int]:
     seen: set[int] = set()
     idxs = []
     for i in obs.legal:
-        face = obs.hand[i] % 13
-        if face not in seen:
-            seen.add(face)
+        f = face(obs.hand[i])
+        if f not in seen:
+            seen.add(f)
             idxs.append(i)
     return idxs
 
@@ -86,14 +85,14 @@ def encode(obs: PegObs) -> tuple[np.ndarray, np.ndarray, list[int]]:
     """
     state = np.zeros(STATE_DIM, dtype=np.float32)
     for card in obs.hand:
-        state[card % 13] += 1
+        state[face(card)] += 1
     for card in obs.unseen():
-        state[13 + card % 13] += 0.25
+        state[13 + face(card)] += 0.25
     count = cards_worth(obs.seq)
     state[26] = count / 31
     state[27] = len(obs.seq) / 8
     for back, card in enumerate(obs.seq[-3:][::-1]):
-        state[28 + 13 * back + card % 13] = 1
+        state[28 + 13 * back + face(card)] = 1
     state[67] = obs.is_go
     state[68] = obs.is_dealer
     state[69 + obs.num_opp] = 1
@@ -102,7 +101,7 @@ def encode(obs: PegObs) -> tuple[np.ndarray, np.ndarray, list[int]]:
     cands = np.zeros((len(idxs), CAND_DIM), dtype=np.float32)
     for row, i in enumerate(idxs):
         card = obs.hand[i]
-        cands[row, card % 13] = 1
+        cands[row, face(card)] = 1
         cands[row, 13] = score_play([*obs.seq, card]) / 6
         cands[row, 14] = (count + WORTH[card]) / 31
         cands[row, 15] = count + WORTH[card] == 31
@@ -412,12 +411,12 @@ class NetRollout:
         self.net = net
         faces = np.full(13, 4.0, dtype=np.float32)
         for card in [*played, *root_hands[0], *root_hands[1]]:
-            faces[card % 13] -= 1
+            faces[face(card)] -= 1
         self.unplayed = faces
         self.discard_faces = np.zeros((2, 13), dtype=np.float32)
         for seat in (0, 1):
             for card in discards[seat]:
-                self.discard_faces[seat, card % 13] += 1
+                self.discard_faces[seat, face(card)] += 1
         self.dealer_seat = dealer_seat
 
     def features(
@@ -430,15 +429,15 @@ class NetRollout:
         vec = np.zeros(STATE_DIM, dtype=np.float32)
         unseen = self.unplayed - self.discard_faces[seat]
         for card in other:
-            unseen[card % 13] += 1
+            unseen[face(card)] += 1
         for card in hand:
-            vec[card % 13] += 1
+            vec[face(card)] += 1
         vec[13:26] = unseen * 0.25
         seq = state.seq
         vec[26] = state.count / 31
         vec[27] = len(seq) / 8
         for back, card in enumerate(seq[-3:][::-1]):
-            vec[28 + 13 * back + card % 13] = 1
+            vec[28 + 13 * back + face(card)] = 1
         vec[67] = state.is_go
         vec[68] = seat == self.dealer_seat
         vec[69 + len(other)] = 1
@@ -446,13 +445,13 @@ class NetRollout:
         seen: set[int] = set()
         idxs = []
         for i in legal:
-            if hand[i] % 13 not in seen:
-                seen.add(hand[i] % 13)
+            if face(hand[i]) not in seen:
+                seen.add(face(hand[i]))
                 idxs.append(i)
         cands = np.zeros((len(idxs), CAND_DIM), dtype=np.float32)
         for row, i in enumerate(idxs):
             card = hand[i]
-            cands[row, card % 13] = 1
+            cands[row, face(card)] = 1
             seq.append(card)
             cands[row, 13] = score_play(seq) / 6
             seq.pop()

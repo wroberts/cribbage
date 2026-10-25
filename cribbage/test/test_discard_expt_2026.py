@@ -10,6 +10,7 @@ import json
 
 import numpy as np
 import torch
+from cribbage.cards import splits, unseen_cards
 from cribbage.cribbage_score import score_hand
 from cribbage.discard_expt_2026 import (
     BASE_CONFIG,
@@ -43,10 +44,8 @@ from cribbage.discard_expt_2026 import (
     sample_split_hands,
     save_model,
     split_of,
-    splits,
     to_tensors,
     train_model,
-    unseen_cards,
 )
 
 HAND = [3, 17, 18, 30, 44, 51]

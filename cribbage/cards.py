@@ -12,8 +12,9 @@ Ace to 12 representing King), and a "suit" value (0 representing
 Spades to 3 representing Clubs).
 """
 
+import itertools
 import random
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 
 # ------------------------------------------------------------
 # Cards
@@ -25,6 +26,11 @@ Card = int
 Hand = list[Card]
 
 CARD_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10]
+# the value of each card towards the count, by card (not face)
+WORTH = [CARD_VALUES[c % 13] for c in range(52)]
+
+# the 15 ways of keeping 4 of the 6 dealt cards, as indices into the hand
+KEEP_COMBINATIONS = list(itertools.combinations(range(6), 4))
 
 
 def make_card(face: int, suit: int) -> Card:
@@ -35,6 +41,11 @@ def make_card(face: int, suit: int) -> Card:
 def split_card(vint: Card) -> tuple[int, int]:
     """Splits a card value into its `face` and `suit` values."""
     return vint % 13, vint // 13
+
+
+def face(card: Card) -> int:
+    """The face value of a card (0 for Ace to 12 for King)."""
+    return card % 13
 
 
 def card_tostring(vint: Card) -> str:
@@ -55,6 +66,26 @@ def make_deck() -> list[Card]:
 
 # ------------------------------------------------------------
 # Utility Functions
+
+
+def unseen_cards(*known: Iterable[Card]) -> list[Card]:
+    """The cards of the deck that are in none of the `known` groups."""
+    seen = set().union(*known)
+    return [card for card in range(52) if card not in seen]
+
+
+def splits(hand: Sequence[Card]) -> list[tuple[list[Card], list[Card]]]:
+    """
+    Returns the 15 (keep, discard) splits of a 6-card hand, in the order
+    of `KEEP_COMBINATIONS`.
+    """
+    return [
+        (
+            [hand[i] for i in keep_idxs],
+            [hand[i] for i in range(6) if i not in keep_idxs],
+        )
+        for keep_idxs in KEEP_COMBINATIONS
+    ]
 
 
 def make_random_hand() -> Hand:
@@ -79,7 +110,7 @@ def card_worth(card: Card) -> int:
     Arguments:
     - `card`:
     """
-    return CARD_VALUES[split_card(card)[0]]
+    return WORTH[card]
 
 
 def cards_worth(cards: Iterable[Card]) -> int:

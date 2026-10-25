@@ -14,26 +14,16 @@ import random
 from typing import TYPE_CHECKING
 from cribbage.cards import Card, Hand, card_tostring, make_deck, split_card
 from cribbage.player import CribbagePlayer
+from cribbage.scoring import (
+    cards_worth,
+    get_legal_play_idxs,
+    is_legal_play,
+    score_hand,
+    score_play,
+)
 
 if TYPE_CHECKING:
     from cribbage.game import Game
-
-try:
-    from cribbage._cribbage_score import (
-        score_hand,
-        score_play,
-        cards_worth,
-        get_legal_play_idxs,
-        is_legal_play,
-    )
-except ImportError:
-    from cribbage.cribbage_score import (
-        score_hand,
-        score_play,
-        get_legal_play_idxs,
-        is_legal_play,
-    )
-    from cribbage.cards import cards_worth
 
 
 class Round:

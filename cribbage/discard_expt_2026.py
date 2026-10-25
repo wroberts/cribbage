@@ -71,49 +71,23 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from cribbage.cards import Card
+from cribbage.cards import KEEP_COMBINATIONS, Card, splits, unseen_cards
 from cribbage.game import compare_players
 from cribbage.player import CribbagePlayer
 from cribbage.randomplayer import RandomCribbagePlayer
-from cribbage.simpleplayer import KEEP_COMBINATIONS, SimpleCribbagePlayer
-
-try:
-    from cribbage._cribbage_score import score_hand
-except ImportError:
-    from cribbage.cribbage_score import score_hand
+from cribbage.scoring import score_hand
+from cribbage.simpleplayer import SimpleCribbagePlayer
 
 NUM_KEEPS = len(KEEP_COMBINATIONS)
 
 # ------------------------------------------------------------
 #  Hands, candidate discards
 
-Split = tuple[list[Card], list[Card]]
-
-
 def deal_hands(num: int, rng: np.random.Generator) -> np.ndarray:
     """Returns a (num, 6) array of random dealt hands, each sorted."""
     return np.array(
         [np.sort(rng.choice(52, size=6, replace=False)) for _ in range(num)]
     )
-
-
-def splits(hand: Sequence[Card]) -> list[Split]:
-    """
-    Returns the 15 (keep, discard) splits of a 6-card hand, in the order
-    of `KEEP_COMBINATIONS`.  Index i of H and C refers to splits(hand)[i].
-    """
-    return [
-        (
-            [hand[i] for i in keep_idxs],
-            [hand[i] for i in range(6) if i not in keep_idxs],
-        )
-        for keep_idxs in KEEP_COMBINATIONS
-    ]
-
-
-def unseen_cards(hand: Sequence[Card]) -> list[Card]:
-    """The 46 cards that are not in the dealt hand."""
-    return [card for card in range(52) if card not in hand]
 
 
 # ------------------------------------------------------------

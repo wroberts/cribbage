@@ -10,9 +10,9 @@ import random
 
 import numpy as np
 import torch
+from cribbage.pegging import PegState
 from cribbage.pegging_expt_2026 import (
     PegObs,
-    PegState,
     make_deals,
     make_policy,
     play_pegging,

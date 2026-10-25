@@ -10,16 +10,14 @@ import random
 
 import numpy as np
 import pytest
-from cribbage.cards import cards_worth
+from cribbage.cards import WORTH, cards_worth
 from cribbage.game import Game
 from cribbage.player import CribbagePlayer
 from cribbage.pegging_expt_2026 import (
-    WORTH,
     Deals,
     PegObs,
     PegPlayer,
     PegPolicy,
-    PegState,
     Solver,
     WorldSampler,
     distinct_moves,
@@ -32,6 +30,7 @@ from cribbage.pegging_expt_2026 import (
     rollout,
     run_pegging,
 )
+from cribbage.pegging import PegState
 from cribbage.randomplayer import RandomCribbagePlayer
 from cribbage.round import Round
 
@@ -281,5 +280,5 @@ def test_make_policy_rejects_nonsense():
 
 def test_greedy_move_prefers_scoring_card():
     # the count is 10; holding a five (15 for two) and a nine, play the five
-    state = PegState([[4, 8], [0, 1]], 0, seq=[9])
+    state = PegState.from_cards([[4, 8], [0, 1]], 0, seq=[9])
     assert state.hands[0][greedy_move(state, random.Random(0))] == 4

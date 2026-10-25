@@ -55,7 +55,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import torch
 
-from cribbage.cards import CARD_VALUES, Card, cards_worth
+from cribbage.cards import WORTH, Card, cards_worth, face, unseen_cards
 from cribbage.discard_expt_2026 import (
     DISCARD_IDX,
     KEEP_IDX,
@@ -65,116 +65,10 @@ from cribbage.discard_expt_2026 import (
     predict_values,
 )
 from cribbage.game import Game, compare_players
+from cribbage.pegging import PegState
 from cribbage.player import CribbagePlayer
 from cribbage.round import Round
-
-try:
-    from cribbage._cribbage_score import score_play
-except ImportError:
-    from cribbage.cribbage_score import score_play
-
-# the value of each card towards the count
-WORTH = [CARD_VALUES[c % 13] for c in range(52)]
-
-# ------------------------------------------------------------
-#  The pegging game
-
-
-class PegState:
-    """
-    The pegging phase of one round, as a mutable game state.  Players are
-    numbered 0 and 1; a state is always either terminal (`done`) or waiting
-    for `turn` to choose a card.  `play` and `advance` follow the logic of
-    `Round.play` exactly (go, 31, last card), without the `Game` and
-    `CribbagePlayer` machinery, so that search can copy and replay it
-    quickly.  Cards are 0..51, so a hand never repeats a card.
-    """
-
-    __slots__ = ("hands", "seq", "count", "turn", "is_go", "last", "points", "done")
-
-    def __init__(
-        self,
-        hands: list[list[Card]],
-        turn: int,
-        seq: Sequence[Card] = (),
-        is_go: bool = False,
-        last: int | None = None,
-    ) -> None:
-        self.hands = hands
-        self.seq: list[Card] = list(seq)
-        self.count = cards_worth(self.seq)
-        self.turn = turn
-        self.is_go = is_go
-        self.last = last
-        # pegging points scored so far by each player
-        self.points = [0, 0]
-        self.done = False
-
-    @classmethod
-    def start(cls, hands: Sequence[Sequence[Card]], dealer_idx: int) -> PegState:
-        """The state at the start of a round's play: the non-dealer leads."""
-        state = cls([list(hands[0]), list(hands[1])], 1 - dealer_idx)
-        state.advance()
-        return state
-
-    def copy(self) -> PegState:
-        other = PegState.__new__(PegState)
-        other.hands = [self.hands[0][:], self.hands[1][:]]
-        other.seq = self.seq[:]
-        other.count = self.count
-        other.turn = self.turn
-        other.is_go = self.is_go
-        other.last = self.last
-        other.points = self.points[:]
-        other.done = self.done
-        return other
-
-    def margin(self) -> int:
-        """Points scored so far by player 0, less those of player 1."""
-        return self.points[0] - self.points[1]
-
-    def legal(self) -> list[int]:
-        """Indices into the hand of `turn` of the cards that may be played."""
-        room = 31 - self.count
-        return [i for i, c in enumerate(self.hands[self.turn]) if WORTH[c] <= room]
-
-    def advance(self) -> None:
-        """Resolves go calls and the ends of sequences, up to the next choice."""
-        while True:
-            room = 31 - self.count
-            can_play = any(WORTH[c] <= room for c in self.hands[self.turn])
-            if (self.is_go and not can_play) or self.count == 31:
-                # the sequence is over: the last player scores 2 for 31, else 1
-                assert self.last is not None
-                self.points[self.last] += 2 if self.count == 31 else 1
-                self.seq = []
-                self.count = 0
-                self.is_go = False
-                if not self.hands[0] and not self.hands[1]:
-                    self.done = True
-                    return
-                self.turn = 1 - self.last
-                self.last = None
-            elif not can_play:
-                # "go": the other player continues
-                self.turn = 1 - self.turn
-                self.is_go = True
-            else:
-                return
-
-    def play(self, idx: int) -> None:
-        """The player to move plays `hand[idx]` (which must be legal)."""
-        turn = self.turn
-        card = self.hands[turn].pop(idx)
-        self.seq.append(card)
-        self.count += WORTH[card]
-        self.last = turn
-        if not self.hands[1 - turn]:
-            self.is_go = True
-        self.points[turn] += score_play(self.seq)
-        if not self.is_go and self.count != 31:
-            self.turn = 1 - turn
-        self.advance()
+from cribbage.scoring import score_play
 
 
 # ------------------------------------------------------------
@@ -204,8 +98,7 @@ class PegObs:
 
     def unseen(self) -> list[Card]:
         """Cards that may be in the opponent's hand or in the crib."""
-        known = self.played.union(self.hand, self.discards)
-        return [c for c in range(52) if c not in known]
+        return unseen_cards(self.played, self.hand, self.discards)
 
 
 def distinct_moves(state: PegState) -> dict[int, int]:
@@ -216,7 +109,7 @@ def distinct_moves(state: PegState) -> dict[int, int]:
     hand = state.hands[state.turn]
     moves: dict[int, int] = {}
     for i in state.legal():
-        moves.setdefault(hand[i] % 13, i)
+        moves.setdefault(face(hand[i]), i)
     return moves
 
 
@@ -260,8 +153,7 @@ class WorldSampler:
     def build(self, opp_hand: Sequence[Card]) -> PegState:
         """The world in which the opponent holds `opp_hand`."""
         obs = self.obs
-        last = None if not obs.seq else (0 if obs.is_go else 1)
-        return PegState([obs.hand[:], list(opp_hand)], 0, obs.seq, obs.is_go, last)
+        return PegState.from_cards([obs.hand, opp_hand], 0, obs.seq, obs.is_go)
 
     def sample(self, rng: random.Random) -> PegState:
         return self.build(rng.sample(self.pool, self.num_opp))
@@ -327,9 +219,9 @@ class Solver:
         if len(self.memo) > self.MAX_ENTRIES:
             self.memo.clear()
         key = (
-            tuple(sorted(c % 13 for c in state.hands[0])),
-            tuple(sorted(c % 13 for c in state.hands[1])),
-            tuple(c % 13 for c in state.seq),
+            tuple(sorted(face(c) for c in state.hands[0])),
+            tuple(sorted(face(c) for c in state.hands[1])),
+            tuple(face(c) for c in state.seq),
             state.turn,
             state.is_go,
             state.last,
@@ -559,28 +451,28 @@ class Ismcts(PegPolicy):
         path: list[_Node] = []
         while not state.done:
             moves = distinct_moves(state)
-            for face in moves:
-                child = node.children.get(face)
+            for f in moves:
+                child = node.children.get(f)
                 if child is not None:
                     child.avail += 1
             untried = [f for f in moves if f not in node.children]
             if untried:
-                face = self.rng.choice(untried)
-                node.children[face] = _Node()
-                node.children[face].avail = 1
-                path.append(node.children[face])
-                state.play(moves[face])
+                f = self.rng.choice(untried)
+                node.children[f] = _Node()
+                node.children[f].avail = 1
+                path.append(node.children[f])
+                state.play(moves[f])
                 break
             sign = 1.0 if state.turn == 0 else -1.0
             best_face = -1
             best_value = -math.inf
-            for face in moves:
-                child = node.children[face]
+            for f in moves:
+                child = node.children[f]
                 bonus = math.sqrt(math.log(child.avail) / child.visits)
                 value = sign * child.total / child.visits + self.explore * bonus
                 if value > best_value:
                     best_value = value
-                    best_face = face
+                    best_face = f
             node = node.children[best_face]
             path.append(node)
             state.play(moves[best_face])

@@ -9,32 +9,12 @@ try to pick the best cards to discard and play.
 """
 
 import random
+
 import numpy as np
-from cribbage.cards import Card, Hand, make_deck
+
+from cribbage.cards import KEEP_COMBINATIONS, Card, Hand, make_deck
 from cribbage.player import CribbagePlayer
-
-try:
-    from cribbage._cribbage_score import score_hand, score_play
-except ImportError:
-    from cribbage.cribbage_score import score_hand, score_play
-
-KEEP_COMBINATIONS = [
-    (0, 1, 2, 3),
-    (0, 1, 2, 4),
-    (0, 1, 2, 5),
-    (0, 1, 3, 4),
-    (0, 1, 3, 5),
-    (0, 1, 4, 5),
-    (0, 2, 3, 4),
-    (0, 2, 3, 5),
-    (0, 2, 4, 5),
-    (0, 3, 4, 5),
-    (1, 2, 3, 4),
-    (1, 2, 3, 5),
-    (1, 2, 4, 5),
-    (1, 3, 4, 5),
-    (2, 3, 4, 5),
-]
+from cribbage.scoring import score_hand, score_play
 
 
 class SimpleCribbagePlayer(CribbagePlayer):
