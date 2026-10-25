@@ -161,6 +161,32 @@ def test_sampler_respects_go():
     assert set(state.hands[1]) <= set(sampler.pool)
 
 
+def test_sampler_uses_earlier_goes():
+    """
+    A go in an earlier sequence rules out the cards that would have fitted
+    then.  It never removes the opponent's actual cards, and it sometimes
+    removes others that the current sequence alone would allow.
+    """
+    rng = random.Random(11)
+    narrowed = 0
+    for _ in range(600):
+        hands, starter = random_deal(rng)
+        rest = [c for c in range(52) if c not in {*hands[0], *hands[1], starter}]
+        thrown = [rng.sample(rest, 2) for _ in range(2)]
+        state = PegState.start(hands, 1)
+        while not state.done:
+            seat = state.turn
+            if seat == 0 and len(state.legal()) > 1:
+                view = state.view(0, thrown[0], starter, False, 0, 0)
+                with_history = WorldSampler(view)
+                without = WorldSampler(view, go_history=False)
+                assert set(with_history.pool) <= set(without.pool)
+                assert set(state.hands[1]) <= set(with_history.pool)
+                narrowed += len(with_history.pool) < len(without.pool)
+            state.play(rng.choice(state.legal()))
+    assert narrowed > 0
+
+
 def test_greedy_move_prefers_scoring_card():
     # player 1 leads a ten (0S), so the count is 10; player 0 holds 5S and
     # 9S: the five makes fifteen for two points, so play the five

@@ -19,7 +19,9 @@ them out with `PegState`, and pick the card that does best.
 A `/opp` suffix (e.g. `pimc-solve:20/opp`) makes the sampler assume the
 opponent is a `greedy` player: worlds in which the opponent would have
 played differently earlier in the round are excluded.  Sampling always
-respects "said go" (the opponent cannot play any of their cards).
+respects every go the opponent has said (they could not play any of the
+cards they held, and still hold them).  A `/nohist` suffix limits that to
+the current sequence, for comparison.
 """
 
 from __future__ import annotations
@@ -29,7 +31,7 @@ import random
 from collections.abc import Callable, Sequence
 
 from cribbage.cards import WORTH, Card, cards_worth, face
-from cribbage.pegging import PegState, PegView
+from cribbage.pegging import Go, PegState, PegView
 from cribbage.pegging_policy import PeggingPolicy
 from cribbage.scoring import score_play
 
@@ -53,18 +55,25 @@ class WorldSampler:
     """
     Draws worlds consistent with a view: the opponent's hand is sampled
     from the unseen cards (the searcher is player 0).  Cards the opponent
-    cannot hold are excluded: when they said go, any card that would have
-    been playable, and with `opp_aware`, any card a greedy opponent would
-    have played in preference at an earlier decision.
+    cannot hold are excluded:
+
+    - after a go with cards in hand, any card that would have been playable
+      then.  The opponent has held every card still in their hand since
+      the deal, so this holds for all earlier goes, unless `go_history` is
+      off, when only a go in the current sequence counts.
+    - with `opp_aware`, any card a greedy opponent would have played in
+      preference at an earlier decision.
     """
 
-    def __init__(self, view: PegView, opp_aware: bool = False) -> None:
+    def __init__(
+        self, view: PegView, opp_aware: bool = False, go_history: bool = True
+    ) -> None:
         self.view = view
         self.num_opp = view.opp_cards_left
         pool = view.unseen()
-        if view.opp_said_go and self.num_opp:
-            # the opponent said go, so none of their cards fits
-            room = 31 - view.count
+        if self.num_opp:
+            # the biggest room left at any go: those cards would have fitted
+            room = self._go_room(view, go_history)
             pool = [c for c in pool if WORTH[c] > room]
         self.excluded: set[Card] = set()
         if opp_aware:
@@ -74,6 +83,23 @@ class WorldSampler:
         self.pool = narrowed if len(narrowed) >= self.num_opp else pool
         if len(self.pool) < self.num_opp:
             self.pool = view.unseen()
+
+    @staticmethod
+    def _go_room(view: PegView, go_history: bool) -> int:
+        """
+        The most room the opponent had at a go they said with cards in
+        hand (cards worth no more than this would have been played), or 0.
+        """
+        room = 0
+        sequences = view.sequences if go_history else view.sequences[-1:]
+        for seq in sequences:
+            for event in seq.events:
+                if isinstance(event, Go) and event.player == 1 and event.cards_left:
+                    room = max(room, 31 - event.count)
+        if view.opp_said_go:
+            # a view without events still records go in the sequence
+            room = max(room, 31 - view.count)
+        return room
 
     @staticmethod
     def _greedy_excluded(view: PegView, pool: list[Card]) -> set[Card]:
@@ -192,15 +218,22 @@ class Solver:
 class PimcRolloutPeggingPolicy(PeggingPolicy):
     """Scores each card by greedy rollouts in sampled worlds."""
 
-    def __init__(self, worlds: int, rollouts: int = 1, opp_aware: bool = False) -> None:
+    def __init__(
+        self,
+        worlds: int,
+        rollouts: int = 1,
+        opp_aware: bool = False,
+        go_history: bool = True,
+    ) -> None:
         super().__init__()
         self.worlds = worlds
         self.rollouts = rollouts
         self.opp_aware = opp_aware
+        self.go_history = go_history
 
     def values(self, view: PegView) -> dict[Card, float]:
         """Mean rollout margin of each distinct legal card."""
-        sampler = WorldSampler(view, self.opp_aware)
+        sampler = WorldSampler(view, self.opp_aware, self.go_history)
         totals: dict[int, float] = {}
         for _ in range(self.worlds):
             world = sampler.sample(self.rng)
@@ -222,16 +255,19 @@ class PimcRolloutPeggingPolicy(PeggingPolicy):
 class PimcSolvePeggingPolicy(PeggingPolicy):
     """Averages the exact minimax value of each card over sampled worlds."""
 
-    def __init__(self, worlds: int, opp_aware: bool = False) -> None:
+    def __init__(
+        self, worlds: int, opp_aware: bool = False, go_history: bool = True
+    ) -> None:
         super().__init__()
         self.worlds = worlds
         self.opp_aware = opp_aware
+        self.go_history = go_history
         self.solver = Solver()
 
     def choose(self, view: PegView) -> Card:
         if len(view.legal) == 1:
             return view.legal[0]
-        sampler = WorldSampler(view, self.opp_aware)
+        sampler = WorldSampler(view, self.opp_aware, self.go_history)
         totals: dict[Card, float] = {}
         for _ in range(self.worlds):
             world = sampler.sample(self.rng)
@@ -284,17 +320,22 @@ class IsmctsPeggingPolicy(PeggingPolicy):
     SCALE = 10.0
 
     def __init__(
-        self, iterations: int, explore: float = 0.7, opp_aware: bool = False
+        self,
+        iterations: int,
+        explore: float = 0.7,
+        opp_aware: bool = False,
+        go_history: bool = True,
     ) -> None:
         super().__init__()
         self.iterations = iterations
         self.explore = explore
         self.opp_aware = opp_aware
+        self.go_history = go_history
 
     def choose(self, view: PegView) -> Card:
         if len(view.legal) == 1:
             return view.legal[0]
-        sampler = WorldSampler(view, self.opp_aware)
+        sampler = WorldSampler(view, self.opp_aware, self.go_history)
         root = _Node()
         root_moves: dict[int, int] = {}
         for _ in range(self.iterations):
