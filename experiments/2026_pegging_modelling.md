@@ -560,6 +560,84 @@ frequency measured instead of guessed.
 4. **Score-aware pegging**, and a pegging network that takes the discards (what the crib may hold) into account.
 5. **Saving the 40 000-game results** of §11 to `data/pegging/`.
 
+---
+
+## 16. Reproducing
+
+Everything needs the discard network `data/runs/two_k100.pt` (see the [discard lab book](2026_discard_modelling.md));
+it is the default `--discard` of every command below. Output goes to the git-ignored `data/pegging/`. The `match`
+command takes players as `DISCARD+PEGGING` specs; the others take a bare pegging policy. The commands are those
+run in the session, with module names after the 25 Oct refactor (they were `pegging_expt_2026` and
+`pegging_rl_expt_2026` at the time), so check `--help` if a flag has moved. Workers default to the number of CPUs;
+the matches below took from minutes (greedy2, network) to about 18 minutes (pimc-roll:30, 40 000 games) on 8 cores.
+
+```
+mkdir -p data/pegging/rl
+M=model:data/runs/two_k100.pt
+
+# §3 cost curves (4000 deals each; the three families used these budgets)
+python -m cribbage.pegging_bench cost --family pimc-roll  --budgets 1,3,10,30,100  --deals 4000
+python -m cribbage.pegging_bench cost --family pimc-solve --budgets 1,3,10,30      --deals 4000
+python -m cribbage.pegging_bench cost --family ismcts     --budgets 25,100,400,1600 --deals 4000
+
+# §4 ladder and opponent-aware sampling
+python -m cribbage.pegging_bench ladder --policies random,greedy,greedy2,pimc-roll:30,pimc-solve:10,ismcts:400,oracle --deals 3000 > data/pegging/ladder.txt
+for p in greedy random; do
+  python -m cribbage.pegging_bench peg-bench --a pimc-roll:30/opp --b $p --deals 4000
+  python -m cribbage.pegging_bench peg-bench --a pimc-roll:30     --b $p --deals 4000
+done
+
+# §5 points-to-win-rate calibration
+python -m cribbage.pegging_bench calibrate --policies greedy,greedy2,pimc-roll:10,pimc-roll:30 --deals 10000 --games 4000 > data/pegging/calibrate.txt
+
+# §6 does search beat greedy2?
+python -m cribbage.pegging_bench peg-bench --a pimc-roll:30 --b greedy2 --deals 20000
+python -m cribbage.pegging_bench match --a $M+pimc-roll:30 --b $M+greedy2 --games 40000
+
+# §7 against Simple and random (20000 games for greedy2, 10000 for pimc-roll:30)
+for opp in expected+random random+greedy expected+greedy random+random; do
+  python -m cribbage.pegging_bench match --a $M+greedy2 --b $opp --games 20000
+done
+```
+
+(In the session the opponents were spelled `simple-discard+random`, `random+greedy`, `simple+greedy` and
+`random+random`. After the refactor `simple` is a shorthand for `expected+greedy` and `simple-discard` for
+`expected+random` (`specs.py`); I checked that the new spellings build players but did not rerun the matches.)
+
+The learned pegging network (§8–§10):
+
+```
+# 150 000 hands labelled by pimc-roll with 100 worlds, 25 % random exploration: 785 283 decisions, ~41 min on 8 cores
+python -m cribbage.pegging_model generate --hands 150000 --worlds 100 --out data/pegging/rl/labels_w100.npz
+# 3x256 MLP, Adam + OneCycle (max lr 2e-3), batch 1024, 30 epochs
+python -m cribbage.pegging_model train --labels data/pegging/rl/labels_w100.npz --epochs 30 --threads 8 --out data/pegging/rl/net_w100.pt
+# defaults: opponents greedy,greedy2,pimc-roll:30 on 20 000 deals
+python -m cribbage.pegging_model evaluate --net data/pegging/rl/net_w100.pt --deals 20000
+python -m cribbage.pegging_bench match --a $M+net:data/pegging/rl/net_w100.pt --b $M+greedy2 --games 40000
+python -m cribbage.pegging_bench match --a $M+net:data/pegging/rl/net_w100.pt --b simple       --games 40000
+python -m cribbage.pegging_bench match --a $M+greedy2                         --b simple       --games 40000
+
+# §9 headroom: search with network rollouts against the network itself
+N=data/pegging/rl/net_w100.pt
+python -m cribbage.pegging_bench peg-bench --a pimc-net:30:$N  --b net:$N --deals 4000
+python -m cribbage.pegging_bench peg-bench --a pimc-net:100:$N --b net:$N --deals 2000
+
+# §12 earlier-go sampling
+python -m cribbage.pegging_bench peg-bench --a pimc-roll:30 --b pimc-roll:30/nohist --deals 20000
+```
+
+Not reproducible from the repo:
+
+* **Data scaling (§10).** The 10 % and 30 % networks were trained by a throwaway script in the session scratchpad
+  that took the first fraction of `labels_w100.npz` (`Labels(state[:n], cand[:n], value[:n], mask[:n])`) and called
+  `train_net`; it was not kept. It is easy to rewrite, and `sub.log` has its output.
+* **Seeds.** `generate` defaults to seed 1000 and `train` to seed 0; evaluation deals use `--seed 0`, disjoint from
+  the training deals. Label generation is not bit-for-bit reproducible across worker counts **(inferred)**, so a
+  regenerated label set will give a slightly different network than `net_w100.pt`.
+* **Pre-refactor numbers.** The pre-refactor 65.2 % and 53.6 % figures came from the old players and
+  `pegging_expt_2026`; the refactor reproduced the network's +0.211 exactly and Simple's win rate within noise (§11).
+* The 2 000-hand smoke run and the 300- and 400-deal pilots of §2 and §9 are omitted.
+
 Raw outputs are in `data/pegging/` (git-ignored): `ladder.txt`, `calibrate.txt`, `opp.txt`, `compare.txt`,
 `roll_vs_greedy2_peg.txt`, `roll_vs_greedy2_match.txt`, and in `data/pegging/rl/`: `labels_w100.npz`, `net_w100.pt`,
 `net_sub0.1.pt`, `net_sub0.3.pt`, `gen.log`, `train.log`, `eval.log`, `head30.log`, `head100.log`, `sub.log`.
