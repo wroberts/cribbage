@@ -372,19 +372,19 @@ sets were generated for the label-noise group.
 * After the report, the user asked how to add depth 4. One line was changed (`for depth in (1, 2, 3, 4)`)
   and the resumable command was given. **The depth-4 and depth-5 rows (36 more runs) are in the file on disk
   but the session does not show them being run**; I assume the user ran them after 16:38 UTC (the file was
-  last written at 19:06 local time) **(inferred)** and include them below.
+  last written at 19:06 local time) **(inferred)** and include them below. The width-512 column (15 runs, depth 1–5) was added to the file later still.
 
 ### 7.3 Results: network size
 
 Test RMSE in points (mean of 3 seeds, 1 000 steps):
 
-| depth \ width | 8 | 16 | 32 | 64 | 128 | 256 |
-|---|---|---|---|---|---|---|
-| 1 | 2.193 | 2.037 | 1.973 | 1.805 | 1.282 | 1.087 |
-| 2 | 1.962 | 1.758 | 1.267 | 0.965 | 0.658 | 0.373 |
-| 3 | 1.870 | 1.677 | 1.097 | 0.701 | 0.448 | **0.287** (base) |
-| 4 | 1.794 | 1.606 | 1.068 | 0.650 | 0.414 | 0.241 |
-| 5 | 1.997 | 1.604 | 1.067 | 0.644 | 0.415 | 0.264 |
+| depth \ width | 8 | 16 | 32 | 64 | 128 | 256 | 512 |
+|---|---|---|---|---|---|---|---|
+| 1 | 2.193 | 2.037 | 1.973 | 1.805 | 1.282 | 1.087 | 0.914 |
+| 2 | 1.962 | 1.758 | 1.267 | 0.965 | 0.658 | 0.373 | 0.248 |
+| 3 | 1.870 | 1.677 | 1.097 | 0.701 | 0.448 | 0.287 (base) | 0.203 |
+| 4 | 1.794 | 1.606 | 1.068 | 0.650 | 0.414 | 0.241 | 0.176 |
+| 5 | 1.997 | 1.604 | 1.067 | 0.644 | 0.415 | 0.264 | **0.173** |
 
 ![ablation](img/2026_ablation.png)
 
@@ -395,18 +395,30 @@ Selected parameter counts, RMSE ± sd, regret and optimal-choice rate:
 
 | Net | Parameters | Test RMSE | Regret | Optimal | Train time |
 |---|---|---|---|---|---|
-| 3 × 256 (base) | 139 778 | 0.287 ± 0.003 | 0.040 | 86.4 % | 326 s |
+| 5 × 512 | 1 067 010 | 0.173 ± 0.004 | 0.015 | 90.7 % | 1 550 s |
+| 4 × 512 | 804 354 | 0.176 ± 0.009 | 0.015 | 90.8 % | 1 377 s |
+| 3 × 512 | 541 698 | 0.203 ± 0.013 | 0.020 | 89.9 % | 978 s |
+| 2 × 512 | 279 042 | 0.248 ± 0.008 | 0.029 | 88.7 % | 604 s |
 | 4 × 256 | 205 570 | 0.241 ± 0.011 | 0.027 | 88.2 % | 319 s |
 | 5 × 256 | 271 362 | 0.264 ± 0.026 | 0.034 | 87.1 % | 503 s |
+| 3 × 256 (base) | 139 778 | 0.287 ± 0.003 | 0.040 | 86.4 % | 326 s |
 | 2 × 256 | 73 986 | 0.373 ± 0.009 | 0.068 | 83.5 % | 199 s |
 | 4 × 128 | 53 634 | 0.414 ± 0.011 | 0.078 | 81.4 % | 101 s |
 | 3 × 128 | 37 122 | 0.448 ± 0.026 | 0.094 | 80.0 % | 113 s |
 | 3 × 64 | 10 370 | 0.701 ± 0.012 | 0.224 | 71.8 % | 44 s |
-| 2 × 32 | 2 082 | 1.267 ± 0.116 | 0.746 | 52.8 % | 30 s |
 | 1 × 256 | 8 194 | 1.087 ± 0.004 | 0.521 | 60.6 % | 73 s |
+| 2 × 32 | 2 082 | 1.267 ± 0.116 | 0.746 | 52.8 % | 30 s |
 
 * **Depth helps more than width at equal parameter count** (3 × 64: 10 k parameters, RMSE 0.70; 1 × 256: 8 k
-  parameters, RMSE 1.09), but returns diminish: depth 3, 4 and 5 are within noise at widths ≤ 128.
+  parameters, RMSE 1.09), but returns diminish: depth 3, 4 and 5 are within noise at widths ≤ 128, and depth 4 and 5 at width 512.
+* **Width 512 keeps helping, with diminishing returns** (added later; 15 runs). At depth 3, going from 256 to
+  512 units (140 k → 542 k parameters) lowers the RMSE from 0.287 to 0.203 (regret 0.040 → 0.020), and depth
+  4 or 5 at width 512 reaches 0.173–0.176 (regret 0.015, 90.7–90.8 % optimal), which is about as good as the
+  best learning-rate change (lr 1e-2: 0.151) but costs 4–5× the training time (1 400–1 550 s vs. 326 s). Depth
+  5 is no better than depth 4 at this width (0.173 vs. 0.176, within noise). Even the widest net is at 0.17,
+  far above the 0.05 of the 10 000-step runs, so size is limited by the 1 000-step budget as much as by
+  capacity. Wider nets also reduce the gap between depths: at width 512 depth 1 is 0.91 but depth 2 already
+  0.25.
 * **No small net matches the base at 1 000 steps.** Roughly 37–74 k parameters are needed to come close
   (3 × 128: 0.45, 2 × 256: 0.37).
 * **Whether a small net would eventually match is open.** The small nets were still improving when
@@ -591,8 +603,8 @@ python -m cribbage.discard_study ablate-report
 
 (Subcommand names and flags are as used in the session; the module split on Oct 25 may have changed some
 options, check `--help`.) Datasets, models and ablation results are in `data/` (git-ignored): `data/runs/`
-has `two|scalar_k20|k100.{json,log,pt}`, and the ablation file has 159 rows, 41 variants × 3 seeds plus the
-extra depths. The label-disagreement script lived only in the session scratchpad and is not preserved.
+has `two|scalar_k20|k100.{json,log,pt}`, and the ablation file has 174 rows, 41 variants × 3 seeds plus the
+extra depths and the width-512 column. The label-disagreement script lived only in the session scratchpad and is not preserved.
 
 **Open items carried forward** (all from the chat): long runs of the small nets with the better settings;
 the combination of high learning rate, target standardisation and constant schedule; a variant of the
