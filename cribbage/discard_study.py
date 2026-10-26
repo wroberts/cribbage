@@ -225,7 +225,7 @@ def ablation_variants() -> list[tuple[str, str, dict[str, Any]]]:
     """The (group, label, overrides) of every run in the study."""
     variants: list[tuple[str, str, dict[str, Any]]] = [("base", "base", {})]
     for depth in (1, 2, 3, 4, 5):
-        for width in (8, 16, 32, 64, 128, 256):
+        for width in (8, 16, 32, 64, 128, 256, 512):
             if (depth, width) != (BASE_CONFIG.depth, BASE_CONFIG.width):
                 variants.append(
                     ("size", f"{depth}x{width}", {"depth": depth, "width": width})
