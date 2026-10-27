@@ -41,12 +41,13 @@ work was not tested.
 | Against the 2017 hand-written player? | The discard network + greedy2 beats full Simple **64.6 % ± 0.5 %** (40 000 games); with the learned pegging network **67.7 % ± 0.5 %** (§7, §11). |
 | Can a network learn pegging? | **Yes.** A 3×256 MLP regressed on 785 k pimc-roll:100 labels beats greedy2 by **+0.211 ± 0.019 pts/hand** and pimc-roll:30 by **+0.117 ± 0.018**, and wins **54.1 % ± 0.5 %** of 40 000 full games against greedy2. It costs about 0.4 ms/hand, against 20 ms for pimc-roll:30 (§8, §11). |
 | Can it be improved beyond its teacher by iterating? | **Not shown.** Search that rolls out with the network is not measurably better than the network (−0.051 ± 0.041 and +0.035 ± 0.052), so there is no stronger teacher to distil (§9). More data of the same kind adds little (§10). |
+| Is the network behind its teacher? | **No.** It beats pimc-roll:100, the search that made its labels, by **+0.038 ± 0.015 pts/hand** at 1/40 of the cost (§13). |
 | Does using the opponent's earlier "go" help? | It is correct but rare (2.3 % of contested decisions) and has no measurable effect (−0.001 ± 0.019, §12). |
 
 What was **not** done: no policy-gradient or Q-learning (the "RL" of the question); the strategy-fusion hypothesis
 (why exact-solve search is no better than rollouts) was suggested and never tested; no score-aware pegging (the
-objective is pegging-point margin only, ignoring the game score); the network was not compared to pimc-roll:100 or
-ISMCTS-1600; every experiment used one training run and one set of seeds; the 40 000-game results of §11 were not
+objective is pegging-point margin only, ignoring the game score); the network was not compared to ISMCTS-1600 (against
+pimc-roll:100 it was, §13); every experiment used one training run and one set of seeds; the 40 000-game results of §11 were not
 saved to a file (they are quoted from the chat); and the discard model was held fixed throughout.
 
 ---
@@ -375,7 +376,7 @@ Full games against greedy2 (same discard model on both sides): **53.6 % ± 0.7 %
 
 * The experiment was a clear success: **the network beats everything built in the first part of the session**,
   including the pimc-roll:30 whose label-making cousin (100 worlds) taught it, at about a tenth of the cost.
-  (Its time was dominated by feature building in Python; see §13.)
+  (Its time was dominated by feature building in Python; see §11.)
 * It beats a search weaker than its teacher. The assistant's reading is that regression averages away the
   sampling noise of single labels; this was **not tested**.
 * The result is above the assistant's own prior (the "coin flip" against pimc-roll:30 turned out well).
@@ -489,9 +490,56 @@ frequency measured instead of guessed.
 
 ---
 
-## 13. Consolidated evidence
+## 13. Experiment 11: the network against its own teacher, pimc-roll:100 (27 Oct)
 
-### 13.1 Chronology
+**Question.** The caveats (§15) and the open items (§16) left open whether the network is ahead of or behind pimc-roll:100, the
+search that produced its labels. The expectation written down beforehand (from the cost curve, where pimc-roll:100
+is about +0.27 over greedy2 against the network's +0.211) was that the network would trail its teacher by roughly
+0.06 pts/hand.
+
+**Design.** Pegging-only duplicate deals, 20 000 deals × 2 seats, the same seed (0) and discard model as the §8
+evaluation, so the deals are the ones on which the network scored +0.211 over greedy2 and +0.117 over pimc-roll:30.
+
+```
+python -m cribbage.pegging_bench peg-bench --a net:data/pegging/rl/net_w100.pt --b pimc-roll:100 --deals 20000 --seed 0
+```
+
+**Result** (`data/pegging/rl/net_vs_roll100.log`, 191 s on 8 cores):
+
+| | Result |
+|---|---|
+| Network's margin over pimc-roll:100 | **+0.038 ± 0.015 pts/hand** (95 % CI) |
+| As non-dealer / as dealer | −1.178 / +1.255 |
+| Pegging points per hand | 2.949 vs 2.911 |
+| Time per hand | 0.79 ms vs 32.9 ms |
+
+**Reading.**
+
+* **The network is not behind its teacher; it is slightly ahead** (about 2.5 half-widths from zero) at 1/40 of
+  the cost. The 0.06 deficit expected from the cost curve did not appear.
+* **It fits the rest of the ladder.** The network is +0.117 over pimc-roll:30 and +0.038 over pimc-roll:100, which
+  puts pimc-roll:100 about +0.08 over pimc-roll:30. That matches the cost-curve gap between the two budgets
+  (+0.709 − +0.609 = +0.10 over greedy, from 4 000 deals at ±0.05) and the +0.081 of pimc-roll:30 over greedy2 in the
+  other direction. The three comparisons are mutually consistent, so this is not a one-off.
+* **The validation regret of 0.04 per decision is mostly not network error.** It is measured against the teacher's
+  100-world labels, which carry sampling noise of their own. A network that is better than the teacher in play has
+  learned something the labels only show on average, and the remaining "regret" includes noise in the targets,
+  not just a shortfall in the fit. This weakens the case for a pegging-net ablation aimed at lowering that loss:
+  the loss is a poor proxy for the quantity that matters, and the playing strength is already above the teacher's.
+* **Why the network can beat its teacher** is still a hypothesis, not a result. The candidates are regression
+  averaging away per-label sampling noise (as in §8.4) and the 25 % random exploration widening the states seen.
+  Neither is separated here.
+* Combined with §9 (search with network rollouts adds nothing), the evidence is now that the network sits at or
+  above the best of the honest search policies tried so far, with hidden information (§4's oracle gap of
+  1.35–1.45 pts/hand) as the remaining gap.
+* Not measured: a full-game win rate (at 1.83 pp per 0.1 pts/hand the edge predicts only about +0.7 pp, below what
+  a 40 000-game match resolves at ±0.5 pp), and ISMCTS-1600, the other comparison point still open.
+
+---
+
+## 14. Consolidated evidence
+
+### 14.1 Chronology
 
 | Date / time (UTC) | Work | Commit |
 |---|---|---|
@@ -509,8 +557,9 @@ frequency measured instead of guessed.
 | 25 Oct 17:08–20:17 | User's refactor of the codebase (outside the session; commit times converted from UTC+2) | `2c08365`…`b15dee2` |
 | 21:25–21:29 | Earlier-go sampling (§12) | `9b2a131` |
 | 21:51–21:58 | 40 000-game confirmations (§11) | – |
+| 27 Oct | Network vs pimc-roll:100, 20 000 deals (§13) | – |
 
-### 13.2 Headline numbers
+### 14.2 Headline numbers
 
 | Policy | Margin vs greedy2 (pegging pts/hand) | Full-game win rate vs greedy2 | Time per hand |
 |---|---|---|---|
@@ -518,9 +567,10 @@ frequency measured instead of guessed.
 | greedy2 | 0 | – | 0.4–0.7 ms |
 | pimc-roll:30 | +0.081 ± 0.020 (20 000) | 51.7 % ± 0.5 (40 000) | 15.7 ms |
 | learned network (3×256, 785 k labels) | **+0.211 ± 0.019** (20 000) | **54.1 % ± 0.5** (40 000) | 0.41 ms |
+| pimc-roll:100 (the teacher) | net is +0.038 ± 0.015 ahead of it (20 000 deals; §13) | – | 32.9 ms |
 | oracle (sees opponent's hand) | +1.445 (3 000) | – | 7.4 ms |
 
-### 13.3 What changed our mind
+### 14.3 What changed our mind
 
 * The ladder shows a plateau: all three honest search families and the 2-ply rule are within about 0.15 pts/hand
   of each other, so search is much less valuable than the plan's "does search help" framing hoped.
@@ -530,7 +580,7 @@ frequency measured instead of guessed.
 
 ---
 
-## 14. Caveats and limits
+## 15. Caveats and limits
 
 * **Objective.** Everything optimises pegging-point *margin*, ignoring the game score. Peg points near 121 are worth more
   than the linear exchange rate says, and no policy defends a lead or takes risks when behind.
@@ -542,27 +592,27 @@ frequency measured instead of guessed.
 * **Win rates for the search rungs beyond pimc-roll:30 and the network were not measured in full games** (ISMCTS and
   pimc-solve exist only as pegging-only margins). At 1.8 pp per 0.1 pt/hand, a 0.1 gap is about 2 pp, more than
   the ±1.5 % of a 4 000-game run.
-* **The net was not compared with pimc-roll:100 or ISMCTS-1600**; the sweep suggests those are about +0.25 over greedy2's
-  level, so they could be ahead of or level with the net **(inferred)**.
+* **The net was compared with pimc-roll:100 (§13: net ahead by +0.038 ± 0.015) but not with ISMCTS-1600**; the sweep
+  puts ISMCTS-1600 level with pimc-roll:100, so it is probably level with or slightly behind the net **(inferred)**.
 * **Timing is rough.** Search times in the ladder (26 ms for pimc-roll:30) and in the cost sweep (17 ms) differ because
   of machine load and different hands.
 * **Why exact solving does not help** (strategy fusion) and why the net beats weaker teachers (noise averaging) are
   hypotheses; neither was tested.
 
-## 15. What was left open
+## 16. What was left open
 
 1. **Strategy-fusion test.** Add `--teacher SPEC` to label generation and train on `pimc-solve` or `/opp` labels
    (about 40 minutes of labelling plus a few minutes of training). The assistant expected little change given §9.
 2. **Reinforcement learning proper.** Policy-gradient or Q-learning fine-tuning on counterfactual returns (try every legal
    card in the same sampled world, so baselines are exact), evaluated on duplicate deals. The assistant proposed it
    only as a step after iteration plateaued.
-3. **Stronger comparison points.** The net against pimc-roll:100 and ISMCTS-1600; a 40 000-game match against them.
+3. **Stronger comparison points.** The net against pimc-roll:100 is done (§13); ISMCTS-1600 is not (about an hour on 8 cores at 20 000 deals), nor a 40 000-game match.
 4. **Score-aware pegging**, and a pegging network that takes the discards (what the crib may hold) into account.
 5. **Saving the 40 000-game results** of §11 to `data/pegging/`.
 
 ---
 
-## 16. Reproducing
+## 17. Reproducing
 
 Everything needs the discard network `data/runs/two_k100.pt` (see the [discard lab book](2026_discard_modelling.md));
 it is the default `--discard` of every command below. Output goes to the git-ignored `data/pegging/`. The `match`
@@ -624,6 +674,9 @@ python -m cribbage.pegging_bench peg-bench --a pimc-net:100:$N --b net:$N --deal
 
 # §12 earlier-go sampling
 python -m cribbage.pegging_bench peg-bench --a pimc-roll:30 --b pimc-roll:30/nohist --deals 20000
+
+# §13 network against its teacher
+python -m cribbage.pegging_bench peg-bench --a net:$N --b pimc-roll:100 --deals 20000 --seed 0
 ```
 
 Not reproducible from the repo:
@@ -640,6 +693,6 @@ Not reproducible from the repo:
 
 Raw outputs are in `data/pegging/` (git-ignored): `ladder.txt`, `calibrate.txt`, `opp.txt`, `compare.txt`,
 `roll_vs_greedy2_peg.txt`, `roll_vs_greedy2_match.txt`, and in `data/pegging/rl/`: `labels_w100.npz`, `net_w100.pt`,
-`net_sub0.1.pt`, `net_sub0.3.pt`, `gen.log`, `train.log`, `eval.log`, `head30.log`, `head100.log`, `sub.log`.
+`net_sub0.1.pt`, `net_sub0.3.pt`, `gen.log`, `train.log`, `eval.log`, `head30.log`, `head100.log`, `net_vs_roll100.log`, `sub.log`.
 Commands (after the refactor): `python -m cribbage.pegging_bench {peg-bench,ladder,cost,match,calibrate}` and
 `python -m cribbage.pegging_model {generate,train,evaluate}`.
