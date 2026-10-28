@@ -8,7 +8,8 @@ A discard policy spec is one of:
 
 - `random`
 - `expected[:N]`: the best expected hand over N random starters (20)
-- `model:PATH`: a trained `DiscardNet` (see `discard_model`)
+- `model:PATH`: a trained `DiscardNet` (see `discard_model`); `model:PATH@PEGNET`
+  adds a pegging-value network (see `discard_pegging`)
 
 A pegging policy spec is one of:
 
@@ -61,7 +62,13 @@ def make_discard_policy(spec: str) -> DiscardPolicy:
         # imported here, as it needs torch
         from cribbage.discard_model import NetDiscardPolicy
 
-        return NetDiscardPolicy.load(spec[len("model:") :])
+        path = spec[len("model:") :]
+        if "@" in path:
+            # BASE@PEGNET: see discard_pegging
+            from cribbage.discard_pegging import PegAwareDiscardPolicy
+
+            return PegAwareDiscardPolicy.load(path)
+        return NetDiscardPolicy.load(path)
     name, *args = spec.split(":")
     nums = [int(a) for a in args]
     if name == "random" and not nums:

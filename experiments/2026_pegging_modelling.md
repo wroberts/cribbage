@@ -767,6 +767,63 @@ python -m cribbage.pegging_bench peg-bench --a pimc-net:30:$P                   
 
 ---
 
+## 15.2 Does pegging change the best discard? (28 Oct)
+
+The discard network values a split as hand ± crib and ignores pegging. `cribbage/discard_pegging.py` measures what that
+costs: for 1 000 test hands (exact labels), each seat and each of the 15 splits, it estimates the mean pegging margin of
+keeping that split (200 samples per replicate, two independent replicates, `net_w100_post` pegging both sides, the
+opponent keeping what `two_k100` keeps from a random six; opponent cards and starter shared across the 15 splits).
+Choosing on one replicate and scoring on the other gives a gain that is not inflated by picking the noisiest split.
+
+| | non-dealer | dealer |
+|---|---|---|
+| choice changes | 0.189 ± 0.022 | 0.162 ± 0.021 |
+| gain in full value, pts/hand | +0.061 ± 0.016 | +0.049 ± 0.012 |
+| pegging spread over the 15 splits | 1.33 | 1.27 |
+| per-split noise sd (200 samples) | 0.18 | 0.18 |
+| mean pegging margin | -1.17 | +1.31 |
+
+* **Interpretation.** Pegging differs by over a point between the best and worst split, but most of that is already
+  correlated with hand value, so counting it changes the choice in only 16–19% of hands and gains about
+  0.055 pts/hand averaged over seats (about 1 pp of win rate at the §5 exchange rate). It is real but small.
+* **It is a lower bound for a model.** The choice was made from a noisy estimate (sd 0.18 per split), so a model
+  that smooths the pegging value across hands could gain more. It is also an in-simulation figure: the
+  opponent's discard is held fixed and its keep ignores our pegging.
+* **Next:** a pegging-aware discard network, built and tested in §15.3.
+
+### 15.3 A pegging-aware discard network (28 Oct)
+
+* **Labels.** `discard_pegging labels`: the pegging margin of all 15 splits, each seat, for 12 000 training hands
+  (the first of `discard_train_k100.npz`), one replicate of 50 samples, same simulation as §15.2. 74 minutes.
+* **Network.** A scalar `DiscardNet` (3×256, dealer flag as input, standardised inputs and targets, 30 epochs,
+  AdamW one-cycle) fit to those margins; its output is added to `two_k100`'s hand and crib values
+  (`model:BASE@PEGNET`). Validation MSE 0.153 (label noise variance is about 0.06 at 50 samples plus the
+  hand-to-hand part that is learnable, so it is near the floor). On the 1 000 test hands of §15.2 the
+  gain, scored on the measured margins, is +0.064 (non-dealer) / +0.053 (dealer), as large as the +0.061 / +0.049
+  that §15.2 got by choosing from noisy estimates. The smoothing is not worth more than that.
+* **Games.** `discard_pegging duel`: the same random deals, each played with the aware policy and with plain
+  `two_k100` against a `two_k100` opponent, both seats, pegging with `net_w100_post`, then the show and crib
+  (paired, so the interval is tight). Margin in pts/hand, A = aware, B = base:
+
+| opponent | deals | non-dealer A−B | dealer A−B | both seats A−B |
+|---|---|---|---|---|
+| two_k100 | 20 000 | +0.029 ± 0.031 | +0.067 ± 0.026 | +0.048 ± 0.020 |
+| two_k100 (seed 7) | 100 000 | +0.060 ± 0.014 | +0.034 ± 0.012 | **+0.047 ± 0.009** |
+| `expected` (Simple) | 40 000 | +0.056 ± 0.031 | +0.026 ± 0.034 | +0.041 ± 0.023 |
+
+* **Interpretation.** The pegging-aware discard is a real but small gain, +0.047 ± 0.009 pts/hand, about 0.9 pp of
+  win rate at the §5 exchange rate. It matches the §15.2 prediction (about 0.055), so the simulation of the
+  opponent's discards was a fair model of a `two_k100` opponent, and it holds against Simple's discards. The seat
+  split (non-dealer vs dealer) differs between runs by more than I expected from the intervals; I would not read
+  anything into it.
+* **Limits.** It is a points-per-hand measure with the hand scored and no board position, not a win rate in full
+  games (the effect is too small to resolve with a feasible number of games, about 100 000+). The pegging net used
+  for labels is also the one used in the duel, so a different pegging opponent could value the splits differently.
+  The labels cost 74 minutes for 12 000 hands; more hands or samples were not tried, and the gain on the test hands
+  is already at the level of the measured spread, so little is expected.
+
+---
+
 ## 16. Consolidated evidence
 
 ### 16.1 Chronology
@@ -843,7 +900,7 @@ python -m cribbage.pegging_bench peg-bench --a pimc-net:30:$P                   
    card in the same sampled world, so baselines are exact), evaluated on duplicate deals. The assistant proposed it
    only as a step after iteration plateaued.
 3. **Stronger comparison points.** The net against pimc-roll:100 is done (§13); ISMCTS-1600 is not (about an hour on 8 cores at 20 000 deals), nor a 40 000-game match.
-4. **Score-aware pegging**, and a pegging network that takes the discards (what the crib may hold) into account.
+4. **Score-aware pegging**, and a pegging network that takes the discards (what the crib may hold) into account. Pegging-aware discards: done, +0.047 ± 0.009 pts/hand in duplicate hands (§15.2, §15.3).
 5. **Saving the 40 000-game results** of §11 to `data/pegging/`.
 
 ---
