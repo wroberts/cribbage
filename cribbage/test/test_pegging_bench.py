@@ -80,3 +80,11 @@ def test_make_deals():
         )
         assert len(set(cards.tolist())) == 13
     assert (make_deals(100, 3).kept == deals.kept).all()
+
+
+def test_make_deals_with_expected_discards():
+    deals = make_deals(20, 3, "expected")
+    for i in range(len(deals)):
+        for seat in range(2):
+            dealt = {*deals.kept[i, seat].tolist(), *deals.thrown[i, seat].tolist()}
+            assert len(dealt) == 6

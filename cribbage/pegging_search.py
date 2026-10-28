@@ -16,6 +16,11 @@ them out with `PegState`, and pick the card that does best.
 - `oracle`: minimax in the true world, i.e. it peeks at the opponent's
   hand.  Not a real player; it bounds what hidden information is worth.
 
+A `/post` suffix (e.g. `pimc-roll:30/post`, or `/post@PATH` to name the
+discard network, default `data/runs/two_k100.pt`) samples the opponent's hand
+from what a discarder like that would have kept, rather than uniformly from
+the unseen cards (`OppHandModel`).
+
 A `/opp` suffix (e.g. `pimc-solve:20/opp`) makes the sampler assume the
 opponent is a `greedy` player: worlds in which the opponent would have
 played differently earlier in the round are excluded.  Sampling always
@@ -51,6 +56,17 @@ def distinct_moves(state: PegState) -> dict[int, int]:
     return moves
 
 
+class OppHandModel:
+    """
+    A belief about the opponent's kept hand that is better than uniform:
+    the hands a known discard policy would keep from their six cards.
+    """
+
+    def kept_hands(self, view: PegView, rng: random.Random) -> list[frozenset[Card]]:
+        """Samples of the opponent's four kept cards, for the view's round."""
+        raise NotImplementedError()
+
+
 class WorldSampler:
     """
     Draws worlds consistent with a view: the opponent's hand is sampled
@@ -63,10 +79,18 @@ class WorldSampler:
       off, when only a go in the current sequence counts.
     - with `opp_aware`, any card a greedy opponent would have played in
       preference at an earlier decision.
+
+    With `beliefs` (samples of the opponent's kept four, see `OppHandModel`),
+    worlds are drawn from those that hold every card the opponent has
+    played and respect the same exclusions, if there are any.
     """
 
     def __init__(
-        self, view: PegView, opp_aware: bool = False, go_history: bool = True
+        self,
+        view: PegView,
+        opp_aware: bool = False,
+        go_history: bool = True,
+        beliefs: Sequence[frozenset[Card]] | None = None,
     ) -> None:
         self.view = view
         self.num_opp = view.opp_cards_left
@@ -83,6 +107,15 @@ class WorldSampler:
         self.pool = narrowed if len(narrowed) >= self.num_opp else pool
         if len(self.pool) < self.num_opp:
             self.pool = view.unseen()
+        self.hands: list[tuple[Card, ...]] = []
+        if beliefs is not None and self.num_opp:
+            played = frozenset(card for _, card in view.opp_plays)
+            allowed = set(self.pool)
+            self.hands = [
+                tuple(kept - played)
+                for kept in beliefs
+                if played <= kept and (kept - played) <= allowed
+            ]
 
     @staticmethod
     def _go_room(view: PegView, go_history: bool) -> int:
@@ -117,6 +150,8 @@ class WorldSampler:
         return PegState.from_view(self.view, opp_hand)
 
     def sample(self, rng: random.Random) -> PegState:
+        if self.hands:
+            return self.build(rng.choice(self.hands))
         return self.build(rng.sample(self.pool, self.num_opp))
 
 
@@ -224,16 +259,22 @@ class PimcRolloutPeggingPolicy(PeggingPolicy):
         rollouts: int = 1,
         opp_aware: bool = False,
         go_history: bool = True,
+        opp_model: OppHandModel | None = None,
     ) -> None:
         super().__init__()
         self.worlds = worlds
         self.rollouts = rollouts
         self.opp_aware = opp_aware
         self.go_history = go_history
+        self.opp_model = opp_model
+
+    def sampler(self, view: PegView) -> WorldSampler:
+        beliefs = self.opp_model.kept_hands(view, self.rng) if self.opp_model else None
+        return WorldSampler(view, self.opp_aware, self.go_history, beliefs)
 
     def values(self, view: PegView) -> dict[Card, float]:
         """Mean rollout margin of each distinct legal card."""
-        sampler = WorldSampler(view, self.opp_aware, self.go_history)
+        sampler = self.sampler(view)
         totals: dict[int, float] = {}
         for _ in range(self.worlds):
             world = sampler.sample(self.rng)
@@ -256,18 +297,27 @@ class PimcSolvePeggingPolicy(PeggingPolicy):
     """Averages the exact minimax value of each card over sampled worlds."""
 
     def __init__(
-        self, worlds: int, opp_aware: bool = False, go_history: bool = True
+        self,
+        worlds: int,
+        opp_aware: bool = False,
+        go_history: bool = True,
+        opp_model: OppHandModel | None = None,
     ) -> None:
         super().__init__()
         self.worlds = worlds
         self.opp_aware = opp_aware
         self.go_history = go_history
+        self.opp_model = opp_model
         self.solver = Solver()
+
+    def sampler(self, view: PegView) -> WorldSampler:
+        beliefs = self.opp_model.kept_hands(view, self.rng) if self.opp_model else None
+        return WorldSampler(view, self.opp_aware, self.go_history, beliefs)
 
     def choose(self, view: PegView) -> Card:
         if len(view.legal) == 1:
             return view.legal[0]
-        sampler = WorldSampler(view, self.opp_aware, self.go_history)
+        sampler = self.sampler(view)
         totals: dict[Card, float] = {}
         for _ in range(self.worlds):
             world = sampler.sample(self.rng)

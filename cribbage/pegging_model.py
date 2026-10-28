@@ -10,7 +10,8 @@ the manner of `discard_model`:
 
 - `generate` plays out pegging on fixed deals.  At each decision with
   more than one distinct legal card, the teacher (`pimc-roll`, W sampled
-  worlds with greedy rollouts) values every candidate card, and the
+  worlds with greedy rollouts, optionally with `--post`, see
+  `NetOppHandModel`) values every candidate card, and the
   decision is recorded.  The game continues with the teacher's choice,
   or a random legal card with probability `--explore`, for both players.
 - `train` fits a network that scores one candidate card at a time, given
@@ -40,10 +41,18 @@ import torch
 from torch import nn
 
 from cribbage.cards import WORTH, Card, distinct_by_face, face
+from cribbage.discard_model import (
+    KEEP_IDX,
+    DiscardNet,
+    encode_hands,
+    load_model,
+    predict_values,
+)
 from cribbage.pegging import PegState, PegView
 from cribbage.pegging_bench import Deals, make_deals, run_pegging
 from cribbage.pegging_policy import PeggingPolicy
 from cribbage.pegging_search import (
+    OppHandModel,
     PimcRolloutPeggingPolicy,
     WorldSampler,
     distinct_moves,
@@ -152,9 +161,16 @@ class Labels:
         )
 
 
-def label_deals(deals: Deals, worlds: int, explore: float, seed: str) -> Labels:
-    """Plays every deal out with the teacher on both sides, recording decisions."""
-    teacher = PimcRolloutPeggingPolicy(worlds)
+def label_deals(
+    deals: Deals, worlds: int, explore: float, seed: str, post: str | None = None
+) -> Labels:
+    """
+    Plays every deal out with the teacher on both sides, recording decisions.
+    With `post`, the path of a discard network, the teacher samples the
+    opponent's hand from what that network would keep (`/post`).
+    """
+    opp_model = NetOppHandModel.load(post) if post else None
+    teacher = PimcRolloutPeggingPolicy(worlds, opp_model=opp_model)
     teacher.reseed(seed)
     rng = random.Random(seed)
     states, cands, values, masks = [], [], [], []
@@ -191,22 +207,29 @@ def label_deals(deals: Deals, worlds: int, explore: float, seed: str) -> Labels:
     )
 
 
-def _label_chunk(task: tuple[Deals, int, float, str]) -> Labels:
-    deals, worlds, explore, seed = task
-    return label_deals(deals, worlds, explore, seed)
+def _label_chunk(task: tuple[Deals, int, float, str, str | None]) -> Labels:
+    deals, worlds, explore, seed, post = task
+    return label_deals(deals, worlds, explore, seed, post)
 
 
 def generate_labels(
-    deals: Deals, worlds: int, explore: float, seed: int, workers: int
+    deals: Deals,
+    worlds: int,
+    explore: float,
+    seed: int,
+    workers: int,
+    post: str | None = None,
 ) -> Labels:
     """Labels for `deals`, spread over `workers` processes in fixed chunks."""
     size = 250
     tasks = [
-        (deals.slice(lo, lo + size), worlds, explore, f"{seed}/{lo}")
+        (deals.slice(lo, lo + size), worlds, explore, f"{seed}/{lo}", post)
         for lo in range(0, len(deals), size)
     ]
     if workers > 1:
-        with multiprocessing.Pool(workers) as pool:
+        # forked workers that use torch deadlock once the parent has (it
+        # ran the discard network to make the deals), so spawn
+        with multiprocessing.get_context("spawn").Pool(workers) as pool:
             parts = pool.map(_label_chunk, tasks)
     else:
         parts = [_label_chunk(t) for t in tasks]
@@ -396,6 +419,58 @@ class NetPeggingPolicy(PeggingPolicy):
 
 
 # ------------------------------------------------------------
+#  Beliefs about the opponent's hand from their discard network
+
+
+class NetOppHandModel(OppHandModel):
+    """
+    The opponent's kept hands, if they discard with a `DiscardNet`.  Their
+    six cards were dealt uniformly from the cards that are not mine and not
+    the starter, and must include every card they have played, so a
+    discarder's choice from such a six is a sample of its kept four, if it
+    keeps the cards played.  `size` sixes are tried per set of plays, in one
+    batch, and the samples are kept until the opponent plays again.
+    """
+
+    def __init__(self, model: DiscardNet, size: int = 300) -> None:
+        self.model = model.eval()
+        self.size = size
+        self.key: tuple[frozenset[Card], frozenset[Card]] | None = None
+        self.hands: list[frozenset[Card]] = []
+
+    @classmethod
+    def load(cls, path: str, size: int = 300) -> NetOppHandModel:
+        torch.set_num_threads(1)
+        return cls(load_model(path), size)
+
+    def kept_hands(self, view: PegView, rng: random.Random) -> list[frozenset[Card]]:
+        unseen = view.unseen()
+        played = frozenset(card for _, card in view.opp_plays)
+        key = (frozenset(unseen), played)
+        if key != self.key:
+            gen = np.random.default_rng(rng.getrandbits(63))
+            others = np.array(sorted(unseen))
+            num = 6 - len(played)
+            order = np.argsort(gen.random((self.size, len(others))), axis=1)
+            rest = others[order[:, :num]]
+            dealt = np.concatenate(
+                [np.tile(sorted(played), (self.size, 1)).astype(rest.dtype), rest],
+                axis=1,
+            )
+            with torch.no_grad():
+                values = predict_values(
+                    self.model, encode_hands(torch.as_tensor(dealt)), not view.is_dealer
+                )
+            best = values.argmax(dim=1).numpy()
+            kept = dealt[np.arange(self.size)[:, None], KEEP_IDX.numpy()[best]]
+            self.hands = [
+                frozenset(row) for row in kept.tolist() if played <= frozenset(row)
+            ]
+            self.key = key
+        return self.hands
+
+
+# ------------------------------------------------------------
 #  Search with the network as the rollout policy
 
 
@@ -464,17 +539,26 @@ class NetRollout:
 class PimcNetPeggingPolicy(PeggingPolicy):
     """
     PIMC like `pimc-roll`, but rollouts are played out by a trained
-    network, which also plays the opponent.  Spec: `pimc-net:W:PATH`.
+    network, which also plays the opponent.  Spec: `pimc-net:W:PATH`, or
+    `pimc-net:W:PATH@DISCARDPATH` to sample the opponent's hand from what
+    that discard network keeps (as `/post`).
     """
 
-    def __init__(self, worlds: int, net: NetPeggingPolicy) -> None:
+    def __init__(
+        self,
+        worlds: int,
+        net: NetPeggingPolicy,
+        opp_model: OppHandModel | None = None,
+    ) -> None:
         super().__init__()
         self.worlds = worlds
         self.net = net
+        self.opp_model = opp_model
 
     def values(self, view: PegView) -> dict[Card, float]:
         """Mean margin of each distinct legal card."""
-        sampler = WorldSampler(view)
+        beliefs = self.opp_model.kept_hands(view, self.rng) if self.opp_model else None
+        sampler = WorldSampler(view, beliefs=beliefs)
         unseen = view.unseen()
         totals: dict[int, float] = {}
         dealer_seat = 0 if view.is_dealer else 1
@@ -510,7 +594,9 @@ def run_generate(args: argparse.Namespace) -> None:
     """Labels pegging decisions with the pimc-roll teacher."""
     start = time.time()
     deals = make_deals(args.hands, args.seed, args.discard)
-    labels = generate_labels(deals, args.worlds, args.explore, args.seed, args.workers)
+    labels = generate_labels(
+        deals, args.worlds, args.explore, args.seed, args.workers, args.post
+    )
     labels.save(args.out)
     print(
         f"wrote {len(labels)} decisions from {args.hands} hands to {args.out}"
@@ -563,6 +649,11 @@ def main() -> None:
         "--worlds", type=int, default=100, help="teacher worlds per decision"
     )
     gen.add_argument("--explore", type=float, default=0.25)
+    gen.add_argument(
+        "--post",
+        metavar="PATH",
+        help="teacher samples the opponent's hand from what this discard network keeps",
+    )
     gen.add_argument("--discard", default=discard)
     # evaluation uses seed 0 deals, so training deals must differ
     gen.add_argument("--seed", type=int, default=1000)

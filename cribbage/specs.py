@@ -14,9 +14,10 @@ A pegging policy spec is one of:
 
 - `first`, `random`, `greedy`, `greedy2`, `oracle`
 - `pimc-roll:N[:R]`, `pimc-solve:N`, `ismcts:I`, each with optional
-  `/opp` and `/nohist` suffixes, e.g. `pimc-solve:50/opp`
-- `net:PATH`, `pimc-net:WORLDS:PATH`: a trained `PegNet` (see
-  `pegging_model`)
+  `/opp` and `/nohist` suffixes, e.g. `pimc-solve:50/opp`; `pimc-roll` and
+  `pimc-solve` also take `/post` or `/post@PATH` (see `pegging_search`)
+- `net:PATH`, `pimc-net:WORLDS:PATH[@DISCARDPATH]`: a trained `PegNet` (see
+  `pegging_model`); the optional discard network gives `/post` beliefs
 
 A player spec is `DISCARD+PEGGING`, e.g. `expected+greedy`, or one of the
 shorthands `random` (`random+random`), `simple` (`expected+greedy`),
@@ -44,6 +45,8 @@ from cribbage.pegging_search import (
     PimcSolvePeggingPolicy,
 )
 from cribbage.player import PolicyPlayer
+
+DEFAULT_POSTERIOR_DISCARD = "data/runs/two_k100.pt"
 
 PLAYER_SHORTHANDS = {
     "random": "random+random",
@@ -82,11 +85,25 @@ def make_pegging_policy(spec: str) -> PeggingPolicy:
         # pimc-net:WORLDS:PATH, rollouts played by a network
         from cribbage.pegging_model import NetPeggingPolicy, PimcNetPeggingPolicy
 
-        worlds, _, path = spec[len("pimc-net:") :].partition(":")
-        return PimcNetPeggingPolicy(int(worlds), NetPeggingPolicy.load(path))
+        from cribbage.pegging_model import NetOppHandModel
+
+        worlds, _, rest = spec[len("pimc-net:") :].partition(":")
+        path, at, post_path = rest.partition("@")
+        opp_model = NetOppHandModel.load(post_path) if at else None
+        return PimcNetPeggingPolicy(
+            int(worlds), NetPeggingPolicy.load(path), opp_model=opp_model
+        )
+    spec, at, post_path = spec.partition("@")
     base, *flags = spec.split("/")
-    if set(flags) - {"opp", "nohist"}:
+    if set(flags) - {"opp", "nohist", "post"} or (at and "post" not in flags):
         raise ValueError(f"unknown flag in {spec!r}")
+    opp_model = None
+    if "post" in flags:
+        if not (base.startswith("pimc-roll") or base.startswith("pimc-solve")):
+            raise ValueError(f"/post needs pimc-roll or pimc-solve: {spec!r}")
+        from cribbage.pegging_model import NetOppHandModel
+
+        opp_model = NetOppHandModel.load(post_path or DEFAULT_POSTERIOR_DISCARD)
     opp = "opp" in flags
     hist = "nohist" not in flags
     name, *args = base.split(":")
@@ -105,10 +122,16 @@ def make_pegging_policy(spec: str) -> PeggingPolicy:
         return OraclePeggingPolicy()
     if name == "pimc-roll" and 1 <= len(nums) <= 2:
         return PimcRolloutPeggingPolicy(
-            nums[0], nums[1] if len(nums) > 1 else 1, opp_aware=opp, go_history=hist
+            nums[0],
+            nums[1] if len(nums) > 1 else 1,
+            opp_aware=opp,
+            go_history=hist,
+            opp_model=opp_model,
         )
     if name == "pimc-solve" and len(nums) == 1:
-        return PimcSolvePeggingPolicy(nums[0], opp_aware=opp, go_history=hist)
+        return PimcSolvePeggingPolicy(
+            nums[0], opp_aware=opp, go_history=hist, opp_model=opp_model
+        )
     if name == "ismcts" and len(nums) == 1:
         return IsmctsPeggingPolicy(nums[0], opp_aware=opp, go_history=hist)
     raise ValueError(f"unknown pegging policy {spec!r}")

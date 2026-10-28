@@ -41,11 +41,13 @@ work was not tested.
 | Against the 2017 hand-written player? | The discard network + greedy2 beats full Simple **64.6 % ± 0.5 %** (40 000 games); with the learned pegging network **67.7 % ± 0.5 %** (§7, §11). |
 | Can a network learn pegging? | **Yes.** A 3×256 MLP regressed on 785 k pimc-roll:100 labels beats greedy2 by **+0.211 ± 0.019 pts/hand** and pimc-roll:30 by **+0.117 ± 0.018**, and wins **54.1 % ± 0.5 %** of 40 000 full games against greedy2. It costs about 0.4 ms/hand, against 20 ms for pimc-roll:30 (§8, §11). |
 | Can it be improved beyond its teacher by iterating? | **Not shown.** Search that rolls out with the network is not measurably better than the network (−0.051 ± 0.041 and +0.035 ± 0.052), so there is no stronger teacher to distil (§9). More data of the same kind adds little (§10). |
+| Can a better teacher move the network up? | **Yes.** Labels from pimc-roll:100/post give a network **+0.097 ± 0.016** over `net_w100` (+0.297 over greedy2), level with its teacher; 51.8 % ± 0.5 against the old net and 69.2 % ± 0.5 against Simple over 40 000 games each (§15). |
 | Is the network behind its teacher? | **No.** It beats pimc-roll:100, the search that made its labels, by **+0.038 ± 0.015 pts/hand** at 1/40 of the cost (§13). |
+| Does sampling the opponent's hand from a discard posterior help? | **Yes, a lot (best case).** `/post` adds **+0.145 ± 0.020** to pimc-roll:30 and **+0.119 ± 0.020** to pimc-solve:10, with the opponent's discarder known exactly (§14). |
 | Does using the opponent's earlier "go" help? | It is correct but rare (2.3 % of contested decisions) and has no measurable effect (−0.001 ± 0.019, §12). |
 
 What was **not** done: no policy-gradient or Q-learning (the "RL" of the question); the strategy-fusion hypothesis
-(why exact-solve search is no better than rollouts) was suggested and never tested; no score-aware pegging (the
+(why exact-solve search is no better than rollouts) was suggested and never tested (the posterior experiment of §14 is related but does not test it); no score-aware pegging (the
 objective is pegging-point margin only, ignoring the game score); the network was not compared to ISMCTS-1600 (against
 pimc-roll:100 it was, §13); every experiment used one training run and one set of seeds; the 40 000-game results of §11 were not
 saved to a file (they are quoted from the chat); and the discard model was held fixed throughout.
@@ -492,7 +494,7 @@ frequency measured instead of guessed.
 
 ## 13. Experiment 11: the network against its own teacher, pimc-roll:100 (27 Oct)
 
-**Question.** The caveats (§15) and the open items (§16) left open whether the network is ahead of or behind pimc-roll:100, the
+**Question.** The caveats (§17) and the open items (§18) left open whether the network is ahead of or behind pimc-roll:100, the
 search that produced its labels. The expectation written down beforehand (from the cost curve, where pimc-roll:100
 is about +0.27 over greedy2 against the network's +0.211) was that the network would trail its teacher by roughly
 0.06 pts/hand.
@@ -537,9 +539,237 @@ python -m cribbage.pegging_bench peg-bench --a net:data/pegging/rl/net_w100.pt -
 
 ---
 
-## 14. Consolidated evidence
+## 14. Experiment 12: sampling the opponent's hand from a posterior (27 Oct)
 
-### 14.1 Chronology
+**Question.** Every search so far samples the opponent's hand uniformly from the unseen cards. But the opponent
+chose their four cards from six by discarding well, so their hand is not uniform: it is richer in fifteens, pairs
+and runs than a random draw. Does sampling from that posterior make the search stronger? This was proposed as a
+test of the strategy-fusion hypothesis (§3, §9), but it does not test that directly: better beliefs address a
+different weakness (the *prior*) from fusion (the solver acting as if the opponent saw my cards). The design
+therefore crosses the two search types, rollouts (which do not suffer fusion, since both sides play a fixed
+non-peeking rule) and exact solving (which does), with and without the posterior.
+
+**Method** (`NetOppHandModel` in `pegging_model.py`; `/post` suffix in `specs.py`; `OppHandModel` and the new
+`beliefs` argument of `WorldSampler` in `pegging_search.py`). The opponent's six cards were dealt uniformly from the
+cards that are not mine and not the starter, and include every card they have already played. So the sampler draws
+`6 − (cards played)` other cards from the unseen ones, adds the played cards, asks the discard network
+(`two_k100.pt`, as the opponent's discarder, with the right dealer flag) which four it keeps, and accepts the draw
+if it kept the played cards. That is an exact sample of the posterior for a deterministic discarder. 300 sixes are
+tried in one batch per set of opponent plays; acceptance on real views was about 100 % (no plays), 68 % (one),
+51 % (two), 42 % (three) and 32 % (four) in a 300-deal check, so the pools held about 200, 150, 125 and 100 hands,
+with a minimum of 4 late in the round. Worlds are drawn from the accepted pool with replacement; the earlier-go
+exclusions still apply, and the sampler falls back to the uniform pool if nothing survives. The first, simpler
+version drew a uniform six and kept those containing the played cards; that rejected nearly everything after two
+plays, which is why the played cards are put in first.
+
+**Design.** Pegging-only duplicate deals, 20 000 × 2 seats, seed 0, `two_k100.pt` discards on both sides. **Both
+seats discard with the network, so the posterior matches the opponent's real discard policy exactly: this is the
+best case for the idea.**
+
+```
+python -m cribbage.pegging_bench peg-bench --a pimc-roll:30/post  --b pimc-roll:30  --deals 20000 --seed 0
+python -m cribbage.pegging_bench peg-bench --a pimc-solve:10/post --b pimc-solve:10 --deals 20000 --seed 0
+```
+
+**Result** (`data/pegging/post/roll30.log`, `solve10.log`):
+
+| Search | Margin of `/post` over uniform sampling, pts/hand ± 95 % | Pegging points per hand | ms per hand (post vs plain) |
+|---|---|---|---|
+| pimc-roll:30 | **+0.145 ± 0.020** | 2.910 vs 2.765 | 166 vs 9.7 |
+| pimc-solve:10 | **+0.119 ± 0.020** | 2.896 vs 2.776 | 169 vs 50.6 |
+
+**Reading.**
+
+* **Better beliefs are worth a lot.** +0.145 is almost twice the gain of pimc-roll:30 over greedy2 (+0.081) and
+  about as large as the network's lead over pimc-roll:30 (+0.117). For scale, that is about 2.5 pp of win rate at the
+  1.83 pp per 0.1 pts/hand exchange rate (not measured in full games).
+* **It helps both search types about equally**: +0.145 against +0.119, a difference of 0.026 ± 0.028, which is
+  noise. So the belief improvement is real and separate from whatever limits exact solving.
+* **It does not settle strategy fusion.** Fusion is a property of the solver, not of the prior, so better beliefs
+  should leave any fusion penalty where it was; the equal gains are consistent with that, but they are equally
+  consistent with there being no fusion penalty. The gap between pimc-solve:10 and pimc-roll:30 (§4: +0.083 for the
+  rollouts) was not measured under `/post`. The hypothesis is still untested. A direct
+  test needs a different experiment, such as labelling with pimc-solve at a large world count and comparing the
+  trained networks, or comparing `/post` solving against `/post` rolling at equal compute.
+* **This changes the picture in §9 and §13.** Those results suggested the network was near the ceiling of "sample
+  uniformly, then roll out". The ceiling was set by the uniform prior, not by the lookahead. Because the network
+  was trained on uniform-sampled labels, **a teacher with posterior sampling is a stronger teacher than the one
+  used**, and its labels may produce a stronger network. That would move the 0.145 into a network that costs
+  0.4 ms per hand. I'd expect part of the gain to survive regression, but this was not tested.
+* **Limits.** (1) Best case: the opponent's discarder is exactly the model the sampler uses. Against a different
+  discarder (for example Simple, which keeps the best hand and ignores the crib) the posterior would be partly
+  wrong, and the gain smaller or negative; this was not measured. (2) The prototype recomputes a 300-hand batch
+  whenever the opponent plays, so a decision costs about 150 ms more; the cost could be cut by caching or smaller
+  batches, but for label generation it would be offline time, roughly a few times the 41-minute run of §8 **(inferred, not
+  timed)**. (3) Only the opponent's discards inform the posterior; their plays
+  inform it only through the cards played and the go rule. (4) One seed set, one discard model, one run per spec.
+
+### 14.1 Follow-ups: a mismatched opponent, and the network (27 Oct)
+
+Same design (20 000 deals × 2 seats, seed 0, pegging only). The sampler still assumes the opponent discards with
+`two_k100.pt`. `make_deals` gained an `expected[:N]` discard (Simple's rule) so that both seats can discard
+differently from the sampler's model.
+
+```
+python -m cribbage.pegging_bench peg-bench --a pimc-roll:30/post --b pimc-roll:30 --deals 20000 --seed 0 --discard expected
+python -m cribbage.pegging_bench peg-bench --a pimc-roll:30/post --b pimc-roll:30 --deals 20000 --seed 0 --discard random
+python -m cribbage.pegging_bench peg-bench --a net:data/pegging/rl/net_w100.pt --b pimc-roll:30/post --deals 20000 --seed 0
+```
+
+| Comparison (`data/pegging/post/`) | Margin pts/hand ± 95 % |
+|---|---|
+| pimc-roll:30/post over pimc-roll:30, both seats discard with the network (§14) | +0.145 ± 0.020 |
+| same, both seats discard with `expected` (`roll30_expected.log`) | **+0.126 ± 0.020** |
+| same, both seats discard at random (`roll30_random.log`) | **−0.123 ± 0.021** |
+| network over pimc-roll:30/post (`net_vs_roll30post.log`) | **−0.007 ± 0.019** |
+
+* **The gain survives a realistic mismatch.** Against a Simple-style discarder the posterior built from the
+  network's discards still gives +0.126, within noise of +0.145. A strong discarder keeps similar hands whatever
+  its method, so the belief is approximately right. This answers the main limit of §14 for opponents of similar
+  strength. It does not cover weak or odd discarders.
+* **A badly wrong belief hurts.** Against random discarders, the posterior (which assumes strong hands) loses
+  0.123 pts/hand to the uniform sampler. The sampler is exploiting a belief, so it should not be used blind against
+  an unknown opponent; a mixture of the two priors, or a belief learned from the opponent's observed discards, would
+  be the remedy (not tried).
+* **The network already matches pimc-roll:30/post.** The net is +0.117 over pimc-roll:30 (§8) and
+  pimc-roll:30/post is +0.145 over it; measured head to head, the net is 0.007 ± 0.019 behind it, i.e. level, at
+  1/175 of the cost. So the network has, without any belief model, picked up about as much as 30-world posterior
+  search offers. How it did that is not known **(inferred)**: its state includes the unseen cards by face and the
+  play so far, and it was trained on labels from 100 worlds, which is more than 30.
+* **What this says about a posterior teacher.** The net's labels come from pimc-roll:100 with uniform sampling
+  (which the net beats by +0.038, §13). A posterior teacher at 100 worlds would be about 0.14 stronger than that
+  teacher if the gain is additive **(inferred; not measured)**, i.e. perhaps 0.1 above the net. Whether regression
+  on its labels moves the network up by anything like that is open: the net has so far beaten each teacher by a
+  little and never by much. Measuring pimc-roll:100/post against the network directly (about 35 minutes) would
+  show whether there is a gap for labels to close before spending hours generating them.
+
+**The decision test** (`data/pegging/post/roll100post_vs_net.log`, 20 000 deals × 2 seats, seed 0, 18 minutes):
+
+```
+python -m cribbage.pegging_bench peg-bench --a pimc-roll:100/post --b net:data/pegging/rl/net_w100.pt --deals 20000 --seed 0
+```
+
+| | Result |
+|---|---|
+| pimc-roll:100/post's margin over the network | **+0.092 ± 0.018 pts/hand** (as non-dealer −1.126, as dealer +1.310) |
+| Pegging points per hand | 2.905 vs 2.812 |
+| Time per hand | 187 ms vs 1.0 ms |
+
+* **There is a gap above the network, about five half-widths.** The 100-world posterior search is the first honest
+  policy in these notes measured clearly ahead of the network. It matches the additive estimate above (about 0.1).
+* So the network's plateau (§9, §10) was a limit of its *teacher*, not of the network or of search in general, and a
+  posterior teacher is a candidate for pushing it up. How much of the 0.092 regression would recover is unknown; the
+  network has beaten each earlier teacher by a little (§8, §13), which suggests a net trained on these labels
+  should land at or somewhat above the teacher's level rather than below it **(inferred)**.
+* Search time per hand is about 3× the uniform pimc-roll:100's 63 ms (§3), so labelling 150 000 hands should take
+  roughly 2 hours on 8 cores against 41 minutes before **(inferred, not timed)**.
+* Support added for the next step: `generate --post PATH` makes the teacher sample opponent hands from that discard
+  network, with the same 25 % exploration and the same deals; it spawns its workers because torch has been used in
+  the parent. Two tests cover it (114 pass, mypy clean).
+
+---
+
+## 15. Experiment 13: a network trained on posterior labels (28 Oct)
+
+**Question.** §14.1 found pimc-roll:100/post ahead of the network by +0.092 ± 0.018. Does regressing on that
+teacher's labels move the network up?
+
+**Method.** The same recipe as §8, with one change: the teacher samples the opponent's hand from the posterior of
+the discard network (`generate --post`, §14). Same deals (seed 1000, 150 000 hands, `two_k100.pt` discards), 100
+worlds, 25 % exploration, same 3×256 network, Adam with one-cycle (max lr 2e-3), batch 1 024, 30 epochs, seed 0.
+
+```
+python -m cribbage.pegging_model generate --hands 150000 --worlds 100 --post data/runs/two_k100.pt --out data/pegging/rl/labels_w100_post.npz
+python -m cribbage.pegging_model train --labels data/pegging/rl/labels_w100_post.npz --epochs 30 --threads 8 --out data/pegging/rl/net_w100_post.pt
+```
+
+Labelling took **9 732 s** (2.7 h on 8 cores, against 41 minutes for the uniform teacher; the §14.1 estimate of about
+2 hours was low) and gave **780 682 decisions** (785 283 before).
+
+| | `net_w100` (uniform labels) | `net_w100_post` (posterior labels) |
+|---|---|---|
+| Validation regret against its own teacher | 0.0395 | 0.0581 |
+| Validation MSE (mean-centred) | 0.0397 | 0.0663 |
+| Top-1 agreement with the teacher | 82.2 % | 79.9 % |
+
+The losses are measured against different labels and are not comparable. The posterior labels are harder to fit,
+plausibly noisier because worlds are drawn with replacement from a pool of 100–300 hands; this was not examined.
+
+**Playing strength** (pegging only, 20 000 deals × 2 seats, seed 0, disjoint from the training deals; logs in
+`data/pegging/rl/`):
+
+| Match | Margin pts/hand ± 95 % |
+|---|---|
+| new net over `net_w100`, `two_k100` discards (`post_vs_old.log`) | **+0.097 ± 0.016** |
+| new net over `net_w100`, `expected` discards (`post_vs_old_expected.log`) | **+0.077 ± 0.016** |
+| new net over greedy2 (`post_vs_greedy2.log`; the old net: +0.211 ± 0.019, §8) | **+0.297 ± 0.019** |
+| new net over pimc-roll:100/post (`post_vs_roll100post.log`) | **+0.015 ± 0.016** |
+
+Full games, trained discard model on both sides, 40 000 games each (`match_post_vs_old.log`, `match_post_vs_simple.log`):
+
+| Match | First player's win rate |
+|---|---|
+| new net vs old net | **51.8 % ± 0.5** (the +0.097 margin predicts 51.8 % at 1.83 pp per 0.1) |
+| new net vs `simple` | **69.2 % ± 0.5** (old net: 67.7 %; greedy2: 64.6 %, §11) |
+
+**Reading.**
+
+* **The network took almost all of the teacher's advantage.** The teacher led the old net by +0.092 (§14.1); the new
+  net leads it by +0.097. Against its own teacher it is level (+0.015 ± 0.016), and it costs 1 ms a hand against
+  190 ms. This is the same pattern as §13: a net trained on a search ends up at or just above that search.
+* **The gain is real in games.** 51.8 % head to head matches the pegging prediction exactly, and the net's lead over
+  Simple grows by 1.5 pp.
+* **It is mostly not specific to the discarder it was trained with.** With Simple-style discards on both sides the
+  lead falls from +0.097 to +0.077, still clearly positive. Not measured: its play against opponents that discard
+  very differently (the posterior search lost 0.123 against random discarders, §14.1; the network may share
+  some of that weakness).
+* **Why a better teacher worked when more data did not.** §10 saw saturation with more labels from the same
+  teacher; changing what the teacher knows moved the ceiling. The earlier plateau (§9, §10) was a teacher limit,
+  as §14.1 suggested.
+* **What is still above it.** The oracle remains 1.4 pts/hand ahead of honest play (§4). Within honest play the next
+  step is another teacher improvement. Candidates, none tried: more worlds; rollouts played by the new network with
+  posterior beliefs (the §9 headroom test repeated with `/post`, which is the check for whether iterating pays);
+  beliefs that also use the opponent's plays, not only their discards.
+* **Limits.** One training run and one seed. Training and evaluation both use `two_k100.pt` as the opponent's
+  discarder (best case for the posterior), with the `expected` check as the only departure. The pimc-roll:100/post
+  comparison has the same ±0.016 as the others, so "level" means within about 0.03.
+
+### 15.1 Is there headroom above the new network? (28 Oct)
+
+The §9 test again, now with the stronger network and with posterior beliefs: a search whose rollouts are played by
+`net_w100_post.pt` for both sides, against that network. `pimc-net:W:NETPATH@DISCARDPATH` (new) samples the
+opponent's hand from the discard network's posterior, as `/post`; without `@` it samples uniformly, as in §9. One
+simplification: inside the rollouts the opponent's two crib discards, which only feed the network's unseen-card
+features, are still guessed at random from the cards it does not hold.
+
+```
+python -m cribbage.pegging_bench peg-bench --a pimc-net:30:$P@data/runs/two_k100.pt --b net:$P --deals 8000 --seed 0
+python -m cribbage.pegging_bench peg-bench --a pimc-net:30:$P                         --b net:$P --deals 8000 --seed 0
+```
+
+| Policy against `net_w100_post` (8 000 deals × 2 seats, seed 0) | Margin pts/hand ± 95 % | ms per hand |
+|---|---|---|
+| pimc-net, 30 worlds, posterior beliefs (`pimcnet30_post_vs_post.log`) | **+0.011 ± 0.028** | 366 |
+| pimc-net, 30 worlds, uniform beliefs (`pimcnet30_uniform_vs_post.log`) | **−0.143 ± 0.030** | 171 |
+
+* **No measurable headroom, again.** Search with the new network and the right beliefs is level with the network
+  at 370× the cost. With the old network, §9 found −0.051 ± 0.041 (30 worlds) and +0.035 ± 0.052 (100 worlds), also
+  level. Another round of labels from this kind of teacher is unlikely to pay: pimc-roll:100/post (§14.1, §15) and
+  this search both sit at the network's level.
+* **The network has taken in the beliefs.** Search with uniform beliefs is now 0.143 *behind* the network (it was
+  0.051 behind the old one), and posterior beliefs are worth +0.154 ± 0.041 between the two rows, close to the
+  +0.145 of §14. The network's advantage over uniform-belief search is the posterior information it learned from
+  its labels.
+* **Limits.** Only 30 worlds were tried; the 100-world version (about 40 minutes for 8 000 deals) was not, and the
+  §9 pair suggests it would not differ. Search that changes more than the beliefs (a better rollout rule than
+  the network itself, ISMCTS with posterior beliefs, beliefs that also use the opponent's plays) is not covered.
+  The oracle gap (§4) is still 1.4 pts/hand.
+
+---
+
+## 16. Consolidated evidence
+
+### 16.1 Chronology
 
 | Date / time (UTC) | Work | Commit |
 |---|---|---|
@@ -558,8 +788,10 @@ python -m cribbage.pegging_bench peg-bench --a net:data/pegging/rl/net_w100.pt -
 | 21:25–21:29 | Earlier-go sampling (§12) | `9b2a131` |
 | 21:51–21:58 | 40 000-game confirmations (§11) | – |
 | 27 Oct | Network vs pimc-roll:100, 20 000 deals (§13) | – |
+| 27 Oct | Posterior-sampled opponent hands (`/post`), roll and solve (§14); mismatched discarders, the network, and pimc-roll:100/post against the network (§14.1) | – |
+| 27–28 Oct | Posterior labels (2.7 h), retrained network, evaluation, headroom test (§15, §15.1) | – |
 
-### 14.2 Headline numbers
+### 16.2 Headline numbers
 
 | Policy | Margin vs greedy2 (pegging pts/hand) | Full-game win rate vs greedy2 | Time per hand |
 |---|---|---|---|
@@ -567,10 +799,12 @@ python -m cribbage.pegging_bench peg-bench --a net:data/pegging/rl/net_w100.pt -
 | greedy2 | 0 | – | 0.4–0.7 ms |
 | pimc-roll:30 | +0.081 ± 0.020 (20 000) | 51.7 % ± 0.5 (40 000) | 15.7 ms |
 | learned network (3×256, 785 k labels) | **+0.211 ± 0.019** (20 000) | **54.1 % ± 0.5** (40 000) | 0.41 ms |
+| **network trained on posterior labels** | **+0.297 ± 0.019** (20 000; §15) | 51.8 % ± 0.5 vs the old network (40 000) | 0.5–1 ms |
+| pimc-roll:30/post (posterior beliefs; margin over plain pimc-roll:30 is +0.145 ± 0.020, §14) | not measured against greedy2 or the network | – | 166 ms |
 | pimc-roll:100 (the teacher) | net is +0.038 ± 0.015 ahead of it (20 000 deals; §13) | – | 32.9 ms |
 | oracle (sees opponent's hand) | +1.445 (3 000) | – | 7.4 ms |
 
-### 14.3 What changed our mind
+### 16.3 What changed our mind
 
 * The ladder shows a plateau: all three honest search families and the 2-ply rule are within about 0.15 pts/hand
   of each other, so search is much less valuable than the plan's "does search help" framing hoped.
@@ -580,7 +814,7 @@ python -m cribbage.pegging_bench peg-bench --a net:data/pegging/rl/net_w100.pt -
 
 ---
 
-## 15. Caveats and limits
+## 17. Caveats and limits
 
 * **Objective.** Everything optimises pegging-point *margin*, ignoring the game score. Peg points near 121 are worth more
   than the linear exchange rate says, and no policy defends a lead or takes risks when behind.
@@ -596,11 +830,13 @@ python -m cribbage.pegging_bench peg-bench --a net:data/pegging/rl/net_w100.pt -
   puts ISMCTS-1600 level with pimc-roll:100, so it is probably level with or slightly behind the net **(inferred)**.
 * **Timing is rough.** Search times in the ladder (26 ms for pimc-roll:30) and in the cost sweep (17 ms) differ because
   of machine load and different hands.
+* **The posterior gain (§14) depends on the opponent's discards being like the model's:** it held with a Simple-style discarder (+0.126) and reversed against random discarders (−0.123, §14.1).
 * **Why exact solving does not help** (strategy fusion) and why the net beats weaker teachers (noise averaging) are
   hypotheses; neither was tested.
 
-## 16. What was left open
+## 18. What was left open
 
+0. **Done: posterior labels (§15, §15.1).** The network trained on them is +0.097 ± 0.016 over `net_w100`, level with its teacher, and search with its own rollouts and posterior beliefs adds nothing measurable (+0.011 ± 0.028 at 30 worlds). Not tried: the 100-world version of that test; beliefs that adapt to the opponent's observed discards or use their plays; and the new network against opponents that discard very differently from `two_k100.pt`, where the posterior search lost (§14.1).
 1. **Strategy-fusion test.** Add `--teacher SPEC` to label generation and train on `pimc-solve` or `/opp` labels
    (about 40 minutes of labelling plus a few minutes of training). The assistant expected little change given §9.
 2. **Reinforcement learning proper.** Policy-gradient or Q-learning fine-tuning on counterfactual returns (try every legal
@@ -612,7 +848,7 @@ python -m cribbage.pegging_bench peg-bench --a net:data/pegging/rl/net_w100.pt -
 
 ---
 
-## 17. Reproducing
+## 19. Reproducing
 
 Everything needs the discard network `data/runs/two_k100.pt` (see the [discard lab book](2026_discard_modelling.md));
 it is the default `--discard` of every command below. Output goes to the git-ignored `data/pegging/`. The `match`
@@ -675,6 +911,31 @@ python -m cribbage.pegging_bench peg-bench --a pimc-net:100:$N --b net:$N --deal
 # §12 earlier-go sampling
 python -m cribbage.pegging_bench peg-bench --a pimc-roll:30 --b pimc-roll:30/nohist --deals 20000
 
+# §14 posterior-sampled opponent hands
+python -m cribbage.pegging_bench peg-bench --a pimc-roll:30/post  --b pimc-roll:30  --deals 20000 --seed 0
+python -m cribbage.pegging_bench peg-bench --a pimc-solve:10/post --b pimc-solve:10 --deals 20000 --seed 0
+python -m cribbage.pegging_bench peg-bench --a pimc-roll:30/post --b pimc-roll:30 --deals 20000 --seed 0 --discard expected
+python -m cribbage.pegging_bench peg-bench --a pimc-roll:30/post --b pimc-roll:30 --deals 20000 --seed 0 --discard random
+python -m cribbage.pegging_bench peg-bench --a net:$N --b pimc-roll:30/post --deals 20000 --seed 0
+
+# §14.1 decision test
+python -m cribbage.pegging_bench peg-bench --a pimc-roll:100/post --b net:$N --deals 20000 --seed 0
+
+# §15 posterior labels and the network trained on them (labels: 2.7 h on 8 cores)
+P=data/pegging/rl/net_w100_post.pt
+python -m cribbage.pegging_model generate --hands 150000 --worlds 100 --post data/runs/two_k100.pt --out data/pegging/rl/labels_w100_post.npz
+python -m cribbage.pegging_model train --labels data/pegging/rl/labels_w100_post.npz --epochs 30 --threads 8 --out $P
+python -m cribbage.pegging_bench peg-bench --a net:$P --b net:$N --deals 20000 --seed 0
+python -m cribbage.pegging_bench peg-bench --a net:$P --b net:$N --deals 20000 --seed 0 --discard expected
+python -m cribbage.pegging_bench peg-bench --a net:$P --b greedy2 --deals 20000 --seed 0
+python -m cribbage.pegging_bench peg-bench --a net:$P --b pimc-roll:100/post --deals 20000 --seed 0
+python -m cribbage.pegging_bench match --a $M+net:$P --b $M+net:$N --games 40000
+python -m cribbage.pegging_bench match --a $M+net:$P --b simple --games 40000
+
+# §15.1 headroom above the new network
+python -m cribbage.pegging_bench peg-bench --a pimc-net:30:$P@data/runs/two_k100.pt --b net:$P --deals 8000 --seed 0
+python -m cribbage.pegging_bench peg-bench --a pimc-net:30:$P --b net:$P --deals 8000 --seed 0
+
 # §13 network against its teacher
 python -m cribbage.pegging_bench peg-bench --a net:$N --b pimc-roll:100 --deals 20000 --seed 0
 ```
@@ -693,6 +954,6 @@ Not reproducible from the repo:
 
 Raw outputs are in `data/pegging/` (git-ignored): `ladder.txt`, `calibrate.txt`, `opp.txt`, `compare.txt`,
 `roll_vs_greedy2_peg.txt`, `roll_vs_greedy2_match.txt`, and in `data/pegging/rl/`: `labels_w100.npz`, `net_w100.pt`,
-`net_sub0.1.pt`, `net_sub0.3.pt`, `gen.log`, `train.log`, `eval.log`, `head30.log`, `head100.log`, `net_vs_roll100.log`, `sub.log`.
+`net_sub0.1.pt`, `net_sub0.3.pt`, `gen.log`, `train.log`, `eval.log`, `head30.log`, `head100.log`, `net_vs_roll100.log`, `sub.log`, and in `data/pegging/post/`: `roll30.log`, `solve10.log`, `roll30_expected.log`, `roll30_random.log`, `net_vs_roll30post.log`, `roll100post_vs_net.log`; in `data/pegging/rl/` also `labels_w100_post.npz`, `net_w100_post.pt`, `gen_post.log`, `train_post.log`, `post_vs_old.log`, `post_vs_old_expected.log`, `post_vs_greedy2.log`, `post_vs_roll100post.log`, `match_post_vs_old.log`, `match_post_vs_simple.log`, `pimcnet30_post_vs_post.log`, `pimcnet30_uniform_vs_post.log`.
 Commands (after the refactor): `python -m cribbage.pegging_bench {peg-bench,ladder,cost,match,calibrate}` and
 `python -m cribbage.pegging_model {generate,train,evaluate}`.

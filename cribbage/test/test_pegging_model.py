@@ -153,3 +153,61 @@ def test_pimc_net_plays_pegging(tmp_path):
     deals = make_deals(10, 9)
     result = run_pegging(f"pimc-net:3:{path}", "greedy", deals, seed=1)
     assert len(result.pair_margin) == 10
+
+
+def test_opp_hand_model_samples_consistent_hands(tmp_path):
+    from cribbage.discard_model import TrainConfig, save_model
+    from cribbage.pegging_model import NetOppHandModel
+    from cribbage.pegging_search import WorldSampler
+
+    path = str(tmp_path / "discard.pt")
+    config = TrainConfig(True, width=8, depth=2)
+    save_model(config.make_net(), config, path)
+    model = NetOppHandModel.load(path, size=200)
+    rng = random.Random(4)
+    for trial in range(30):
+        hands = [rng.sample(range(52), 4)]
+        rest = [c for c in range(52) if c not in hands[0]]
+        opp = rng.sample(rest, 4)
+        discards = rng.sample([c for c in rest if c not in opp], 2)
+        starter = rng.choice([c for c in rest if c not in opp and c not in discards])
+        state = PegState.start([hands[0], opp], trial % 2)
+        for _ in range(trial % 4):  # a few plays, whoever's they are
+            state.play_card(rng.choice([state.hands[state.turn][i] for i in state.legal()]))
+        view = state.view(0, discards, starter, trial % 2 == 0, 0, 0)
+        played = {card for _, card in view.opp_plays}
+        kept = model.kept_hands(view, rng)
+        assert kept and all(len(k) == 4 and played <= k for k in kept)
+        assert all(k <= set(view.unseen()) | played for k in kept)
+        sampler = WorldSampler(view, beliefs=kept)
+        for _ in range(5):
+            world = sampler.sample(rng)
+            assert frozenset(world.hands[1]) | played in kept
+
+
+def test_labels_with_posterior_teacher(tmp_path):
+    from cribbage.discard_model import TrainConfig, save_model
+
+    path = str(tmp_path / "discard.pt")
+    config = TrainConfig(True, width=8, depth=2)
+    save_model(config.make_net(), config, path)
+    deals = make_deals(20, 8)
+    labels = generate_labels(deals, worlds=4, explore=0.3, seed=1, workers=1, post=path)
+    assert len(labels) > 20 and (labels.mask.sum(axis=1) >= 2).all()
+    parallel = generate_labels(deals, 4, 0.3, 1, workers=2, post=path)
+    assert np.array_equal(labels.value, parallel.value)
+
+
+def test_pimc_net_with_posterior_beliefs(tmp_path):
+    from cribbage.discard_model import TrainConfig, save_model
+
+    net_path = str(tmp_path / "net.pt")
+    save_net(PegNet(16, 2), net_path)
+    discard_path = str(tmp_path / "discard.pt")
+    config = TrainConfig(True, width=8, depth=2)
+    save_model(config.make_net(), config, discard_path)
+    spec = f"pimc-net:3:{net_path}@{discard_path}"
+    policy = make_pegging_policy(spec)
+    assert isinstance(policy, PimcNetPeggingPolicy) and policy.opp_model is not None
+    result = run_pegging(spec, "greedy", make_deals(8, 9), seed=1)
+    assert len(result.pair_margin) == 8

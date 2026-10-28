@@ -34,7 +34,7 @@ from dataclasses import dataclass, replace
 import numpy as np
 import torch
 
-from cribbage.cards import Card
+from cribbage.cards import KEEP_COMBINATIONS, Card
 from cribbage.discard_model import (
     DISCARD_IDX,
     KEEP_IDX,
@@ -45,7 +45,7 @@ from cribbage.discard_model import (
 from cribbage.game import Game, compare_players, count_wins, win_ci
 from cribbage.pegging import PegView
 from cribbage.pegging_policy import PeggingPolicy
-from cribbage.player import PolicyPlayer
+from cribbage.player import DiscardView, PolicyPlayer
 from cribbage.round import Deal, Round
 from cribbage.specs import make_discard_policy, make_pegging_policy, make_player
 
@@ -109,7 +109,8 @@ class Deals:
 
 def make_deals(num: int, seed: int, discard: str = "random") -> Deals:
     """
-    Deals `num` rounds.  Both players discard with `discard`: `random`, or
+    Deals `num` rounds.  Both players discard with `discard`: `random`,
+    `expected[:N]` (Simple's rule, slow: about 0.2 ms a hand), or
     `model:PATH` for a saved DiscardNet (the non-dealer and dealer values
     differ by the crib term).
     """
@@ -119,13 +120,24 @@ def make_deals(num: int, seed: int, discard: str = "random") -> Deals:
     kept = np.zeros((num, 2, 4), dtype=np.int64)
     thrown = np.zeros((num, 2, 2), dtype=np.int64)
     model = None
-    if discard != "random":
+    policy = None
+    if discard.startswith("expected"):
+        policy = make_discard_policy(discard)
+        policy.reseed(f"{seed}/deals")
+    elif discard != "random":
         if not discard.startswith("model:"):
             raise ValueError(f"unknown discard {discard!r}")
         model = load_model(discard[len("model:") :]).eval()
     for seat in range(2):
         dealt = cards[:, 6 * seat : 6 * seat + 6]
-        if model is None:
+        if policy is not None:
+            best = np.zeros(num, dtype=np.int64)
+            for i in range(num):
+                hand = tuple(int(c) for c in dealt[i])
+                throw = policy.choose(DiscardView(hand, bool(seat), 0, 0))
+                k = [j for j, c in enumerate(hand) if c not in throw]
+                best[i] = KEEP_COMBINATIONS.index((k[0], k[1], k[2], k[3]))
+        elif model is None:
             best = rng.integers(0, len(KEEP_IDX), size=num)
         else:
             best = np.zeros(num, dtype=np.int64)
@@ -273,7 +285,7 @@ def run_pegging(
     if workers > 1:
         # forked workers that use torch deadlock once the parent has, so
         # policies that load a network get fresh processes
-        method = "spawn" if "net:" in spec_a + spec_b else None  # also pimc-net:
+        method = "spawn" if "net:" in spec_a + spec_b or "/post" in spec_a + spec_b else None  # also pimc-net:
         with multiprocessing.get_context(method).Pool(workers) as pool:
             parts = pool.map(_peg_chunk, tasks)
     else:

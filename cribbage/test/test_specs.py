@@ -47,7 +47,16 @@ def test_pegging_policy_specs():
 
 
 def test_pegging_policy_specs_reject_nonsense():
-    for spec in ["nope", "greedy:3", "random/opp", "pimc-solve", "ismcts:5/foo"]:
+    for spec in [
+        "nope",
+        "greedy:3",
+        "random/opp",
+        "pimc-solve",
+        "ismcts:5/foo",
+        "greedy/post",
+        "ismcts:5/post",
+        "pimc-roll:5@x",
+    ]:
         with pytest.raises(ValueError):
             make_pegging_policy(spec)
 
