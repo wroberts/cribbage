@@ -21,6 +21,7 @@ Commands (`python -m cribbage.win_prob --help`):
 - `hands`: simulate hands and save the per-stage points
 - `solve`: build V from the saved hands
 - `validate`: play games and compare V with how they ended
+- `plot`: write V as a heatmap, a self-contained HTML page or (`--png`) a PNG
 """
 
 from __future__ import annotations
@@ -272,6 +273,97 @@ def run_validate(args: argparse.Namespace) -> None:
           f"{1.96 * won[m].std() / np.sqrt(m.sum()):.4f}   Brier {np.mean((pred[m] - won[m]) ** 2):.5f}")
 
 
+# ------------------------------------------------------------
+#  Picture
+
+PAGE = """<!doctype html>
+<meta charset="utf-8">
+<title>V: P(dealer wins)</title>
+<style>
+  body { font: 14px system-ui, sans-serif; margin: 16px; background: #fff; color: #222; }
+  @media (prefers-color-scheme: dark) { body { background: #16181c; color: #ddd; } }
+  .row { display: flex; flex-wrap: wrap; gap: 24px; }
+  canvas { image-rendering: pixelated; border: 1px solid #888; }
+  #readout { height: 1.5em; margin: 8px 0; font-weight: 600; }
+  .bar { width: 260px; height: 14px; border: 1px solid #888;
+         background: linear-gradient(to right, rgb(33,102,172), rgb(247,247,247), rgb(178,24,43)); }
+  .scale { display: flex; justify-content: space-between; width: 260px; font-size: 12px; }
+</style>
+<h3>V: probability that the dealer of the next hand wins the game</h3>
+<div id="readout">hover a cell</div>
+<div class="bar"></div><div class="scale"><span>0 (non-dealer wins)</span><span>0.5</span><span>1 (dealer wins)</span></div>
+<div class="row">
+  <div><div>all scores</div><canvas id="full" width="605" height="605"></canvas></div>
+  <div><div>zoom: both scores 80-120</div><canvas id="zoom" width="605" height="605"></canvas></div>
+</div>
+<p>x: non-dealer's score, y: dealer's score (up). Dark outline: cells within 0.02 of 0.5.</p>
+<script>
+const V = __DATA__;
+const colour = p => {
+  const lo = [33, 102, 172], mid = [247, 247, 247], hi = [178, 24, 43];
+  const t = p < 0.5 ? p / 0.5 : (p - 0.5) / 0.5, a = p < 0.5 ? lo : mid, b = p < 0.5 ? mid : hi;
+  return a.map((x, i) => Math.round(x + (b[i] - x) * t));
+};
+function draw(id, lo, hi) {
+  const c = document.getElementById(id), g = c.getContext("2d"), n = hi - lo + 1, size = c.width / n;
+  for (let d = lo; d <= hi; d++) for (let nd = lo; nd <= hi; nd++) {
+    const p = V[d][nd];
+    g.fillStyle = "rgb(" + colour(p).join(",") + ")";
+    g.fillRect((nd - lo) * size, (hi - d) * size, size + 0.5, size + 0.5);
+    if (Math.abs(p - 0.5) < 0.02 && size >= 4) {
+      g.strokeStyle = "rgba(0,0,0,0.35)"; g.strokeRect((nd - lo) * size, (hi - d) * size, size, size);
+    }
+  }
+  c.addEventListener("mousemove", e => {
+    const r = c.getBoundingClientRect(), x = (e.clientX - r.left) * c.width / r.width, y = (e.clientY - r.top) * c.height / r.height;
+    const nd = lo + Math.floor(x / size), d = hi - Math.floor(y / size);
+    if (nd >= lo && nd <= hi && d >= lo && d <= hi)
+      document.getElementById("readout").textContent =
+        "dealer " + d + ", non-dealer " + nd + ": P(dealer wins) = " + V[d][nd].toFixed(3);
+  });
+}
+draw("full", 0, 120); draw("zoom", 80, 120);
+</script>
+"""
+
+
+def plot_png(v: np.ndarray, path: str) -> None:
+    """V as two heatmaps, all scores and 80-120, with the 0.5 contour."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(1, 2, figsize=(12.5, 5.6), constrained_layout=True)
+    for ax, (lo, hi) in zip(axes, ((0, 120), (80, 120))):
+        sub = v[lo : hi + 1, lo : hi + 1]
+        image = ax.imshow(
+            sub, origin="lower", cmap="RdBu_r", vmin=0, vmax=1,
+            extent=(lo - 0.5, hi + 0.5, lo - 0.5, hi + 0.5), interpolation="nearest",
+        )
+        ax.contour(np.arange(lo, hi + 1), np.arange(lo, hi + 1), sub, levels=[0.5],
+                   colors="k", linewidths=0.8)
+        ax.set_xlabel("non-dealer's score")
+        ax.set_ylabel("dealer's score")
+        ax.set_title(f"scores {lo}-{hi}")
+    fig.colorbar(image, ax=axes, shrink=0.85, label="V: probability the dealer wins")
+    fig.savefig(path, dpi=130)
+
+
+def run_plot(args: argparse.Namespace) -> None:
+    import json
+
+    v = np.load(args.v)
+    if args.png:
+        plot_png(v, args.png)
+        print(f"wrote {args.png}")
+        return
+    data = json.dumps(np.round(v, 4).tolist())
+    with open(args.out, "w") as out:
+        out.write(PAGE.replace("__DATA__", data))
+    print(f"wrote {args.out}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -295,6 +387,11 @@ def main() -> None:
     p.add_argument("--workers", type=int, default=8)
     p.add_argument("--out", default="data/winprob/visits.npy")
     p.set_defaults(run=run_validate)
+    p = sub.add_parser("plot", help="write V as an HTML heatmap")
+    p.add_argument("--v", default="data/winprob/v.npy")
+    p.add_argument("--out", default="data/winprob/v_heatmap.html")
+    p.add_argument("--png", help="write a PNG with matplotlib instead of the HTML page")
+    p.set_defaults(run=run_plot)
     args = parser.parse_args()
     args.run(args)
 

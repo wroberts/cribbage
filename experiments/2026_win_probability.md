@@ -38,6 +38,22 @@ scores the dealer wins 0.54 at 110, 0.26 at 115, 0.78 at 100 and 105, because wh
 hands remain, decide the finish. Those kinks are where score-aware play could differ from points play; step 2 measures
 how much.
 
+![V, the probability that the dealer wins](img/2026_win_prob_v.png)
+
+*V for the expected-points player against itself (`python -m cribbage.win_prob plot --png`). The black line is
+V = 0.5. Left: all scores. Right: both scores 80–120.*
+
+**Why the 0.5 line is wavy.** A hand adds a fairly predictable number of points (dealer about 16.4, non-dealer about
+10.4, standard deviation 4–5), so with 20–30 points to go the number of hands left is nearly fixed and the finish is
+close to a deterministic race. Who wins then depends on where the remaining distance falls against hand-sized steps,
+and the dealer changes each deal. The period is about 27 points, which is what a player scores over one dealer hand plus
+one non-dealer hand (16.4 + 10.4): level scores give the dealer 0.65 at 76, 0.50 at 88, 0.80 at 103 and 0.26 at 115. The
+waves fade with distance as the randomness accumulates. They are not caused by the dealer's advantage: a chain with
+no crib and equal pegging and hands (checked once, not saved) still waves late, from 0.53 at 85 to 0.46 at 91, 0.63
+at 103 and 0.19 at 115, so the crib and extra pegging only add to it. Near the end, the non-dealer counting first
+adds its own bumps (level at 115 is bad for the dealer: the non-dealer's hand is counted first and usually finishes the
+game). The independence assumptions of §1 may make the waves a little sharper than the real game's.
+
 Files: `data/winprob/{hands.npy,v.npy,visits.npy,*.log}`; commands `python -m cribbage.win_prob hands|solve|validate`.
 
 ## 2. Headroom: how much would a win-probability choice gain? (28 Oct)
