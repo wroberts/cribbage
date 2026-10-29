@@ -10,6 +10,8 @@ A discard policy spec is one of:
 - `expected[:N]`: the best expected hand over N random starters (20)
 - `model:PATH`: a trained `DiscardNet` (see `discard_model`); `model:PATH@PEGNET`
   adds a pegging-value network (see `discard_pegging`)
+- `score:PATH[,samples=N][,z=Z][,cands=K][,min=S]`: that network, but late in the
+  game a simulation may overrule it for the chance of winning (see `score_aware`)
 
 A pegging policy spec is one of:
 
@@ -17,6 +19,8 @@ A pegging policy spec is one of:
 - `pimc-roll:N[:R]`, `pimc-solve:N`, `ismcts:I`, each with optional
   `/opp` and `/nohist` suffixes, e.g. `pimc-solve:50/opp`; `pimc-roll` and
   `pimc-solve` also take `/post` or `/post@PATH` (see `pegging_search`)
+- `score-net:PATH[,worlds=N][,z=Z][,min=S]`: a `PegNet` that a simulation may overrule
+  late in the game, for the chance of winning (see `score_aware`)
 - `net:PATH`, `pimc-net:WORLDS:PATH[@DISCARDPATH]`: a trained `PegNet` (see
   `pegging_model`); the optional discard network gives `/post` beliefs
 
@@ -58,6 +62,10 @@ PLAYER_SHORTHANDS = {
 
 def make_discard_policy(spec: str) -> DiscardPolicy:
     """Builds a discard policy from its name, e.g. `random` or `expected:50`."""
+    if spec.startswith("score:"):
+        from cribbage.score_aware import ScoreAwareDiscardPolicy
+
+        return ScoreAwareDiscardPolicy.load(spec[len("score:") :])
     if spec.startswith("model:"):
         # imported here, as it needs torch
         from cribbage.discard_model import NetDiscardPolicy
@@ -83,6 +91,10 @@ def make_pegging_policy(spec: str) -> PeggingPolicy:
     Builds a pegging policy from its name, e.g. `greedy`, `pimc-roll:20:2`,
     `pimc-solve:50/opp`, `ismcts:400`, `oracle`.
     """
+    if spec.startswith("score-net:"):
+        from cribbage.score_aware import ScoreAwarePeggingPolicy
+
+        return ScoreAwarePeggingPolicy.load(spec[len("score-net:") :])
     if spec.startswith("net:"):
         # a network trained by pegging_model (the path may contain "/")
         from cribbage.pegging_model import NetPeggingPolicy
